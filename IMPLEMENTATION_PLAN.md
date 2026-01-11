@@ -1,1069 +1,883 @@
-# Implementation Plan
+# Implementation Plan - Social Media Tracker
 
-Complete implementation roadmap for the Social Media Tracker application. Tasks are organized by dependency order - foundations first, then features that build upon them.
+This document outlines the implementation status and remaining tasks for completing the social media tracker application. Tasks are organized by priority and dependency order.
 
-**Status Legend:** `[ ]` = Not started | `[~]` = Partial | `[x]` = Complete
-
----
-
-## Current Status Summary
-
-**Completed:** 41/46 tasks (Phases 1-7 core functionality complete)
-
-**All V1 code implementation is complete.** Phase 8 testing is in progress.
-
-### Remaining Tasks (Prioritized)
-
-#### HIGH PRIORITY (Required for V1 Completion)
-
-| Task | Description | Acceptance Criteria |
-|------|-------------|---------------------|
-| 8.4 | UI Component unit tests | All component interactions verified with React Testing Library |
-| 8.5 | E2E Posts management tests | Full post lifecycle flows tested end-to-end |
-| 8.6 | E2E Settings flow tests | All settings CRUD operations verified |
-| 8.7 | E2E Fetch flow tests | Reddit fetch integration verified |
-| 8.8 | E2E Accessibility tests | Keyboard navigation and responsive design verified |
-| Fix | Database transactions in tags.ts | createTag with initialTerms uses transaction |
-| Fix | Database transactions in posts.ts | fetchNewPosts uses transaction |
-
-#### MEDIUM PRIORITY (Polish Items)
-
-| Task | Description | Acceptance Criteria |
-|------|-------------|---------------------|
-| 7.5 | Complete keyboard accessibility | Color picker supports arrow key navigation |
-| 7.6 | Complete responsive design | All breakpoints tested and verified |
-
-#### FUTURE (V2 Scope - Do Not Implement Now)
-
-| Spec Document | Feature | Notes |
-|---------------|---------|-------|
-| specs/authentication.md | Auth.js v5 login/signup | Multi-user support |
-| specs/user-api-keys.md | Encrypted API key storage | BYOK with AES-256-GCM |
-| specs/reddit-integration.md | Per-user Reddit OAuth | Users connect own accounts |
+**Last Verified:** 2026-01-11
+**Verification Method:** Automated codebase analysis against specs/*
 
 ---
 
-## Known Issues
+## Current Status Overview
 
-### Code Quality Issues Requiring Attention
+### Completed Features ✓
+- **Database Schema** - 6 core tables (users, posts, tags, subreddits, searchTerms, postTags) with proper relationships, indexes, and cascade deletes
+- **Server Actions** - Full CRUD for posts, tags, subreddits, search terms with validation (4 action files)
+- **Reddit API Client** - Using app-level credentials (password grant), rate limiting (60/min), exponential backoff, token caching, deduplication
+- **UI Components** - 22 components total (11 UI primitives + 11 app components: post-list, post-card, tag-filter, tag-badge, status-tabs, header, settings modal with subreddit/tag management, providers)
+- **React Query Hooks** - 16 hooks for all CRUD operations with proper cache invalidation (15 in index.ts + use-toast)
+- **Zod Validations** - Schemas for subreddits, tags, search terms, post status, suggest terms
+- **Unit Tests** - 5 test files (152 tests total): validations.test.ts (43), reddit.test.ts (21), subreddits.test.ts (15), tags.test.ts (44), posts.test.ts (29)
+- **LLM Suggestions** - /api/suggest-terms endpoint using Groq API (falls back to env var)
+- **Toast System** - Complete notification system
+- **Project Setup** - Vitest, Playwright, MSW configured; all dependencies except auth packages
 
-1. **Missing Database Transaction in tags.ts (lines 120-143)**
-   - **Issue:** `createTag` with `initialTerms` parameter performs multiple database operations without a transaction
-   - **Risk:** Partial tag creation if term insertion fails
-   - **Fix:** Wrap tag and term insertions in a database transaction
+### Specification Requirements Reference
+- **Auth**: Auth.js v5, bcrypt cost 12, password 12+ chars with upper/lower/number/symbol, 7-day sessions
+- **Encryption**: AES-256-GCM with format iv:authTag:ciphertext (base64)
+- **Reddit OAuth**: Scopes read, identity; encrypted token storage (per-user, NOT app-level)
+- **LLM**: User's own Groq key (BYOK) with fallback to env var
 
-2. **Missing Database Transaction in posts.ts (lines 414-467)**
-   - **Issue:** `fetchNewPosts` performs multiple database operations without a transaction
-   - **Risk:** Inconsistent state if operation fails mid-way
-   - **Fix:** Wrap post insertion and tag assignment in a database transaction
+### Current Authentication State
+The application currently uses a placeholder authentication system:
+- `webapp/app/actions/users.ts` has `getOrCreateDefaultUser()` creating "dev@example.com"
+- `getCurrentUserId()` always returns the default user ID
+- NO real authentication - this is a CRITICAL blocker for production use
 
-3. **Missing Input Validation in tag-badge.tsx**
-   - **Issue:** `getContrastColor()` function does not validate hex color format
-   - **Risk:** Runtime errors if invalid color string is passed
-   - **Fix:** Add hex color format validation before processing
+### Known Issues (Minor)
+- `webapp/lib/hooks/use-toast.ts` line 8: `TOAST_REMOVE_DELAY = 1000000` (~16.7 minutes) appears unusually high
+- `webapp/lib/reddit.ts`: Several hardcoded values (rate limits, retry delays) could be made configurable
+- `webapp/app/api/suggest-terms/route.ts` line 42: LLM model `llama-3.3-70b-versatile` is hardcoded
+
+### Missing Files Summary (Verified)
+The following files DO NOT exist and need to be created:
+- `webapp/lib/encryption.ts` - AES-256-GCM encryption utilities
+- `webapp/lib/password.ts` - bcrypt password hashing
+- `webapp/lib/auth.ts` - Auth.js configuration
+- `webapp/middleware.ts` - Route protection
+- `webapp/app/login/page.tsx` - Login page
+- `webapp/app/signup/page.tsx` - Signup page
+- `webapp/app/settings/` - Entire directory (settings is modal only, no dedicated pages)
+- `webapp/app/actions/auth.ts` - Authentication server actions
+- `webapp/app/actions/api-keys.ts` - API key management
+- `webapp/app/actions/reddit-connection.ts` - Reddit OAuth connection
+- `webapp/app/api/auth/*` - All auth API routes
+- `webapp/components/user-menu.tsx` - User dropdown menu
+- `webapp/components/ui/pagination.tsx` - Pagination controls
+- `webapp/__tests__/hooks/*` - No hook tests exist
+- `webapp/__tests__/components/*` - No component tests exist
+- `webapp/__tests__/api/*` - No API route tests exist
+- `webapp/__tests__/utils.test.ts` - No utils tests
+- `webapp/__tests__/encryption.test.ts` - No encryption tests
+- `webapp/__tests__/password.test.ts` - No password tests
+
+### Missing Database Schema (Verified)
+- Sessions, accounts, verification_tokens tables (required by Auth.js)
+- Users table missing columns: password_hash, reddit_access_token, reddit_refresh_token, reddit_token_expires_at, reddit_username, groq_api_key
+
+### Missing Packages (Verified)
+- next-auth NOT installed
+- bcrypt NOT installed
+- @types/bcrypt NOT installed
 
 ---
 
-## Phase 1: Project Setup & Configuration
+## Phase 1: Authentication Foundation
 
-Foundation layer that enables all subsequent development.
+**Status: NOT STARTED**
+**Priority: CRITICAL** - All other phases depend on this
 
-### 1.1 Install Production Dependencies
+Authentication is the foundational layer that all other features depend on.
 
-- [x] **Install core dependencies**
-  - Files: `webapp/package.json`
-  - Commands:
-    ```bash
-    npm install drizzle-orm postgres
-    npm install @tanstack/react-query
-    npm install zod
-    npm install ai @ai-sdk/groq
-    ```
-  - Note: Also includes new shadcn deps: radix-ui, lucide-react, clsx, tailwind-merge, class-variance-authority
+### 1.1 Install Authentication Dependencies
+- [ ] **Add auth packages to package.json**
+  - Description: Install next-auth (Auth.js v5) and bcrypt packages
   - Dependencies: None
-  - Tests:
-    - All packages appear in package.json dependencies
-    - `npm ls` shows no peer dependency errors
+  - Files to modify: `webapp/package.json`
+  - Commands: `npm install next-auth@beta bcrypt && npm install -D @types/bcrypt`
+  - Acceptance Criteria:
+    - [ ] next-auth@beta installed
+    - [ ] bcrypt installed
+    - [ ] @types/bcrypt installed as dev dependency
+  - **Test Requirements**:
+    - Verify packages are in package.json
+    - Verify imports work without errors
 
-### 1.2 Install Development Dependencies
-
-- [x] **Install dev tooling**
-  - Files: `webapp/package.json`
-  - Commands:
-    ```bash
-    npm install -D drizzle-kit
-    npm install -D vitest @vitejs/plugin-react jsdom @testing-library/react @testing-library/dom @testing-library/jest-dom
-    npm install -D playwright @playwright/test
-    npm install -D msw
-    npm install -D tsx
-    npm install -D @types/node
-    ```
+### 1.2 Database Schema for Authentication
+- [ ] **Add authentication columns to users table**
+  - Description: Extend the users table with password_hash column and OAuth token columns for Reddit integration
   - Dependencies: None
-  - Tests:
-    - All packages appear in package.json devDependencies
-    - No installation errors
-    - Packages installed: drizzle-kit, vitest, @vitejs/plugin-react, jsdom, @testing-library/react, @testing-library/dom, @testing-library/jest-dom, playwright, @playwright/test, msw, tsx, @types/node
+  - Files to modify: `webapp/drizzle/schema.ts`, create migration in `webapp/drizzle/`
+  - Acceptance Criteria:
+    - [ ] users table has `password_hash` column (text, nullable for OAuth-only users)
+    - [ ] users table has `reddit_access_token` column (text, nullable, for encrypted token)
+    - [ ] users table has `reddit_refresh_token` column (text, nullable, for encrypted token)
+    - [ ] users table has `reddit_token_expires_at` column (timestamp, nullable)
+    - [ ] users table has `reddit_username` column (text, nullable)
+    - [ ] users table has `groq_api_key` column (text, nullable, for encrypted key)
+    - [ ] Migration runs successfully without data loss
+  - **Test Requirements**:
+    - Unit test: Verify schema exports include new columns
+    - Integration test: Migration applies cleanly to test database
 
-### 1.3 Configure TypeScript Strict Mode
-
-- [x] **Add noUncheckedIndexedAccess to tsconfig.json**
-  - Files: `webapp/tsconfig.json`
-  - Changes: Add `"noUncheckedIndexedAccess": true` to compilerOptions
-  - Note: Already present in tsconfig.json
+- [ ] **Create Auth.js required tables**
+  - Description: Add sessions, accounts, and verification_tokens tables required by Auth.js v5
   - Dependencies: None
-  - Tests:
-    - `npm run typecheck` passes
-    - Accessing array elements requires undefined check
+  - Files to create/modify: `webapp/drizzle/schema.ts`, create migration
+  - Acceptance Criteria:
+    - [ ] `sessions` table exists with: id, sessionToken, userId, expires
+    - [ ] `accounts` table exists with: id, userId, type, provider, providerAccountId, refresh_token, access_token, expires_at, token_type, scope, id_token, session_state
+    - [ ] `verification_tokens` table exists with: identifier, token, expires
+    - [ ] Foreign key relationships properly defined with cascade deletes
+    - [ ] Migration runs successfully
+  - **Test Requirements**:
+    - Unit test: Verify all Auth.js tables are exported from schema
+    - Integration test: Verify foreign key constraints work correctly
 
-### 1.4 Add Package.json Scripts
+### 1.3 Encryption System
+- [ ] **Implement AES-256-GCM encryption utilities**
+  - Description: Create encryption module for sensitive data (tokens, API keys)
+  - Dependencies: None
+  - Files to create: `webapp/lib/encryption.ts`
+  - Acceptance Criteria:
+    - [ ] `encrypt(plaintext: string): string` function implemented
+    - [ ] `decrypt(ciphertext: string): string` function implemented
+    - [ ] Uses AES-256-GCM algorithm
+    - [ ] Output format is `iv:authTag:ciphertext` (base64 encoded)
+    - [ ] Uses `ENCRYPTION_KEY` environment variable (32 bytes for AES-256)
+    - [ ] Throws meaningful errors for invalid input or missing key
+  - **Test Requirements**:
+    - Unit test: encrypt/decrypt round-trip returns original plaintext
+    - Unit test: Different plaintexts produce different ciphertexts (IV uniqueness)
+    - Unit test: Tampered ciphertext throws authentication error
+    - Unit test: Missing ENCRYPTION_KEY throws descriptive error
+    - Unit test: Invalid ciphertext format throws descriptive error
 
-- [x] **Add all required npm scripts**
-  - Files: `webapp/package.json`
-  - Scripts to add:
-    - `"typecheck": "tsc --noEmit"`
-    - `"test": "vitest run"`
-    - `"test:watch": "vitest"`
-    - `"test:e2e": "playwright test"`
-    - `"test:e2e:ui": "playwright test --ui"`
-    - `"db:generate": "drizzle-kit generate"`
-    - `"db:migrate": "drizzle-kit migrate"`
-    - `"db:push": "drizzle-kit push"`
-    - `"db:studio": "drizzle-kit studio"`
-    - `"db:seed": "tsx drizzle/seed.ts"`
-  - Note: Scripts already configured
-  - Dependencies: 1.1, 1.2
-  - Tests:
-    - Each script can be invoked without "script not found" error
+### 1.4 Password Utilities
+- [ ] **Implement password hashing utilities**
+  - Description: Create password hashing and verification functions using bcrypt
+  - Dependencies: 1.1 (bcrypt package)
+  - Files to create: `webapp/lib/password.ts`
+  - Acceptance Criteria:
+    - [ ] `hashPassword(password: string): Promise<string>` function implemented
+    - [ ] `verifyPassword(password: string, hash: string): Promise<boolean>` function implemented
+    - [ ] Uses bcrypt with cost factor 12 (per spec)
+    - [ ] Hash output is valid bcrypt format
+  - **Test Requirements**:
+    - Unit test: hashPassword produces valid bcrypt hash
+    - Unit test: verifyPassword returns true for correct password
+    - Unit test: verifyPassword returns false for incorrect password
+    - Unit test: Different passwords produce different hashes
 
-### 1.5 Create Drizzle Configuration
+- [ ] **Implement password validation schema**
+  - Description: Create Zod schema for password requirements per specification
+  - Dependencies: None
+  - Files to modify: `webapp/lib/validations.ts`
+  - Acceptance Criteria:
+    - [ ] Password schema requires minimum 12 characters
+    - [ ] Password schema requires at least one uppercase letter
+    - [ ] Password schema requires at least one lowercase letter
+    - [ ] Password schema requires at least one number
+    - [ ] Password schema requires at least one symbol
+    - [ ] Validation error messages are user-friendly and specific
+  - **Test Requirements**:
+    - Unit test: Valid password passes validation
+    - Unit test: Password <12 chars fails with appropriate message
+    - Unit test: Password without uppercase fails
+    - Unit test: Password without lowercase fails
+    - Unit test: Password without number fails
+    - Unit test: Password without symbol fails
 
-- [x] **Create drizzle.config.ts**
-  - Files: `webapp/drizzle.config.ts`
-  - Content: Define config with schema path, migrations output, postgresql dialect, DATABASE_URL credentials
-  - Dependencies: 1.1
-  - Tests:
-    - File exists and exports valid drizzle-kit config
-    - `npm run db:generate` runs without config errors (schema errors OK at this stage)
+### 1.5 Auth.js Configuration
+- [ ] **Set up Auth.js v5 (NextAuth) configuration**
+  - Description: Configure Auth.js with credentials provider and session management
+  - Dependencies: 1.2 (database schema), 1.3 (encryption), 1.4 (password utils)
+  - Files to create: `webapp/lib/auth.ts`, `webapp/app/api/auth/[...nextauth]/route.ts`
+  - Acceptance Criteria:
+    - [ ] Auth.js v5 configured with Drizzle adapter
+    - [ ] Credentials provider configured for email/password login
+    - [ ] Session strategy set to JWT with 7-day expiry (per spec)
+    - [ ] Session callback includes user id and email
+    - [ ] `AUTH_SECRET` environment variable used
+    - [ ] Export `auth`, `signIn`, `signOut` from lib/auth.ts
+    - [ ] Authorize callback verifies password using bcrypt
+  - **Test Requirements**:
+    - Unit test: Credentials provider rejects invalid email format
+    - Unit test: Credentials provider rejects wrong password
+    - Unit test: Credentials provider accepts valid credentials
+    - Integration test: Session contains expected user data
 
-### 1.6 Create Vitest Configuration
+### 1.6 Authentication Middleware
+- [ ] **Create authentication middleware**
+  - Description: Protect routes that require authentication
+  - Dependencies: 1.5 (Auth.js configuration)
+  - Files to create: `webapp/middleware.ts`
+  - Acceptance Criteria:
+    - [ ] Middleware runs on protected routes (/, /settings/*, API routes except /api/auth/*)
+    - [ ] Unauthenticated users redirected to /login
+    - [ ] Public routes (/login, /signup, /api/auth/*) accessible without auth
+    - [ ] API routes return 401 JSON response for unauthenticated requests
+    - [ ] Middleware matcher configured correctly
+  - **Test Requirements**:
+    - Integration test: Unauthenticated request to / redirects to /login
+    - Integration test: Unauthenticated request to /api/posts returns 401
+    - Integration test: Request to /login succeeds without auth
+    - Integration test: Authenticated request to / succeeds
 
-- [x] **Create vitest.config.ts and vitest.setup.ts**
-  - Files:
-    - `webapp/vitest.config.ts`
-    - `webapp/vitest.setup.ts`
-  - Content:
-    - Config with jsdom environment, React plugin, path alias for @/
-    - Setup file importing @testing-library/jest-dom/vitest
-  - Dependencies: 1.2
-  - Tests:
-    - `npm run test` executes without config errors (no tests found is OK)
-    - Path aliases resolve correctly in test files
+### 1.7 Authentication UI
+- [ ] **Create signup page**
+  - Description: User registration page with email and password
+  - Dependencies: 1.5 (Auth.js), 1.4 (password validation)
+  - Files to create: `webapp/app/signup/page.tsx`, `webapp/app/actions/auth.ts`
+  - Acceptance Criteria:
+    - [ ] Form with email, password, and password confirmation fields
+    - [ ] Client-side validation showing password requirements
+    - [ ] Server action to create user with hashed password
+    - [ ] Error handling for duplicate email (user-friendly message)
+    - [ ] Success redirects to login page
+    - [ ] Link to login page for existing users
+    - [ ] Loading state during form submission
+  - **Test Requirements**:
+    - Unit test: Server action rejects mismatched passwords
+    - Unit test: Server action rejects duplicate email
+    - Unit test: Server action creates user with hashed password
+    - E2E test: Full signup flow (Phase 7)
 
-### 1.7 Create Playwright Configuration
+- [ ] **Create login page**
+  - Description: User login page with email and password
+  - Dependencies: 1.5 (Auth.js)
+  - Files to create: `webapp/app/login/page.tsx`
+  - Acceptance Criteria:
+    - [ ] Form with email and password fields
+    - [ ] Uses Auth.js signIn function
+    - [ ] Error handling for invalid credentials (generic message for security)
+    - [ ] Success redirects to dashboard (/)
+    - [ ] Link to signup page for new users
+    - [ ] Loading state during form submission
+  - **Test Requirements**:
+    - Unit test: Form validates required fields
+    - E2E test: Full login flow (Phase 7)
 
-- [x] **Create playwright.config.ts and e2e directory**
-  - Files:
-    - `webapp/playwright.config.ts`
-    - `webapp/e2e/.gitkeep`
-  - Content: Config with testDir ./e2e, webServer pointing to localhost:3000, chromium project
-  - Dependencies: 1.2
-  - Tests:
-    - `npm run test:e2e` executes without config errors (no tests found is OK)
-    - Web server configuration is valid
+- [ ] **Add user menu to header**
+  - Description: Dropdown menu showing logged-in user info with sign out option
+  - Dependencies: 1.5 (Auth.js), 1.7 login/signup pages
+  - Files to create: `webapp/components/user-menu.tsx`
+  - Files to modify: `webapp/components/header.tsx`
+  - Acceptance Criteria:
+    - [ ] Shows user email when logged in
+    - [ ] Dropdown with "Settings" and "Sign out" options
+    - [ ] Sign out clears session and redirects to login
+    - [ ] Shows "Sign in" / "Sign up" links when not logged in
+    - [ ] Accessible keyboard navigation
+  - **Test Requirements**:
+    - Unit test: Renders user email when session exists
+    - Unit test: Renders sign in link when no session
+    - E2E test: Sign out flow (Phase 7)
 
-### 1.8 Setup MSW Mock Infrastructure
-
-- [x] **Create MSW handlers and server setup**
-  - Files:
-    - `webapp/mocks/handlers.ts`
-    - `webapp/mocks/server.ts`
-  - Content:
-    - Handlers array with Reddit API mocks
-    - setupServer with handlers for Node environment
-  - Dependencies: 1.2
-  - Tests:
-    - Mock server can be imported and started in test files
-    - No runtime errors when starting server
-
-### 1.9 Initialize shadcn/ui
-
-- [x] **Manually created shadcn/ui components**
-  - Files:
-    - `webapp/components.json`
-    - `webapp/components/ui/` (multiple files)
-    - `webapp/lib/utils.ts`
-    - `webapp/app/globals.css` (modified)
-  - Components created: button, card, badge, tabs, input, textarea, dialog, dropdown-menu, toast, skeleton
-  - Dependencies: 1.1
-  - Tests:
-    - components.json exists with valid config
-    - All specified components exist in components/ui/
-    - lib/utils.ts exports cn() function
-    - Components can be imported without errors
-
----
-
-## Phase 2: Database Layer
-
-Data persistence layer that enables all CRUD operations.
-
-### 2.1 Create Database Schema
-
-- [x] **Define all tables in Drizzle schema**
-  - Files: `webapp/drizzle/schema.ts`
-  - Tables to define:
-    - `users` - id (uuid), email (varchar 255 unique), created_at, updated_at
-    - `subreddits` - id (uuid), user_id (FK), name (varchar 100), created_at; unique(user_id, name)
-    - `tags` - id (uuid), user_id (FK), name (varchar 100), color (varchar 7, default #6366f1), created_at; unique(user_id, name)
-    - `search_terms` - id (uuid), tag_id (FK cascade), term (varchar 255), created_at; unique(tag_id, term)
-    - `posts` - id (uuid), user_id (FK), reddit_id (varchar 20), title (text), body (text nullable), author (varchar 100), subreddit (varchar 100), permalink (text), url (text nullable), reddit_created_at (timestamp), score (int default 0), num_comments (int default 0), status (varchar 20 default 'new'), response_text (text nullable), responded_at (timestamp nullable), created_at, updated_at; unique(user_id, reddit_id); index(user_id, status)
-    - `post_tags` - post_id (FK cascade), tag_id (FK cascade); PK(post_id, tag_id)
-  - Dependencies: 1.5
-  - Tests:
-    - Schema file exports all table definitions
-    - TypeScript types are inferred (no manual type definitions needed)
-    - `npm run db:generate` produces migration files
-    - Foreign key relationships are correctly defined
-    - Cascade deletes are configured on search_terms, post_tags
-
-### 2.2 Create Database Client
-
-- [x] **Create db.ts with Drizzle client**
-  - Files: `webapp/lib/db.ts`
-  - Content:
-    - Import postgres and drizzle
-    - Create connection using DATABASE_URL
-    - Export typed db client
-  - Dependencies: 2.1
-  - Tests:
-    - db client can be imported
-    - TypeScript provides full autocomplete for schema tables
-    - Connection works with valid DATABASE_URL
-
-### 2.3 Generate Initial Migration
-
-- [x] **Generate and verify migration files**
-  - Files: `webapp/drizzle/migrations/` (generated)
-  - Command: `npm run db:generate`
-  - Note: Migration will be generated on first npm run db:generate after container rebuild
-  - Dependencies: 2.1
-  - Tests:
-    - Migration files created in drizzle/migrations/
-    - SQL contains all CREATE TABLE statements
-    - Indexes and constraints are included
-
-### 2.4 Create Seed Script
-
-- [x] **Create seed.ts for development data**
-  - Files: `webapp/drizzle/seed.ts`
-  - Content:
-    - Create default user (email: dev@example.com)
-    - Create sample subreddits: postgresql, database, node
-    - Create sample tags:
-      - "Yugabyte" (color: #6366f1, terms: yugabyte, yugabytedb)
-      - "Distributed PG" (color: #10b981, terms: distributed postgres, distributed postgresql)
-    - Create sample posts (3+ per status: new, ignored, done) with varied tags
-  - Dependencies: 2.2
-  - Tests:
-    - `npm run db:seed` completes without errors
-    - All sample data is queryable after seed
-    - Running seed twice doesn't create duplicates (upsert or check-before-insert)
-
----
-
-## Phase 3: Core Utilities
-
-Shared libraries that enable business logic and external integrations.
-
-### 3.1 Create Zod Validation Schemas
-
-- [x] **Define validation schemas for all entities**
-  - Files: `webapp/lib/validations.ts`
-  - Schemas:
-    - `subredditNameSchema` - string, 3-21 chars, alphanumeric + underscore, lowercase, strips r/ prefix
-    - `tagSchema` - name (string 1-100), color (hex string, optional, default from palette)
-    - `searchTermSchema` - term (string 1-255), normalized to lowercase for case-insensitive matching
-    - `postStatusSchema` - enum: new, ignored, done
-    - `suggestTermsSchema` - tagName (string 1-100)
-  - Exports:
-    - `TAG_COLOR_PALETTE` - array of 8 default colors: #6366f1 (indigo), #f43f5e (rose), #f59e0b (amber), #10b981 (emerald), #06b6d4 (cyan), #a855f7 (purple), #ec4899 (pink), #3b82f6 (blue)
-  - Dependencies: 1.1
-  - Tests:
-    - Valid inputs pass validation
-    - Invalid inputs return descriptive errors
-    - Subreddit names with r/ prefix are normalized (stripped and lowercased)
-    - Search terms are normalized to lowercase
-    - TAG_COLOR_PALETTE contains exactly 8 valid hex colors
-
-### 3.2 Create Reddit API Client
-
-- [x] **Create reddit.ts with OAuth and fetch logic**
-  - Files: `webapp/lib/reddit.ts`
-  - Exports:
-    - `fetchRedditPosts(subreddits, searchTerms, timeWindow)` - fetches posts matching criteria
-    - `isRedditConfigured()` - checks if credentials exist
-  - Features:
-    - OAuth2 token acquisition and refresh
-    - Rate limiting (60 req/min)
-    - Retry with exponential backoff
-    - Proper User-Agent header
-    - Graceful handling when credentials not configured
-  - Dependencies: 1.1
-  - Tests:
-    - Returns empty array gracefully when credentials not configured
-    - Correctly parses Reddit API response format
-    - Extracts all required fields (reddit_id, title, body, author, subreddit, permalink, url, created_utc, score, num_comments)
-    - Handles API errors without crashing
-    - Rate limiting prevents exceeding 60 requests/minute
-
-### 3.3 Create MSW Handlers for Reddit API
-
-- [x] **Add Reddit API mocks to handlers.ts**
-  - Files: `webapp/mocks/handlers.ts`
-  - Mocks:
-    - POST oauth.reddit.com/api/v1/access_token - returns mock token
-    - GET oauth.reddit.com/r/:subreddit/search - returns mock posts
-  - Dependencies: 1.8, 3.2
-  - Tests:
-    - Mock server intercepts Reddit API calls in tests
-    - Mock responses match Reddit API structure
-    - Can simulate error responses for error handling tests
+### 1.8 Update Existing Server Actions
+- [ ] **Replace placeholder user system with real authentication**
+  - Description: Update all server actions to use authenticated user instead of default user
+  - Dependencies: 1.5 (Auth.js), 1.6 (Middleware)
+  - Files to modify: `webapp/app/actions/users.ts`, `webapp/app/actions/posts.ts`, `webapp/app/actions/tags.ts`, `webapp/app/actions/subreddits.ts`
+  - Acceptance Criteria:
+    - [ ] Remove `getOrCreateDefaultUser()` function
+    - [ ] Update `getCurrentUserId()` to get user from Auth.js session
+    - [ ] All server actions properly use authenticated user ID
+    - [ ] Actions return appropriate error when not authenticated
+  - **Test Requirements**:
+    - Unit test: Server actions reject unauthenticated requests
+    - Unit test: Server actions use correct user ID from session
+    - Integration test: CRUD operations work with authenticated user
 
 ---
 
-## Phase 4: Server Actions
+## Phase 2: Settings Foundation
 
-Data mutation layer using Next.js Server Actions.
+**Status: NOT STARTED**
+**Priority: HIGH** - Required for user-configurable features
+**Dependencies: Phase 1 (Authentication)**
 
-### 4.1 Create User Actions
+Note: Currently settings functionality exists only as a modal. This phase creates dedicated settings pages.
 
-- [x] **Create actions for user management**
-  - Files: `webapp/app/actions/users.ts`
-  - Actions:
-    - `getOrCreateDefaultUser()` - returns the default user (creates if not exists)
-    - `getCurrentUserId()` - returns current user ID (for v1: always default user)
-  - Dependencies: 2.2
-  - Tests:
-    - Returns consistent user ID across calls
-    - Creates user on first call if not exists
+### 2.1 Settings Page Structure
+- [ ] **Create settings page layout**
+  - Description: Settings page with navigation for Account, Connected Accounts, API Keys sections
+  - Dependencies: Phase 1 (Authentication)
+  - Files to create: `webapp/app/settings/page.tsx`, `webapp/app/settings/layout.tsx`
+  - Acceptance Criteria:
+    - [ ] Settings page accessible at /settings
+    - [ ] Protected route (requires authentication via middleware)
+    - [ ] Sidebar or tab navigation for different sections
+    - [ ] Responsive layout (sidebar collapses on mobile)
+    - [ ] Breadcrumb navigation
+  - **Test Requirements**:
+    - E2E test: Navigation between settings sections (Phase 7)
 
-### 4.2 Create Subreddit Actions
-
-- [x] **Create CRUD actions for subreddits**
-  - Files: `webapp/app/actions/subreddits.ts`
-  - Actions:
-    - `listSubreddits()` - returns all subreddits for current user, alphabetically
-    - `addSubreddit(name)` - validates, normalizes (strips r/, lowercase), creates
-    - `removeSubreddit(id)` - deletes subreddit record
-    - `validateSubredditExists(name)` - (optional) checks if subreddit exists on Reddit via API
-  - Dependencies: 2.2, 3.1, 3.2, 4.1
-  - Tests:
-    - Adding valid subreddit creates record and returns it
-    - "r/PostgreSQL" is normalized to "postgresql"
-    - Invalid names (special chars, wrong length) return validation error
-    - Duplicate names for same user return error
-    - Removing subreddit deletes record
-    - Existing posts from removed subreddit remain in database (verify with query)
-    - List returns subreddits in alphabetical order
-    - (Optional) validateSubredditExists returns true for valid subreddits, false/error for invalid
-
-### 4.3 Create Tag Actions
-
-- [x] **Create CRUD actions for tags**
-  - Files: `webapp/app/actions/tags.ts`
-  - Actions:
-    - `listTags()` - returns all tags with search terms and post counts, ordered alphabetically
-    - `getTag(id)` - returns single tag with terms
-    - `createTag(name, color?, initialTerms?)` - creates tag and optional terms; uses default color from palette if not provided
-    - `updateTag(id, name?, color?)` - updates tag fields
-    - `deleteTag(id)` - deletes tag (cascades to terms and post_tags)
-    - `addSearchTerm(tagId, term)` - adds term to tag (normalized to lowercase)
-    - `removeSearchTerm(termId)` - removes term
-  - Dependencies: 2.2, 3.1, 4.1
-  - Tests:
-    - Creating tag with valid data succeeds
-    - Creating tag without color uses first palette color (#6366f1)
-    - Creating tag with initial terms creates both tag and terms
-    - Duplicate tag names for same user return error
-    - Duplicate terms within same tag return error (case-insensitive: "Yugabyte" = "yugabyte")
-    - Updating tag name/color persists changes
-    - Deleting tag removes associated search terms
-    - Deleting tag removes post_tag associations but posts remain
-    - Adding term to existing tag succeeds
-    - Adding term normalizes to lowercase before storage
-    - Removing term doesn't affect already-tagged posts
-    - List includes accurate post count per tag
-    - List returns tags ordered alphabetically by name
-    - Terms are stored and compared case-insensitively
-
-### 4.4 Create Post Actions
-
-- [x] **Create CRUD actions for posts**
-  - Files: `webapp/app/actions/posts.ts`
-  - Actions:
-    - `listPosts(status, tagIds?, page?, limit?)` - paginated post list with filters
-    - `getPost(id)` - single post with tags
-    - `changePostStatus(id, status, responseText?)` - updates status and optional response
-    - `updateResponseText(id, responseText)` - updates response without changing status
-    - `fetchNewPosts()` - fetches from Reddit, dedupes, stores, returns count
-  - Dependencies: 2.2, 3.1, 3.2, 4.1, 4.3
-  - Tests:
-    - New posts created with status "new"
-    - Status transitions work: new->ignored, new->done, ignored->new, done->new
-    - Setting status to "done" with response_text saves both and sets responded_at
-    - Changing status from "done" clears responded_at but keeps response_text
-    - Same reddit_id for same user is not duplicated
-    - Post matching multiple search terms gets multiple tags attached
-    - Filtering by status returns only matching posts
-    - Filtering by tag(s) returns posts with ANY selected tag
-    - Combined status+tag filtering works correctly
-    - Pagination returns correct subset with total count
-    - Posts ordered by reddit_created_at descending
-    - fetchNewPosts returns count of newly added posts
-    - fetchNewPosts handles missing Reddit credentials gracefully
+### 2.2 Account Settings
+- [ ] **Implement password change functionality**
+  - Description: Allow users to change their password
+  - Dependencies: 2.1 (Settings page), 1.4 (password utilities)
+  - Files to create: `webapp/app/settings/account/page.tsx`
+  - Files to modify: `webapp/app/actions/auth.ts`
+  - Acceptance Criteria:
+    - [ ] Form with current password, new password, confirm new password
+    - [ ] Validates current password before allowing change
+    - [ ] New password must meet password requirements (shown to user)
+    - [ ] Success toast notification on password change
+    - [ ] Error handling for incorrect current password
+    - [ ] Form clears after successful change
+  - **Test Requirements**:
+    - Unit test: Server action rejects incorrect current password
+    - Unit test: Server action rejects invalid new password
+    - Unit test: Server action updates password hash in database
+    - E2E test: Full password change flow (Phase 7)
 
 ---
 
-## Phase 5: API Routes
+## Phase 3: Reddit OAuth Integration
 
-RESTful endpoints for client-side features.
+**Status: NOT STARTED**
+**Priority: HIGH** - Required for per-user Reddit access
+**Dependencies: Phase 1 (Authentication)**
 
-### 5.1 Create Suggest Terms API Route
+Note: Currently the app uses app-level password grant authentication (REDDIT_USERNAME/REDDIT_PASSWORD env vars). This phase implements per-user OAuth as specified.
 
-- [x] **Create POST /api/suggest-terms endpoint**
-  - Files: `webapp/app/api/suggest-terms/route.ts`
-  - Request: `{ tagName: string }`
-  - Response: `{ suggestions: string[] }`
-  - Logic:
-    - Validate tagName is non-empty
-    - Call Groq LLM (llama-3.3-70b-versatile) with system prompt for search term suggestions
-    - Parse JSON array from response
-    - Return suggestions array (all lowercase)
-  - System Prompt: "You are helping a developer relations professional track mentions of a technology topic on Reddit. Given a topic name, suggest search terms that would find relevant Reddit posts about this topic. Include: the exact topic name (lowercase), common variations and abbreviations, component names or features, related technical terms, common misspellings if applicable. Return ONLY a JSON array of strings, no explanation. Keep terms lowercase. Aim for 5-15 terms."
-  - Error Handling:
-    - Empty tagName returns 400 with error message
-    - LLM errors return empty array (don't crash), log error server-side
-    - Invalid JSON response triggers ONE retry, then returns empty array
-    - Missing GROQ_API_KEY returns empty array gracefully
-  - Dependencies: 1.1
-  - Tests:
-    - Valid tagName returns array of suggestion strings
-    - Empty tagName returns 400 error
-    - API errors return empty suggestions array, not 500
-    - Response suggestions are all lowercase strings
-    - Returns 5-15 relevant suggestions for known topics
-    - Invalid JSON from LLM triggers retry logic
-    - Missing API key doesn't cause 500 error
+### 3.1 Reddit OAuth Flow
+- [ ] **Implement Reddit OAuth initiation**
+  - Description: Generate OAuth URL and redirect user to Reddit for authorization
+  - Dependencies: Phase 1 (Authentication)
+  - Files to create: `webapp/app/api/auth/reddit/route.ts`
+  - Acceptance Criteria:
+    - [ ] Generates proper Reddit OAuth URL with required scopes (read, identity)
+    - [ ] Includes state parameter for CSRF protection (stored in session/cookie)
+    - [ ] Uses REDDIT_CLIENT_ID env var
+    - [ ] Redirect URI matches registered Reddit app callback URL
+    - [ ] Returns redirect response to Reddit authorization page
+  - **Test Requirements**:
+    - Unit test: Generated URL contains correct scopes
+    - Unit test: State parameter is cryptographically random
+    - Integration test: Redirect URL is properly formatted
 
----
+- [ ] **Implement Reddit OAuth callback route**
+  - Description: Handle OAuth callback from Reddit after user authorization
+  - Dependencies: 3.1 (OAuth initiation), 1.3 (Encryption)
+  - Files to create: `webapp/app/api/auth/reddit/callback/route.ts`
+  - Acceptance Criteria:
+    - [ ] Validates state parameter matches (CSRF protection)
+    - [ ] Receives authorization code from Reddit
+    - [ ] Exchanges code for access and refresh tokens
+    - [ ] Encrypts tokens using encryption module before storage
+    - [ ] Stores encrypted tokens in users table
+    - [ ] Stores token expiration time
+    - [ ] Redirects to settings page on success with success message
+    - [ ] Error handling for OAuth failures (user denied, invalid code, etc.)
+  - **Test Requirements**:
+    - Unit test: Invalid state parameter returns error
+    - Unit test: Token exchange failure handled gracefully
+    - Integration test: Tokens are encrypted before database storage
+    - Integration test: Successful flow updates user record
 
-## Phase 6: UI Components
+- [ ] **Refactor Reddit API client for per-user tokens**
+  - Description: Update Reddit API calls to use user's OAuth tokens instead of app-level credentials
+  - Dependencies: 3.1 (OAuth flow complete), 1.3 (Encryption)
+  - Files to modify: `webapp/lib/reddit.ts`
+  - Acceptance Criteria:
+    - [ ] New function signature accepts userId to fetch user's tokens
+    - [ ] Decrypt tokens before use
+    - [ ] Implement automatic token refresh when access token expired
+    - [ ] Update refresh token in database after refresh
+    - [ ] Update all Reddit API call functions to use per-user auth
+    - [ ] Graceful error handling when user has no connected Reddit account
+    - [ ] Maintain backward compatibility during transition (optional fallback to env vars for development)
+  - **Test Requirements**:
+    - Unit test: Token refresh logic works correctly
+    - Unit test: Expired token triggers refresh
+    - Unit test: Missing user tokens throws descriptive error
+    - Integration test: API calls work with decrypted user tokens
 
-User interface layer built bottom-up from primitives to composed views.
-
-### 6.1 Create Tag Badge Component
-
-- [x] **Create TagBadge component for displaying tag pills**
-  - Files: `webapp/components/tag-badge.tsx`
-  - Props: `{ name: string, color: string, className?: string }`
-  - Features:
-    - Renders as colored pill/badge
-    - Uses tag color as background with appropriate text contrast
-  - Dependencies: 1.9
-  - Tests:
-    - Renders tag name text
-    - Applies custom color as background
-    - Maintains readable text contrast
-
-### 6.2 Create Post Card Component
-
-- [x] **Create PostCard component for displaying a single post**
-  - Files: `webapp/components/post-card.tsx`
-  - Props: `{ post: Post, onStatusChange: (status) => void, onResponseUpdate?: (text) => void }`
-  - Features:
-    - Header: title (link to Reddit, opens in new tab), tag badges in top-right
-    - Meta: subreddit (r/name), author (u/name), relative time (e.g., "2 hours ago"), score, comments
-    - Body: truncated post text (~3 lines with "..." if longer)
-    - Actions: status-specific buttons (Ignore, Mark Done, Mark as New)
-    - Response field (done status only):
-      - Textarea for pasting response
-      - Auto-saves on blur AND after typing pause (debounced, ~500ms)
-      - Shows "Saved" indicator briefly after save
-      - Shows responded_at timestamp if set
-    - Footer: "View on Reddit" link (always visible)
-  - Dependencies: 1.9, 6.1
-  - Tests:
-    - Displays post title, meta info, and body
-    - Title links to Reddit in new tab (target="_blank")
-    - Tag badges render with correct colors in top-right corner
-    - Action buttons match current status (new shows Ignore/Done, ignored shows Mark New, done shows Mark New)
-    - Response textarea appears only for done status
-    - Response textarea auto-saves on blur
-    - Response textarea auto-saves after typing pause (debounced)
-    - "Saved" indicator appears briefly after successful save
-    - responded_at timestamp displays when set
-    - View on Reddit opens correct permalink in new tab
-
-### 6.3 Create Post List Component
-
-- [x] **Create PostList component for rendering filtered posts**
-  - Files: `webapp/components/post-list.tsx`
-  - Props: `{ posts: Post[], onStatusChange, onResponseUpdate, isLoading }`
-  - Features:
-    - Maps posts to PostCard components
-    - Shows skeleton loading state
-    - Shows empty state message when no posts
-  - Dependencies: 6.2
-  - Tests:
-    - Renders list of PostCard components
-    - Shows skeleton cards during loading
-    - Shows appropriate empty message when posts array is empty
-
-### 6.4 Create Tab Bar Component
-
-- [x] **Create StatusTabs component for status filtering**
-  - Files: `webapp/components/status-tabs.tsx`
-  - Props: `{ currentStatus, counts: { new, ignored, done }, onChange }`
-  - Features:
-    - Three tabs: New, Ignored, Done
-    - Each shows count in parentheses
-    - Active tab visually distinct
-  - Dependencies: 1.9
-  - Tests:
-    - Renders three tabs with labels
-    - Shows correct count for each tab
-    - Active tab has distinct styling
-    - Clicking tab calls onChange with status value
-
-### 6.5 Create Tag Filter Component
-
-- [x] **Create TagFilter dropdown for filtering by tags**
-  - Files: `webapp/components/tag-filter.tsx`
-  - Props: `{ tags: Tag[], selectedIds: string[], onChange }`
-  - Features:
-    - Dropdown or multi-select
-    - Shows all tags with colors
-    - "All" option to clear selection
-    - Multiple tags can be selected
-    - Selection persists across tab switches (state managed by parent)
-  - Dependencies: 1.9, 6.1
-  - Tests:
-    - Displays all available tags
-    - Can select multiple tags
-    - "All" option clears selection
-    - Selected tags are visually indicated
-    - Calls onChange with selected tag IDs
-    - Selection state is controlled by parent (not internal state)
-
-### 6.6 Create Subreddit Settings Component
-
-- [x] **Create SubredditSettings for managing subreddits**
-  - Files: `webapp/components/settings/subreddit-settings.tsx`
-  - Features:
-    - Lists configured subreddits
-    - Add subreddit input with button
-    - Remove button per subreddit
-    - Validation error display
-  - Dependencies: 1.9, 4.2
-  - Tests:
-    - Displays list of subreddits
-    - Can add new subreddit via input
-    - Can remove subreddit with button
-    - Shows validation errors for invalid input
-    - Shows error for duplicate subreddit
-
-### 6.7 Create Tag Settings Component
-
-- [x] **Create TagSettings for managing tags and terms**
-  - Files: `webapp/components/settings/tag-settings.tsx`
-  - Features:
-    - Lists tags with expand/collapse for terms
-    - Add tag button opens form
-    - Edit tag (name, color)
-    - Delete tag with confirmation dialog
-    - Add/remove terms per tag
-    - Color picker from palette (uses TAG_COLOR_PALETTE from validations.ts)
-  - Dependencies: 1.9, 3.1, 4.3, 6.1
-  - Tests:
-    - Displays all tags
-    - Can expand tag to see search terms
-    - Can add new tag with name and color
-    - Can edit existing tag name/color
-    - Can delete tag (shows confirmation dialog before deleting)
-    - Can add terms to existing tag
-    - Can remove terms from tag
-    - Color picker shows all 8 palette options
-    - Default color is selected when creating new tag
-
-### 6.8 Create Suggest Terms Component
-
-- [x] **Create SuggestTerms component for LLM suggestions**
-  - Files: `webapp/components/settings/suggest-terms.tsx`
-  - Props: `{ tagName: string, existingTerms: string[], onAdd: (terms) => void }`
-  - Features:
-    - "Suggest Terms" button (with sparkle icon or similar)
-    - Button disabled for 2 seconds after click (client-side rate limiting)
-    - Loading state with spinner and "Thinking..." text
-    - Checkbox list of suggestions
-    - Existing terms pre-checked and marked as "(already added)"
-    - "Add Selected" button to add checked terms
-  - Dependencies: 1.9, 5.1
-  - Tests:
-    - Button triggers API call to /api/suggest-terms
-    - Button is disabled for 2 seconds after click (spam prevention)
-    - Loading spinner and "Thinking..." shows during fetch
-    - Suggestions display as checkboxes
-    - Existing terms are pre-checked and marked as "(already added)"
-    - Can select/deselect suggestions
-    - Add Selected adds only new selected terms (not already-existing ones)
-    - API error shows user-friendly message (not crash)
-    - Empty suggestions array shows "No suggestions found" message
-
-### 6.9 Create Settings Panel Component
-
-- [x] **Create SettingsPanel modal/slide-over**
-  - Files: `webapp/components/settings/settings-panel.tsx`
-  - Features:
-    - Modal or slide-over container
-    - Sections for Subreddits and Tags
-    - Close button
-  - Dependencies: 1.9, 6.6, 6.7
-  - Tests:
-    - Opens as modal/slide-over
-    - Contains Subreddit and Tag sections
-    - Can be closed with button or escape key
-    - Sections are visually separated
-
-### 6.10 Create Header Component
-
-- [x] **Create Header with app title and actions**
-  - Files: `webapp/components/header.tsx`
-  - Features:
-    - App title: "Social Tracker"
-    - Fetch New button (triggers fetch, shows loading, displays result count)
-    - Settings button (opens settings panel)
-  - Dependencies: 1.9, 4.4
-  - Tests:
-    - Displays app title
-    - Fetch New button triggers post fetch
-    - Button shows loading state during fetch
-    - Success shows count of new posts found
-    - Settings button present and clickable
-
-### 6.11 Create Main Page
-
-- [x] **Implement main page with all components**
-  - Files: `webapp/app/page.tsx`
-  - Features:
-    - React Query provider setup (via Providers wrapper)
-    - Header with fetch/settings buttons
-    - Status tabs with counts
-    - Tag filter (selection persists across tab switches)
-    - Post list for current status/filter
-    - Settings panel (modal)
-    - Toast notifications for errors and success feedback
-  - State Management:
-    - Current status tab (state)
-    - Selected tag IDs for filter (state, persists across tab changes)
-    - Settings panel open/closed (state)
-  - Dependencies: 6.3, 6.4, 6.5, 6.9, 6.10, 6.12
-  - Tests:
-    - Page loads without errors
-    - All components render correctly
-    - Tab switching updates post list but preserves tag filter selection
-    - Tag filter updates post list
-    - Status changes reflect immediately (optimistic update)
-    - Fetch button works end-to-end
-    - Settings panel opens and closes
-    - Toast appears on successful fetch with count
-    - Toast appears on errors
-
-### 6.12 Setup React Query Provider
-
-- [x] **Create QueryProvider wrapper component**
-  - Files: `webapp/components/providers.tsx`
-  - Features:
-    - QueryClientProvider with configured client
-    - Client-side only rendering
-  - Dependencies: 1.1
-  - Tests:
-    - Provider wraps app without errors
-    - React Query hooks work in child components
+### 3.2 Reddit Connection UI
+- [ ] **Create Connected Accounts settings section**
+  - Description: UI to connect/disconnect Reddit account
+  - Dependencies: 3.1 (OAuth flow), 2.1 (Settings page)
+  - Files to create: `webapp/app/settings/connected-accounts/page.tsx`
+  - Files to create: `webapp/app/actions/reddit-connection.ts`
+  - Acceptance Criteria:
+    - [ ] Shows Reddit connection status (connected/not connected)
+    - [ ] If connected, shows Reddit username (fetched via identity scope)
+    - [ ] Shows when token expires
+    - [ ] "Connect Reddit" button initiates OAuth flow
+    - [ ] "Disconnect" button removes stored tokens from database
+    - [ ] Confirmation dialog before disconnect
+    - [ ] Success/error toast notifications
+  - **Test Requirements**:
+    - Unit test: Disconnect action removes tokens from database
+    - E2E test: Connect and disconnect flows (Phase 7)
 
 ---
 
-## Phase 7: Integration & Polish
+## Phase 4: User API Keys (BYOK)
 
-Connect all pieces and ensure production readiness.
+**Status: NOT STARTED**
+**Priority: MEDIUM** - Required for user-owned LLM access
+**Dependencies: Phase 1 (Authentication)**
 
-### 7.1 Create React Query Hooks
+### 4.1 API Key Storage
+- [ ] **Implement Groq API key storage**
+  - Description: Server actions to save and retrieve encrypted Groq API key
+  - Dependencies: Phase 1 (Auth), 1.3 (Encryption), 1.2 (groq_api_key column)
+  - Files to create: `webapp/app/actions/api-keys.ts`
+  - Acceptance Criteria:
+    - [ ] `saveGroqApiKey(key: string)` server action
+    - [ ] Validates API key format (basic validation)
+    - [ ] Encrypts key before storing in database
+    - [ ] `getGroqApiKey()` server action returns decrypted key (for internal use only)
+    - [ ] `hasGroqApiKey()` server action returns boolean (for UI)
+    - [ ] `deleteGroqApiKey()` server action removes key
+    - [ ] Only accessible to authenticated user for their own key
+  - **Test Requirements**:
+    - Unit test: saveGroqApiKey encrypts before storage
+    - Unit test: getGroqApiKey decrypts correctly
+    - Unit test: deleteGroqApiKey removes key from database
+    - Unit test: Actions require authentication
 
-- [x] **Create custom hooks for data fetching**
-  - Files: `webapp/lib/hooks/index.ts`
-  - Hooks:
-    - `usePosts(status, tagIds)` - fetches and caches posts
-    - `useTags()` - fetches and caches tags
-    - `useSubreddits()` - fetches and caches subreddits
-    - Mutation hooks for status changes, CRUD operations
-  - Dependencies: 1.1, 4.2, 4.3, 4.4, 6.12
-  - Tests:
-    - Hooks return loading/error/data states
-    - Mutations invalidate relevant queries
-    - Optimistic updates work for status changes
-    - Error states are handled
+### 4.2 API Keys UI
+- [ ] **Create API Keys settings section**
+  - Description: UI to manage user's Groq API key
+  - Dependencies: 4.1 (API key storage), 2.1 (Settings page)
+  - Files to create: `webapp/app/settings/api-keys/page.tsx`
+  - Acceptance Criteria:
+    - [ ] Shows if Groq API key is configured (without revealing the key)
+    - [ ] Input field to add/update API key (password type, masked)
+    - [ ] "Save" button to store key
+    - [ ] "Remove" button to delete key (shown only if key exists)
+    - [ ] Confirmation dialog before removal
+    - [ ] Success/error toast notifications
+    - [ ] Help text explaining what the API key is used for
+    - [ ] Link to Groq API key generation page
+  - **Test Requirements**:
+    - E2E test: Add and remove API key flows (Phase 7)
 
-### 7.2 Add Toast Notifications
-
-- [x] **Integrate toast system for feedback**
-  - Files:
-    - `webapp/app/layout.tsx` (add Toaster)
-    - Various components (add toast calls)
-  - Features:
-    - Success toasts for completed actions
-    - Error toasts for failures
-    - Auto-dismiss after delay
-  - Dependencies: 1.9
-  - Tests:
-    - Toasts appear for success actions
-    - Toasts appear for error conditions
-    - Toasts auto-dismiss
-
-### 7.3 Add Loading States
-
-- [x] **Implement skeleton and loading UI throughout**
-  - Files: Various components
-  - Features:
-    - Skeleton cards during initial load
-    - Button spinners during actions
-    - Disabled states during processing
-  - Note: Loading states implemented in components
-  - Dependencies: 1.9
-  - Tests:
-    - Skeletons show on initial page load
-    - Buttons show spinner when processing
-    - UI is non-interactive during loading
-
-### 7.4 Add Empty States
-
-- [x] **Create empty state displays**
-  - Files: Various components
-  - Messages:
-    - No posts in tab: "No [status] posts"
-    - No tags: "Create your first tag in settings"
-    - No subreddits: "Add subreddits to monitor in settings"
-  - Note: Empty states implemented in components
-  - Dependencies: 6.3, 6.6, 6.7
-  - Tests:
-    - Empty states render when data is empty
-    - Messages guide user to next action
-
-### 7.5 Add Keyboard Accessibility
-
-- [~] **Ensure keyboard navigation works**
-  - Files: Various components
-  - Features:
-    - Tab navigation through interactive elements
-    - Enter/Space activates buttons
-    - Escape closes modals
-    - Focus visible states
-  - Status: Partially complete - Radix UI provides base accessibility, but color picker lacks arrow key navigation
-  - Dependencies: All UI components
-  - Tests:
-    - Can navigate entire UI with keyboard only
-    - Focus states are visible
-    - Modals trap focus appropriately
-  - Remaining Work:
-    - [ ] Add arrow key navigation to color picker component
-    - [ ] Verify focus trap in settings modal
-    - [ ] Test complete keyboard navigation flow
-
-### 7.6 Add Responsive Design
-
-- [~] **Ensure mobile responsiveness**
-  - Files: Various components, `webapp/app/globals.css`
-  - Features:
-    - Mobile: stacked layout, full-width cards
-    - Tablet: tighter spacing
-    - Desktop: full layout as designed
-  - Status: Partially complete - Tailwind responsive classes exist, but not fully tested across all breakpoints
-  - Note: CSS variables and theming configured
-  - Dependencies: All UI components
-  - Tests:
-    - UI is usable at 320px width
-    - No horizontal scroll on mobile
-    - Touch targets are adequately sized
-  - Remaining Work:
-    - [ ] Test all components at 320px, 768px, 1024px breakpoints
-    - [ ] Verify touch targets are minimum 44px
-    - [ ] Fix any overflow issues on mobile
+### 4.3 LLM Integration Update
+- [ ] **Update LLM suggestions to use per-user API key**
+  - Description: Modify tag suggestion feature to use user's Groq API key if available
+  - Dependencies: 4.1 (API key storage)
+  - Files to modify: `webapp/app/api/suggest-terms/route.ts`
+  - Files to create (if needed): `webapp/lib/llm.ts`
+  - Acceptance Criteria:
+    - [ ] Check for user's Groq API key first (decrypt and use)
+    - [ ] Fall back to env var GROQ_API_KEY if user has no key
+    - [ ] Clear error message if no API key available (neither user nor env)
+    - [ ] Tag suggestions work identically with user-provided key
+    - [ ] No key leakage in error messages or logs
+  - **Test Requirements**:
+    - Unit test: User key used when available
+    - Unit test: Fallback to env var when no user key
+    - Unit test: Appropriate error when no keys available
+    - Integration test: Suggestions work with user-provided key
 
 ---
 
-## Phase 8: Testing
+## Phase 5: UI Completion
 
-Verification layer ensuring correctness.
+**Status: NOT STARTED**
+**Priority: MEDIUM** - Improves user experience
+**Dependencies: None (backend already supports pagination)**
 
-### 8.1 Unit Tests - Validation Schemas
-
-- [x] **Write tests for Zod schemas**
-  - Files: `webapp/__tests__/validations.test.ts`
-  - Coverage:
-    - Subreddit name validation (valid/invalid cases)
-    - Tag schema validation
-    - Post status enum validation
-    - Search term schema validation
-    - Suggest terms schema validation
-    - TAG_COLOR_PALETTE and getNextTagColor helper
-  - Dependencies: 3.1, 1.6
-  - Tests:
-    - All validation rules are exercised (52 tests)
-    - Error messages are descriptive
-  - Notes:
-    - Fixed ZodError.errors to use .issues for proper error access
-
-### 8.2 Unit Tests - Reddit Client
-
-- [x] **Write tests for Reddit API client**
-  - Files: `webapp/__tests__/reddit.test.ts`
-  - Coverage:
-    - Token acquisition and refresh
-    - Post fetching and parsing
-    - Rate limiting behavior
-    - Error handling
-    - Missing credentials handling
-    - Post deduplication
-    - Time filtering
-    - Sorting by created_utc
-  - Dependencies: 3.2, 3.3, 1.6
-  - Tests:
-    - Uses MSW mocks for Reddit API (16 tests)
-    - All client functions tested
-  - Notes:
-    - Fixed lib/reddit.ts URLSearchParams body to use .toString() for MSW compatibility
-    - Added clearTokenCache() function for test isolation
-    - Fixed mocks/handlers.ts mock post timestamp to be within 1-hour window
-
-### 8.3 Unit Tests - Server Actions
-
-- [x] **Write tests for server actions**
-  - Files:
-    - `webapp/__tests__/actions/subreddits.test.ts`
-    - `webapp/__tests__/actions/tags.test.ts`
-    - `webapp/__tests__/actions/posts.test.ts`
-  - Coverage:
-    - All CRUD operations
-    - Validation enforcement
-    - Error conditions
-  - Dependencies: 4.2, 4.3, 4.4, 1.6
-  - Tests:
-    - Uses test database or mocked db
-    - All acceptance criteria from specs verified
-  - Results:
-    - subreddits.test.ts: 38 tests passing
-    - tags.test.ts: 31 tests passing
-    - posts.test.ts: 32 tests passing
-    - **Total: 101 server action tests**
-
-### 8.4 Unit Tests - UI Components
-
-- [ ] **Write tests for React components**
-  - Files: `webapp/__tests__/components/` (various)
-  - Coverage:
-    - PostCard rendering and interactions
-    - StatusTabs selection
-    - TagFilter selection
-    - Settings components CRUD
-  - Dependencies: 6.*, 1.6
-  - Tests to Verify (derived from acceptance criteria):
-    - **TagBadge:**
-      - [ ] Renders tag name text correctly
-      - [ ] Applies color prop as background style
-      - [ ] Text has appropriate contrast (readable)
-    - **PostCard:**
-      - [ ] Displays title, subreddit, author, time, score, comments
-      - [ ] Title link has target="_blank" and correct href
-      - [ ] Tag badges appear in top-right with correct colors
-      - [ ] "Ignore" and "Mark Done" buttons appear for status="new"
-      - [ ] "Mark as New" button appears for status="ignored"
-      - [ ] "Mark as New" button appears for status="done"
-      - [ ] Response textarea only renders when status="done"
-      - [ ] onStatusChange called with correct status when buttons clicked
-      - [ ] onResponseUpdate called on textarea blur
-      - [ ] "Saved" indicator appears after save
-    - **PostList:**
-      - [ ] Renders correct number of PostCard components
-      - [ ] Shows skeleton when isLoading=true
-      - [ ] Shows empty message when posts=[]
-    - **StatusTabs:**
-      - [ ] Renders three tabs: New, Ignored, Done
-      - [ ] Displays count in parentheses for each tab
-      - [ ] Active tab has distinct styling
-      - [ ] onChange called with status value on tab click
-    - **TagFilter:**
-      - [ ] Displays all tags from props
-      - [ ] Can select multiple tags
-      - [ ] "All" option clears selection
-      - [ ] onChange called with array of selected tag IDs
-
-### 8.5 E2E Tests - Post Management Flow
-
-- [ ] **Write Playwright tests for post lifecycle**
-  - Files: `webapp/e2e/posts.spec.ts`
-  - Scenarios:
-    - View posts in each status tab (new, ignored, done)
-    - Change post status via buttons (new->ignored, new->done, ignored->new, done->new)
-    - Add response text to done post (verify auto-save on blur)
-    - Filter posts by single tag
-    - Filter posts by multiple tags (OR logic)
-    - Combined status + tag filtering
-    - Verify pagination works for large result sets
-    - Verify posts ordered by reddit_created_at descending
-  - Dependencies: All phases, 1.7
-  - Tests to Verify (derived from acceptance criteria):
-    - [ ] Tab counts display correct numbers
-    - [ ] Tab counts update immediately after status change
-    - [ ] Status changes persist after page reload
-    - [ ] Response text saves and persists after page reload
-    - [ ] "Saved" indicator appears after typing in response textarea
-    - [ ] responded_at timestamp displays for done posts with responses
-    - [ ] Tag filter selection persists when switching tabs
-    - [ ] Posts with multiple tags show all tag badges
-
-### 8.6 E2E Tests - Settings Flow
-
-- [ ] **Write Playwright tests for settings**
-  - Files: `webapp/e2e/settings.spec.ts`
-  - Scenarios:
-    - Open and close settings panel (via button and escape key)
-    - Add valid subreddit (verify normalization: "r/PostgreSQL" -> "postgresql")
-    - Add invalid subreddit (verify validation error displayed)
-    - Add duplicate subreddit (verify error displayed)
-    - Remove subreddit (verify removed from list, posts remain)
-    - Create tag with name and custom color
-    - Create tag with initial search terms
-    - Edit tag name
-    - Edit tag color using color picker
-    - Delete tag (verify confirmation dialog, verify cascade removes terms)
-    - Add search term to existing tag
-    - Remove search term from tag
-    - Use LLM term suggestions (button click, loading state, checkbox selection, add selected)
-    - Verify 2-second cooldown on suggest button
-  - Dependencies: All phases, 1.7
-  - Tests to Verify (derived from acceptance criteria):
-    - [ ] Settings panel opens when settings button clicked
-    - [ ] Settings panel closes on escape key
-    - [ ] Settings panel closes on close button click
-    - [ ] Subreddit "r/PostgreSQL" normalized to "postgresql" after add
-    - [ ] Validation error displays for subreddit names with special characters
-    - [ ] Duplicate subreddit shows error message
-    - [ ] Removed subreddit disappears from list
-    - [ ] Posts from removed subreddit still visible in posts list
-    - [ ] Color picker shows all 8 palette colors
-    - [ ] Default color selected when creating new tag
-    - [ ] Delete confirmation dialog appears before tag deletion
-    - [ ] Suggest button shows loading state during API call
-    - [ ] Suggest button disabled for 2 seconds after click
-
-### 8.7 E2E Tests - Fetch Flow
-
-- [ ] **Write Playwright tests for fetching posts**
-  - Files: `webapp/e2e/fetch.spec.ts`
-  - Scenarios:
-    - Click Fetch New button (verify loading state with spinner)
-    - Verify success toast shows count of new posts
-    - Verify new posts appear in "New" tab with correct data
-    - Verify deduplication (same reddit_id not duplicated on re-fetch)
-    - Verify tag assignment (posts matching search terms get correct tags)
-    - Verify posts matching multiple terms get multiple tags
-    - Handle empty results gracefully (toast with "0 new posts" or similar)
-    - Handle missing Reddit credentials gracefully (helpful message, no crash)
-  - Dependencies: All phases, 1.7
-  - Tests to Verify (derived from acceptance criteria):
-    - [ ] Fetch button shows spinner during fetch
-    - [ ] Fetch button is disabled during fetch (no double-click)
-    - [ ] Success toast appears with "X new posts found" message
-    - [ ] New posts appear at top of "New" tab after fetch
-    - [ ] Re-fetching same posts does not create duplicates
-    - [ ] Posts matching search terms have correct tags assigned
-    - [ ] Error toast appears if Reddit API fails
-    - [ ] Graceful message if Reddit credentials not configured
-
-### 8.8 E2E Tests - Accessibility & Responsive
-
-- [ ] **Write Playwright tests for accessibility and responsiveness**
-  - Files: `webapp/e2e/accessibility.spec.ts`
-  - Scenarios:
-    - Keyboard navigation through entire UI (tab order)
-    - Focus visible states on all interactive elements
-    - Modal focus trap (settings panel)
-    - Escape key closes modals
-    - Enter/Space activates buttons
-    - Touch targets adequately sized (44px minimum)
-    - Mobile viewport (320px width) - no horizontal scroll
-    - Mobile viewport - stacked layout renders correctly
-    - Tablet viewport - layout adapts correctly
-  - Dependencies: All phases, 1.7
-  - Tests to Verify (derived from acceptance criteria):
-    - [ ] Can tab through all interactive elements in logical order
-    - [ ] Focus ring visible on all focused elements
-    - [ ] Tab trapped inside settings modal when open
-    - [ ] Escape closes settings modal
-    - [ ] Enter activates focused button
-    - [ ] Space activates focused button
-    - [ ] No horizontal scrollbar at 320px viewport width
-    - [ ] Post cards stack vertically on mobile
-    - [ ] All buttons/links at least 44px touch target
+### 5.1 Pagination UI
+- [ ] **Implement pagination controls component**
+  - Description: UI controls for paginating post lists (backend already supports pagination via page/limit params)
+  - Dependencies: None (backend ready)
+  - Files to create: `webapp/components/ui/pagination.tsx`
+  - Files to modify: `webapp/components/post-list.tsx`, `webapp/lib/hooks/index.ts`
+  - Acceptance Criteria:
+    - [ ] Previous/Next page buttons
+    - [ ] Current page indicator (e.g., "Page 2 of 10")
+    - [ ] Total pages display (calculated from total count)
+    - [ ] Page size selector dropdown (10, 25, 50 options)
+    - [ ] Disabled state for first/last page buttons appropriately
+    - [ ] Keyboard accessible (arrow keys, enter)
+    - [ ] Updates URL query params for shareable/bookmarkable pagination state
+    - [ ] React Query hooks pass pagination params to server actions
+  - **Test Requirements**:
+    - Unit test: Pagination component renders correct page numbers
+    - Unit test: Disabled states work correctly at boundaries
+    - Unit test: Page size change resets to page 1
+    - E2E test: Pagination navigation works (Phase 7)
 
 ---
 
-## Dependency Graph Summary
+## Phase 6: Minor Improvements
 
+**Status: PARTIAL**
+**Priority: LOW** - Quality of life improvements
+
+### 6.1 Code Integration
+- [x] **getNextTagColor utility defined and tested**
+  - Note: Utility exists in `webapp/lib/validations.ts` line 70 and has unit tests in `webapp/__tests__/validations.test.ts`
+  - Status: COMPLETE
+
+- [ ] **Integrate getNextTagColor in tag creation**
+  - Description: The getNextTagColor() utility is defined and tested but NOT USED anywhere in actual application code (server actions or components); integrate it where appropriate
+  - Dependencies: None
+  - Files to modify: `webapp/app/actions/tags.ts`, potentially `webapp/components/settings/tag-settings.tsx`
+  - Acceptance Criteria:
+    - [ ] getNextTagColor() called when creating new tags without explicit color
+    - [ ] New tags automatically assigned next available color from palette
+    - [ ] Color rotation works correctly (cycles through palette)
+  - **Test Requirements**:
+    - Integration test: Created tag has auto-assigned color
+    - Unit test: Sequential tag creation produces different colors
+
+### 6.2 Optional Enhancements
+- [ ] **Subreddit existence verification**
+  - Description: Verify subreddit exists via Reddit API when adding new subreddit
+  - Dependencies: Phase 3 (Reddit OAuth) - requires authenticated Reddit API access
+  - Files to modify: `webapp/app/actions/subreddits.ts`, `webapp/lib/reddit.ts`
+  - Acceptance Criteria:
+    - [ ] API call to Reddit to verify subreddit exists before adding
+    - [ ] User-friendly error message if subreddit doesn't exist
+    - [ ] Graceful handling of rate limits (retry or skip verification)
+    - [ ] Works without Reddit connection (skip verification with warning)
+  - **Test Requirements**:
+    - Unit test: Valid subreddit passes verification
+    - Unit test: Invalid subreddit returns appropriate error
+    - Unit test: Verification skipped gracefully when no Reddit connection
+
+---
+
+## Phase 7: End-to-End Testing
+
+**Status: NOT STARTED**
+**Priority: MEDIUM** - Quality assurance
+**Dependencies: All features implemented**
+
+Note: Playwright is configured but `webapp/e2e/` directory only contains `.gitkeep` (empty)
+
+### 7.1 Playwright Test Infrastructure
+- [ ] **Configure Playwright test helpers**
+  - Description: Set up Playwright with proper configuration and test utilities
+  - Dependencies: All features implemented
+  - Files to modify: `webapp/playwright.config.ts`
+  - Files to create: `webapp/e2e/fixtures.ts`, `webapp/e2e/helpers/auth.ts`
+  - Acceptance Criteria:
+    - [ ] Playwright configured to run against dev/test server
+    - [ ] Test database seeding strategy implemented (separate test DB or transactions)
+    - [ ] Authentication helper utilities for tests (login as test user)
+    - [ ] Page object models for common pages (optional but recommended)
+    - [ ] CI configuration for running E2E tests
+  - **Test Requirements**:
+    - Verify test setup works with `npx playwright test --project=setup`
+
+### 7.2 Authentication E2E Tests
+- [ ] **Write E2E tests for authentication flows**
+  - Description: Test signup, login, logout, and protected routes
+  - Dependencies: 7.1 (Playwright setup), Phase 1 (Authentication)
+  - Files to create: `webapp/e2e/auth.spec.ts`
+  - Acceptance Criteria:
+    - [ ] Test successful signup with valid credentials
+    - [ ] Test signup validation errors (weak password, duplicate email)
+    - [ ] Test successful login
+    - [ ] Test login with invalid credentials shows error
+    - [ ] Test logout clears session
+    - [ ] Test protected route redirect to login when unauthenticated
+    - [ ] Test session persistence across page reloads
+
+### 7.3 Core Feature E2E Tests
+- [ ] **Write E2E tests for post management**
+  - Description: Test post listing, filtering, status changes, tagging
+  - Dependencies: 7.1 (Playwright setup)
+  - Files to create: `webapp/e2e/posts.spec.ts`
+  - Acceptance Criteria:
+    - [ ] Test post list displays correctly with data
+    - [ ] Test tag filtering shows only matching posts
+    - [ ] Test status tab filtering (new, ignored, done)
+    - [ ] Test status transitions (new -> ignored, new -> done)
+    - [ ] Test pagination navigation (if implemented)
+    - [ ] Test multi-tag assignment to a post
+    - [ ] Test removing tags from a post
+
+- [ ] **Write E2E tests for subreddit management**
+  - Description: Test adding, editing, removing subreddits
+  - Dependencies: 7.1 (Playwright setup)
+  - Files to create: `webapp/e2e/subreddits.spec.ts`
+  - Acceptance Criteria:
+    - [ ] Test adding new subreddit via settings
+    - [ ] Test subreddit name normalization (r/ prefix handling)
+    - [ ] Test duplicate subreddit prevention shows error
+    - [ ] Test removing subreddit with confirmation
+    - [ ] Test subreddit list updates after changes
+
+- [ ] **Write E2E tests for tag management**
+  - Description: Test tag CRUD operations
+  - Dependencies: 7.1 (Playwright setup)
+  - Files to create: `webapp/e2e/tags.spec.ts`
+  - Acceptance Criteria:
+    - [ ] Test creating new tag with name and color
+    - [ ] Test editing tag name
+    - [ ] Test editing tag color
+    - [ ] Test deleting tag with confirmation
+    - [ ] Test tag color picker interaction
+
+### 7.4 Settings E2E Tests
+- [ ] **Write E2E tests for settings pages**
+  - Description: Test account settings, connected accounts, API keys
+  - Dependencies: 7.1 (Playwright setup), Phases 2-4 (Settings features)
+  - Files to create: `webapp/e2e/settings.spec.ts`
+  - Acceptance Criteria:
+    - [ ] Test password change flow (success and error cases)
+    - [ ] Test Reddit connect button initiates OAuth (mock OAuth flow)
+    - [ ] Test Reddit disconnect with confirmation
+    - [ ] Test Groq API key add with masked input
+    - [ ] Test Groq API key remove with confirmation
+
+---
+
+## Phase 8: Test Coverage Gaps
+
+**Status: PARTIAL** (server action tests complete, other categories not started)
+**Priority: LOW** - Additional quality assurance
+
+Note: Current test coverage includes 152 tests across 5 files:
+- `webapp/__tests__/validations.test.ts` (43 tests)
+- `webapp/__tests__/reddit.test.ts` (21 tests)
+- `webapp/__tests__/actions/subreddits.test.ts` (15 tests)
+- `webapp/__tests__/actions/tags.test.ts` (44 tests)
+- `webapp/__tests__/actions/posts.test.ts` (29 tests)
+
+**Verified Missing:** No .test.tsx files exist (no component tests). No hook tests exist.
+
+Missing test categories: hooks, components, API routes, utils, encryption, password utilities.
+
+### 8.1 Missing Unit Tests
+- [ ] **Add utils.ts unit tests**
+  - Description: Test utility functions in lib/utils.ts
+  - Files to create: `webapp/__tests__/utils.test.ts`
+  - Acceptance Criteria:
+    - [ ] Test all exported utility functions
+    - [ ] Test edge cases and error conditions
+
+- [ ] **Add API route tests**
+  - Description: Test /api/suggest-terms endpoint
+  - Files to create: `webapp/__tests__/api/suggest-terms.test.ts`
+  - Acceptance Criteria:
+    - [ ] Test successful suggestion generation
+    - [ ] Test validation errors
+    - [ ] Test missing API key handling
+    - [ ] Test rate limiting behavior
+
+- [ ] **Add encryption module tests**
+  - Description: Test encryption utilities (once implemented in Phase 1.3)
+  - Files to create: `webapp/__tests__/encryption.test.ts`
+  - Acceptance Criteria:
+    - [ ] Test encrypt/decrypt round-trip
+    - [ ] Test IV uniqueness
+    - [ ] Test tamper detection
+    - [ ] Test error handling for missing key
+
+- [ ] **Add password module tests**
+  - Description: Test password utilities (once implemented in Phase 1.4)
+  - Files to create: `webapp/__tests__/password.test.ts`
+  - Acceptance Criteria:
+    - [ ] Test hash generation
+    - [ ] Test password verification
+    - [ ] Test bcrypt cost factor
+
+### 8.2 Component Tests
+- [ ] **Add React component tests**
+  - Description: Test UI components with React Testing Library
+  - Files to create: `webapp/__tests__/components/` directory with test files
+  - Acceptance Criteria:
+    - [ ] Test post-card rendering and interactions
+    - [ ] Test tag-filter selection behavior
+    - [ ] Test status-tabs switching
+    - [ ] Test settings panels CRUD operations
+    - [ ] Test toast notifications
+
+### 8.3 Hook Tests
+- [ ] **Add React Query hook tests**
+  - Description: Test custom hooks with mock providers
+  - Files to create: `webapp/__tests__/hooks/` directory with test files
+  - Acceptance Criteria:
+    - [ ] Test query hooks return correct data
+    - [ ] Test mutation hooks trigger cache invalidation
+    - [ ] Test loading and error states
+
+---
+
+## Summary
+
+| Phase | Description | Tasks | Status | Dependencies | Priority |
+|-------|-------------|-------|--------|--------------|----------|
+| 1 | Authentication Foundation | 11 | NOT STARTED | None | **CRITICAL** |
+| 2 | Settings Foundation | 2 | NOT STARTED | Phase 1 | HIGH |
+| 3 | Reddit OAuth Integration | 4 | NOT STARTED | Phase 1 | HIGH |
+| 4 | User API Keys (BYOK) | 3 | NOT STARTED | Phase 1 | MEDIUM |
+| 5 | UI Completion (Pagination) | 1 | NOT STARTED | None | LOW |
+| 6 | Minor Improvements | 2 | PARTIAL (1/2) | Various | LOW |
+| 7 | E2E Testing | 6 | NOT STARTED | All features | MEDIUM |
+| 8 | Test Coverage Gaps | 6 | PARTIAL | None | LOW |
+
+**Total Remaining Tasks: 35**
+
+### Acceptance Criteria Test Coverage (by spec)
+| Spec | Criteria | Tested | Gap |
+|------|----------|--------|-----|
+| authentication.md | 16 | 0 | 16 |
+| user-api-keys.md | 12 | 0 | 12 |
+| tag-system.md | 8 | 7 | 1 |
+| post-management.md | 9 | 8 | 1 |
+| subreddit-configuration.md | 8 | 7 | 1 |
+| reddit-integration.md | 12 | 5 | 7 |
+| llm-tag-suggestions.md | 12 | 0 | 12 |
+| ui-components.md | 24 | 0 | 24 |
+
+**Completed Tasks (from analysis):**
+- Database schema (6 core tables)
+- Server actions (4 files: posts, tags, subreddits, users placeholder)
+- UI Components (22 components)
+- React Query hooks (16 hooks)
+- Zod validations (5 schemas + getNextTagColor utility - defined but not integrated)
+- Unit tests (5 test files, 152 tests total)
+- LLM suggestions endpoint
+- Toast system
+- Project configuration
+
+### Critical Path
 ```
-Phase 1 (Setup)
+Phase 1 (Authentication) - CRITICAL BLOCKER
     |
-    v
-Phase 2 (Database) --> Phase 3 (Utilities)
-    |                       |
-    v                       v
-Phase 4 (Server Actions) <--+
+    +---> Phase 2 (Settings Foundation)
+    |         |
+    |         +---> Phase 7.4 (Settings E2E Tests)
     |
-    v
-Phase 5 (API Routes)
+    +---> Phase 3 (Reddit OAuth)
+    |         |
+    |         +---> Phase 6.2 (Subreddit Verification - optional)
     |
-    v
-Phase 6 (UI Components) --> Phase 7 (Polish)
-    |                           |
-    v                           v
-Phase 8 (Testing) <-------------+
+    +---> Phase 4 (User API Keys)
+    |
+    +---> Phase 7.2 (Auth E2E Tests)
+
+Phase 5 (Pagination) ---> Independent, can start anytime
+
+Phase 6.1 (getNextTagColor) ---> Independent, can start anytime
+
+Phase 7.1 (Playwright Setup) ---> Prerequisite for all E2E tests
+Phase 7.3 (Core E2E Tests) ---> Can start after 7.1
+
+Phase 8 (Test Coverage Gaps) ---> Independent, can start anytime
 ```
 
----
+### Quick Wins (No Dependencies)
+These tasks can be completed immediately without waiting for Phase 1:
+1. **Phase 6.1** - Integrate getNextTagColor in tag creation (~30 min)
+2. **Phase 5.1** - Implement pagination controls (~2-4 hours)
+3. **Phase 8.1** - Add utils.ts unit tests (~1 hour)
+4. **Phase 8.1** - Add API route tests for suggest-terms (~2 hours)
 
-## Environment Variables Required
+### Recommended Implementation Order
+1. **Phase 1.1-1.4** - Install deps, schema, encryption, password utils (parallel work possible)
+2. **Phase 1.5-1.8** - Auth.js config, middleware, UI, update actions (sequential)
+3. **Phase 5** - Pagination (independent, can be done in parallel with Phase 2-4)
+4. **Phase 6.1** - getNextTagColor integration (quick win)
+5. **Phase 2** - Settings foundation
+6. **Phase 3** - Reddit OAuth (can parallel with Phase 4)
+7. **Phase 4** - User API Keys
+8. **Phase 8** - Additional unit/component/hook tests (can be done incrementally)
+9. **Phase 7** - E2E Testing (after all features)
+10. **Phase 6.2** - Subreddit verification (optional, after Phase 3)
 
+### Environment Variables Required
 ```bash
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/social_tracker
+# Existing (already in use)
+DATABASE_URL=                    # PostgreSQL connection string
+REDDIT_CLIENT_ID=                # Reddit app client ID
+REDDIT_CLIENT_SECRET=            # Reddit app client secret
 
-# Reddit API (optional for dev)
-REDDIT_CLIENT_ID=your_client_id
-REDDIT_CLIENT_SECRET=your_client_secret
-REDDIT_USERNAME=your_username
-REDDIT_PASSWORD=your_password
+# New - Required for Phase 1
+AUTH_SECRET=                     # For Auth.js session signing (generate with: openssl rand -base64 32)
+ENCRYPTION_KEY=                  # 32-byte key for AES-256-GCM (generate with: openssl rand -base64 32)
 
-# Groq LLM (for term suggestions)
-GROQ_API_KEY=your_groq_api_key
+# Existing - Will remain as fallback
+GROQ_API_KEY=                    # Fallback API key for LLM (optional if users provide their own)
+
+# Currently used but to be deprecated after Phase 3
+REDDIT_USERNAME=                 # Remove after per-user OAuth implemented
+REDDIT_PASSWORD=                 # Remove after per-user OAuth implemented
 ```
 
----
+### Files to Create (Summary)
+```
+webapp/
+├── lib/
+│   ├── auth.ts                           # Phase 1.5
+│   ├── encryption.ts                     # Phase 1.3
+│   ├── password.ts                       # Phase 1.4
+│   └── llm.ts                            # Phase 4.3 (optional refactor)
+├── middleware.ts                         # Phase 1.6
+├── app/
+│   ├── login/
+│   │   └── page.tsx                      # Phase 1.7
+│   ├── signup/
+│   │   └── page.tsx                      # Phase 1.7
+│   ├── settings/
+│   │   ├── layout.tsx                    # Phase 2.1
+│   │   ├── page.tsx                      # Phase 2.1
+│   │   ├── account/
+│   │   │   └── page.tsx                  # Phase 2.2
+│   │   ├── connected-accounts/
+│   │   │   └── page.tsx                  # Phase 3.2
+│   │   └── api-keys/
+│   │       └── page.tsx                  # Phase 4.2
+│   ├── actions/
+│   │   ├── auth.ts                       # Phase 1.7
+│   │   ├── api-keys.ts                   # Phase 4.1
+│   │   └── reddit-connection.ts          # Phase 3.2
+│   └── api/
+│       └── auth/
+│           ├── [...nextauth]/
+│           │   └── route.ts              # Phase 1.5
+│           └── reddit/
+│               ├── route.ts              # Phase 3.1
+│               └── callback/
+│                   └── route.ts          # Phase 3.1
+├── components/
+│   ├── user-menu.tsx                     # Phase 1.7
+│   └── ui/
+│       └── pagination.tsx                # Phase 5.1
+├── __tests__/
+│   ├── utils.test.ts                     # Phase 8.1
+│   ├── encryption.test.ts                # Phase 8.1
+│   ├── password.test.ts                  # Phase 8.1
+│   ├── api/
+│   │   └── suggest-terms.test.ts         # Phase 8.1
+│   ├── components/                       # Phase 8.2
+│   │   └── *.test.tsx
+│   └── hooks/                            # Phase 8.3
+│       └── *.test.ts
+└── e2e/
+    ├── fixtures.ts                       # Phase 7.1
+    ├── helpers/
+    │   └── auth.ts                       # Phase 7.1
+    ├── auth.spec.ts                      # Phase 7.2
+    ├── posts.spec.ts                     # Phase 7.3
+    ├── subreddits.spec.ts                # Phase 7.3
+    ├── tags.spec.ts                      # Phase 7.3
+    └── settings.spec.ts                  # Phase 7.4
+```
 
-## Success Criteria
-
-The implementation is complete when:
-
-1. All tasks above are checked complete
-2. `npm run typecheck` passes with no errors
-3. `npm run test` passes with all unit tests green
-4. `npm run test:e2e` passes with all E2E tests green
-5. `npm run build` succeeds
-6. Application runs and all features work as specified
+### Files to Modify (Summary)
+```
+webapp/
+├── package.json                          # Phase 1.1 (add auth deps)
+├── drizzle/
+│   └── schema.ts                         # Phase 1.2 (auth columns + tables)
+├── lib/
+│   ├── validations.ts                    # Phase 1.4 (password schema)
+│   └── reddit.ts                         # Phase 3.1 (per-user tokens)
+├── components/
+│   ├── header.tsx                        # Phase 1.7 (user menu)
+│   ├── post-list.tsx                     # Phase 5.1 (pagination)
+│   └── settings/
+│       └── tag-settings.tsx              # Phase 6.1 (getNextTagColor)
+├── lib/hooks/
+│   └── index.ts                          # Phase 5.1 (pagination params)
+└── app/
+    ├── actions/
+    │   ├── users.ts                      # Phase 1.8 (replace placeholder)
+    │   ├── posts.ts                      # Phase 1.8 (use real auth)
+    │   ├── tags.ts                       # Phase 1.8, 6.1 (auth + getNextTagColor)
+    │   └── subreddits.ts                 # Phase 1.8, 6.2 (auth + verification)
+    └── api/
+        └── suggest-terms/
+            └── route.ts                  # Phase 4.3 (user API key)
+```
