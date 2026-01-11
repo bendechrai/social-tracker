@@ -67,14 +67,18 @@ while true; do
     ITERATION=$((ITERATION + 1))
     echo -e "\n\n======================== LOOP $ITERATION ========================\n"
 
-    # Run Claude with the prompt
+    # Run Ralph iteration with selected prompt
     # -p: Headless mode (non-interactive, reads from stdin)
-    # --dangerously-skip-permissions: Auto-approve all tool calls
-    # --model: Use opus for complex reasoning
-    # Reads prompt from file, shows interactive UI
+    # --dangerously-skip-permissions: Auto-approve all tool calls (YOLO mode)
+    # --output-format=stream-json: Structured output for logging/monitoring
+    # --model opus: Primary agent uses Opus for complex reasoning (task selection, prioritization)
+    #               Can use 'sonnet' in build mode for speed if plan is clear and tasks well-defined
+    # --verbose: Detailed execution logging
     cat "$PROMPT_FILE" | claude -p \
         --dangerously-skip-permissions \
-        --model opus
+        --output-format=stream-json \
+        --model opus \
+        --verbose
 
     # Push changes after each iteration
     git push origin "$CURRENT_BRANCH" 2>/dev/null || {
