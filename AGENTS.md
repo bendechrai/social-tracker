@@ -112,6 +112,7 @@ npm run db:studio
 
 ## Code Patterns
 
+- **Use npm, not pnpm or yarn** - keeps dependency management simple
 - Server Actions for mutations (not API routes where possible)
 - React Query for client-side data fetching
 - Drizzle for database operations (never raw SQL)
@@ -119,6 +120,18 @@ npm run db:studio
 - shadcn/ui components (install as needed via `npx shadcn@latest add <component>`)
 
 ## Common Issues
+
+### Docker volume permissions for node_modules
+
+The `webapp_node_modules` Docker volume is created with root ownership, preventing npm install from working inside the Ralph container.
+
+**To fix this, run from the HOST machine:**
+```bash
+docker compose down
+docker volume rm social-tracker_webapp_node_modules
+docker compose up -d db
+./ralph.sh  # Volume will be recreated with correct permissions
+```
 
 (Updated as issues are discovered during development)
 

@@ -73,7 +73,8 @@ while true; do
     # --model: Use opus for complex reasoning
     cat "$PROMPT_FILE" | claude -p \
         --dangerously-skip-permissions \
-        --model opus
+        --model opus \
+        --verbose
 
     # Push changes after each iteration
     git push origin "$CURRENT_BRANCH" 2>/dev/null || {
