@@ -30,7 +30,7 @@ export const handlers = [
               subreddit: subreddit,
               permalink: `/r/${subreddit}/comments/mock_post_1/mock_post/`,
               url: `https://reddit.com/r/${subreddit}/comments/mock_post_1/mock_post/`,
-              created_utc: Math.floor(Date.now() / 1000) - 3600,
+              created_utc: Math.floor(Date.now() / 1000) - 1800, // 30 minutes ago (within 1 hour window)
               score: 42,
               num_comments: 10,
             },

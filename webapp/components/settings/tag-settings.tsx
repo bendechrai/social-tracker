@@ -62,7 +62,7 @@ export function TagSettings({
 
   // Create form state
   const [newName, setNewName] = React.useState("");
-  const [newColor, setNewColor] = React.useState(TAG_COLOR_PALETTE[0]);
+  const [newColor, setNewColor] = React.useState<string>(TAG_COLOR_PALETTE[0]);
   const [newTerms, setNewTerms] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
 

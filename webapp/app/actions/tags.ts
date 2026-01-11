@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { tags, searchTerms, postTags } from "@/drizzle/schema";
+import { tags, searchTerms } from "@/drizzle/schema";
 import { getCurrentUserId } from "./users";
 import { tagSchema, searchTermSchema, TAG_COLOR_PALETTE } from "@/lib/validations";
 import { eq, and, asc, sql } from "drizzle-orm";
@@ -86,7 +86,7 @@ export async function createTag(
   // Validate tag input
   const parsed = tagSchema.safeParse({ name, color });
   if (!parsed.success) {
-    return { success: false, error: parsed.error.errors[0]?.message ?? "Invalid tag data" };
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid tag data" };
   }
 
   // Use default color if not provided
@@ -269,7 +269,7 @@ export async function addSearchTerm(
   // Validate and normalize term
   const parsed = searchTermSchema.safeParse(term);
   if (!parsed.success) {
-    return { success: false, error: parsed.error.errors[0]?.message ?? "Invalid search term" };
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid search term" };
   }
 
   // Check for duplicate (case-insensitive)

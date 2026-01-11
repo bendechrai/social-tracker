@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { posts, postTags, tags, searchTerms, subreddits } from "@/drizzle/schema";
+import { posts, postTags, tags, subreddits } from "@/drizzle/schema";
 import { getCurrentUserId } from "./users";
 import { postStatusSchema, type PostStatus } from "@/lib/validations";
 import { fetchRedditPosts, isRedditConfigured } from "@/lib/reddit";

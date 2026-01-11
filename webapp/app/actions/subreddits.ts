@@ -38,7 +38,7 @@ export async function addSubreddit(
   // Validate and normalize the name
   const parsed = subredditNameSchema.safeParse(name);
   if (!parsed.success) {
-    return { success: false, error: parsed.error.errors[0]?.message ?? "Invalid subreddit name" };
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid subreddit name" };
   }
 
   const normalizedName = parsed.data;

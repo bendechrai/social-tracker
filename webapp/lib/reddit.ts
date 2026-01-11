@@ -37,6 +37,11 @@ interface RedditListingResponse {
 // Token cache
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+// Clear token cache (for testing)
+export function clearTokenCache(): void {
+  cachedToken = null;
+}
+
 // Rate limiting: 60 requests per minute
 const RATE_LIMIT = 60;
 const RATE_WINDOW = 60 * 1000; // 1 minute in ms
@@ -71,6 +76,12 @@ async function getAccessToken(): Promise<string | null> {
 
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
 
+  const body = new URLSearchParams({
+    grant_type: "password",
+    username,
+    password,
+  });
+
   const response = await fetch("https://www.reddit.com/api/v1/access_token", {
     method: "POST",
     headers: {
@@ -78,11 +89,7 @@ async function getAccessToken(): Promise<string | null> {
       "Content-Type": "application/x-www-form-urlencoded",
       "User-Agent": "SocialTracker/1.0 (by /u/" + username + ")",
     },
-    body: new URLSearchParams({
-      grant_type: "password",
-      username,
-      password,
-    }),
+    body: body.toString(),
   });
 
   if (!response.ok) {

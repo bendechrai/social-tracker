@@ -8,27 +8,16 @@ Complete implementation roadmap for the Social Media Tracker application. Tasks 
 
 ## Current Status Summary
 
-**Completed:** 38/46 tasks
+**Completed:** 40/46 tasks
 
-**All code implementation is complete (Phases 1-7).** Phase 8 testing is pending.
+**All code implementation is complete (Phases 1-7).** Phase 8 testing is in progress.
 
-**BLOCKER:** npm install cannot run due to Docker volume permissions issue. The node_modules volume is owned by root but container runs as ralph.
-
-**Fix Applied:** Updated Dockerfile.ralph and created entrypoint.sh to handle permissions on startup. Container needs to be rebuilt from host with:
-```bash
-docker compose down
-docker compose build ralph
-docker compose up -d db
-./ralph.sh
-```
-
-**Next Steps after container rebuild:**
-1. Run npm install
-2. Run npm run db:generate to create migrations
-3. Run npm run db:migrate to apply migrations
-4. Run validation suite (npm run typecheck && npm run lint && npm run build)
-5. Create tests (Phase 8)
-6. Commit and tag
+**Next Steps:**
+1. Continue Phase 8 testing (Unit Tests - Server Actions, UI Components)
+2. Create E2E tests (Phases 8.5-8.8)
+3. Complete keyboard accessibility (Phase 7.5) and responsive design (Phase 7.6)
+4. Run full validation suite (npm run typecheck && npm run lint && npm run build)
+5. Commit and tag
 
 ---
 
@@ -763,20 +752,25 @@ Verification layer ensuring correctness.
 
 ### 8.1 Unit Tests - Validation Schemas
 
-- [ ] **Write tests for Zod schemas**
+- [x] **Write tests for Zod schemas**
   - Files: `webapp/__tests__/validations.test.ts`
   - Coverage:
     - Subreddit name validation (valid/invalid cases)
     - Tag schema validation
     - Post status enum validation
+    - Search term schema validation
+    - Suggest terms schema validation
+    - TAG_COLOR_PALETTE and getNextTagColor helper
   - Dependencies: 3.1, 1.6
   - Tests:
-    - All validation rules are exercised
+    - All validation rules are exercised (52 tests)
     - Error messages are descriptive
+  - Notes:
+    - Fixed ZodError.errors to use .issues for proper error access
 
 ### 8.2 Unit Tests - Reddit Client
 
-- [ ] **Write tests for Reddit API client**
+- [x] **Write tests for Reddit API client**
   - Files: `webapp/__tests__/reddit.test.ts`
   - Coverage:
     - Token acquisition and refresh
@@ -784,10 +778,17 @@ Verification layer ensuring correctness.
     - Rate limiting behavior
     - Error handling
     - Missing credentials handling
+    - Post deduplication
+    - Time filtering
+    - Sorting by created_utc
   - Dependencies: 3.2, 3.3, 1.6
   - Tests:
-    - Uses MSW mocks for Reddit API
+    - Uses MSW mocks for Reddit API (16 tests)
     - All client functions tested
+  - Notes:
+    - Fixed lib/reddit.ts URLSearchParams body to use .toString() for MSW compatibility
+    - Added clearTokenCache() function for test isolation
+    - Fixed mocks/handlers.ts mock post timestamp to be within 1-hour window
 
 ### 8.3 Unit Tests - Server Actions
 
