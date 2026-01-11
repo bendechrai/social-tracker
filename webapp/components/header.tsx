@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCwIcon, SettingsIcon, Loader2Icon } from "lucide-react";
+import { UserMenu } from "@/components/user-menu";
+import { RefreshCwIcon, Loader2Icon } from "lucide-react";
 
 interface HeaderProps {
   onFetch: () => Promise<{ success: boolean; count?: number; message?: string; error?: string }>;
@@ -55,10 +56,7 @@ export function Header({ onFetch, onSettingsClick, isFetching = false }: HeaderP
               </>
             )}
           </Button>
-          <Button variant="outline" onClick={onSettingsClick}>
-            <SettingsIcon className="h-4 w-4 mr-2" />
-            Settings
-          </Button>
+          <UserMenu onSettingsClick={onSettingsClick} />
         </div>
       </div>
     </header>
