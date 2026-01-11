@@ -72,7 +72,7 @@ while true; do
     # --dangerously-skip-permissions: Auto-approve all tool calls
     # --model: Use opus for complex reasoning
     # Reads prompt from file, shows interactive UI
-    cat "$PROMPT_FILE" | claude \
+    cat "$PROMPT_FILE" | claude -p \
         --dangerously-skip-permissions \
         --model opus
 

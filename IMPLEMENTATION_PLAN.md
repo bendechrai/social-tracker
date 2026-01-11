@@ -8,7 +8,7 @@ Complete implementation roadmap for the Social Media Tracker application. Tasks 
 
 ## Current Status Summary
 
-**Completed:** 40/46 tasks
+**Completed:** 41/46 tasks
 
 **All code implementation is complete (Phases 1-7).** Phase 8 testing is in progress.
 
@@ -792,7 +792,7 @@ Verification layer ensuring correctness.
 
 ### 8.3 Unit Tests - Server Actions
 
-- [ ] **Write tests for server actions**
+- [x] **Write tests for server actions**
   - Files:
     - `webapp/__tests__/actions/subreddits.test.ts`
     - `webapp/__tests__/actions/tags.test.ts`
