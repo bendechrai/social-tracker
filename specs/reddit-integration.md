@@ -58,6 +58,16 @@ For each post, extract:
 - Log and skip permanently failed requests (4xx except 429)
 - Handle Reddit API being temporarily unavailable
 - Store failed fetch attempts for debugging
+- If Reddit credentials are not configured, skip fetch gracefully with a warning (don't crash)
+
+## Development Without Reddit Credentials
+
+Reddit API access requires approval which may take several days. The app should be fully functional for development and testing without real Reddit credentials:
+
+- Use MSW (Mock Service Worker) to mock Reddit API responses in tests
+- Seed script provides fake posts for UI development
+- Fetch button shows helpful message if credentials not configured
+- All other features (tags, subreddits config, post management, UI) work independently
 
 ## Acceptance Criteria
 

@@ -10,6 +10,7 @@ out/
 .env.local
 .env.*.local
 .env.devports
+# Note: .env.devports.example is NOT ignored (safe to commit)
 
 # Generated from devports templates (keep templates, ignore generated)
 docker-compose.yml

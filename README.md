@@ -24,6 +24,9 @@ A developer relations tool for monitoring Reddit for mentions of topics you care
 git clone https://github.com/bendechrai/social-tracker.git
 cd social-tracker
 
+# Copy the example env file
+cp .env.devports.example .env.devports
+
 # Initialize devports (allocates ports, generates .env and docker-compose.yml)
 devports setup
 
