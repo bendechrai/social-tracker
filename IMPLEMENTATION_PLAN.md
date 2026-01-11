@@ -8,7 +8,7 @@ Complete implementation roadmap for the Social Media Tracker application. Tasks 
 
 ## Current Status Summary
 
-**Completed:** 0/45 tasks
+**Completed:** 0/46 tasks
 
 **Current State (verified via code analysis):**
 - Fresh Next.js 16 + React 19 project with default boilerplate
@@ -64,11 +64,13 @@ Foundation layer that enables all subsequent development.
     npm install -D playwright @playwright/test
     npm install -D msw
     npm install -D tsx
+    npm install -D @types/node
     ```
   - Dependencies: None
   - Tests:
     - All packages appear in package.json devDependencies
     - No installation errors
+    - Packages installed: drizzle-kit, vitest, @vitejs/plugin-react, jsdom, @testing-library/react, @testing-library/dom, @testing-library/jest-dom, playwright, @playwright/test, msw, tsx, @types/node
 
 ### 1.3 Configure TypeScript Strict Mode
 
@@ -247,16 +249,20 @@ Shared libraries that enable business logic and external integrations.
 - [ ] **Define validation schemas for all entities**
   - Files: `webapp/lib/validations.ts`
   - Schemas:
-    - `subredditNameSchema` - string, 3-21 chars, alphanumeric + underscore, lowercase
-    - `tagSchema` - name (string 1-100), color (hex string, optional)
-    - `searchTermSchema` - term (string 1-255)
+    - `subredditNameSchema` - string, 3-21 chars, alphanumeric + underscore, lowercase, strips r/ prefix
+    - `tagSchema` - name (string 1-100), color (hex string, optional, default from palette)
+    - `searchTermSchema` - term (string 1-255), normalized to lowercase for case-insensitive matching
     - `postStatusSchema` - enum: new, ignored, done
     - `suggestTermsSchema` - tagName (string 1-100)
+  - Exports:
+    - `TAG_COLOR_PALETTE` - array of 8 default colors: #6366f1 (indigo), #f43f5e (rose), #f59e0b (amber), #10b981 (emerald), #06b6d4 (cyan), #a855f7 (purple), #ec4899 (pink), #3b82f6 (blue)
   - Dependencies: 1.1
   - Tests:
     - Valid inputs pass validation
     - Invalid inputs return descriptive errors
-    - Subreddit names with r/ prefix are normalized
+    - Subreddit names with r/ prefix are normalized (stripped and lowercased)
+    - Search terms are normalized to lowercase
+    - TAG_COLOR_PALETTE contains exactly 8 valid hex colors
 
 ### 3.2 Create Reddit API Client
 
@@ -318,41 +324,46 @@ Data mutation layer using Next.js Server Actions.
     - `listSubreddits()` - returns all subreddits for current user, alphabetically
     - `addSubreddit(name)` - validates, normalizes (strips r/, lowercase), creates
     - `removeSubreddit(id)` - deletes subreddit record
-  - Dependencies: 2.2, 3.1, 4.1
+    - `validateSubredditExists(name)` - (optional) checks if subreddit exists on Reddit via API
+  - Dependencies: 2.2, 3.1, 3.2, 4.1
   - Tests:
     - Adding valid subreddit creates record and returns it
     - "r/PostgreSQL" is normalized to "postgresql"
     - Invalid names (special chars, wrong length) return validation error
     - Duplicate names for same user return error
     - Removing subreddit deletes record
-    - Existing posts from removed subreddit remain in database
+    - Existing posts from removed subreddit remain in database (verify with query)
     - List returns subreddits in alphabetical order
+    - (Optional) validateSubredditExists returns true for valid subreddits, false/error for invalid
 
 ### 4.3 Create Tag Actions
 
 - [ ] **Create CRUD actions for tags**
   - Files: `webapp/app/actions/tags.ts`
   - Actions:
-    - `listTags()` - returns all tags with search terms and post counts
+    - `listTags()` - returns all tags with search terms and post counts, ordered alphabetically
     - `getTag(id)` - returns single tag with terms
-    - `createTag(name, color?, initialTerms?)` - creates tag and optional terms
+    - `createTag(name, color?, initialTerms?)` - creates tag and optional terms; uses default color from palette if not provided
     - `updateTag(id, name?, color?)` - updates tag fields
     - `deleteTag(id)` - deletes tag (cascades to terms and post_tags)
-    - `addSearchTerm(tagId, term)` - adds term to tag
+    - `addSearchTerm(tagId, term)` - adds term to tag (normalized to lowercase)
     - `removeSearchTerm(termId)` - removes term
   - Dependencies: 2.2, 3.1, 4.1
   - Tests:
     - Creating tag with valid data succeeds
+    - Creating tag without color uses first palette color (#6366f1)
     - Creating tag with initial terms creates both tag and terms
     - Duplicate tag names for same user return error
-    - Duplicate terms within same tag return error
+    - Duplicate terms within same tag return error (case-insensitive: "Yugabyte" = "yugabyte")
     - Updating tag name/color persists changes
     - Deleting tag removes associated search terms
     - Deleting tag removes post_tag associations but posts remain
     - Adding term to existing tag succeeds
+    - Adding term normalizes to lowercase before storage
     - Removing term doesn't affect already-tagged posts
     - List includes accurate post count per tag
-    - Terms are handled case-insensitively
+    - List returns tags ordered alphabetically by name
+    - Terms are stored and compared case-insensitively
 
 ### 4.4 Create Post Actions
 
@@ -394,20 +405,24 @@ RESTful endpoints for client-side features.
   - Response: `{ suggestions: string[] }`
   - Logic:
     - Validate tagName is non-empty
-    - Call Groq LLM with system prompt for search term suggestions
+    - Call Groq LLM (llama-3.3-70b-versatile) with system prompt for search term suggestions
     - Parse JSON array from response
-    - Return suggestions array
+    - Return suggestions array (all lowercase)
+  - System Prompt: "You are helping a developer relations professional track mentions of a technology topic on Reddit. Given a topic name, suggest search terms that would find relevant Reddit posts about this topic. Include: the exact topic name (lowercase), common variations and abbreviations, component names or features, related technical terms, common misspellings if applicable. Return ONLY a JSON array of strings, no explanation. Keep terms lowercase. Aim for 5-15 terms."
   - Error Handling:
-    - Empty tagName returns 400
-    - LLM errors return empty array (don't crash)
-    - Invalid JSON response triggers retry, then empty array
+    - Empty tagName returns 400 with error message
+    - LLM errors return empty array (don't crash), log error server-side
+    - Invalid JSON response triggers ONE retry, then returns empty array
+    - Missing GROQ_API_KEY returns empty array gracefully
   - Dependencies: 1.1
   - Tests:
     - Valid tagName returns array of suggestion strings
     - Empty tagName returns 400 error
     - API errors return empty suggestions array, not 500
-    - Response suggestions are lowercase strings
+    - Response suggestions are all lowercase strings
     - Returns 5-15 relevant suggestions for known topics
+    - Invalid JSON from LLM triggers retry logic
+    - Missing API key doesn't cause 500 error
 
 ---
 
@@ -435,20 +450,28 @@ User interface layer built bottom-up from primitives to composed views.
   - Files: `webapp/components/post-card.tsx`
   - Props: `{ post: Post, onStatusChange: (status) => void, onResponseUpdate?: (text) => void }`
   - Features:
-    - Header: title (link to Reddit), tag badges
-    - Meta: subreddit, author, relative time, score, comments
-    - Body: truncated post text (~3 lines)
+    - Header: title (link to Reddit, opens in new tab), tag badges in top-right
+    - Meta: subreddit (r/name), author (u/name), relative time (e.g., "2 hours ago"), score, comments
+    - Body: truncated post text (~3 lines with "..." if longer)
     - Actions: status-specific buttons (Ignore, Mark Done, Mark as New)
-    - Response field: textarea for done status, auto-saves on blur
-    - Footer: "View on Reddit" link
+    - Response field (done status only):
+      - Textarea for pasting response
+      - Auto-saves on blur AND after typing pause (debounced, ~500ms)
+      - Shows "Saved" indicator briefly after save
+      - Shows responded_at timestamp if set
+    - Footer: "View on Reddit" link (always visible)
   - Dependencies: 1.9, 6.1
   - Tests:
     - Displays post title, meta info, and body
-    - Title links to Reddit in new tab
-    - Tag badges render with correct colors
+    - Title links to Reddit in new tab (target="_blank")
+    - Tag badges render with correct colors in top-right corner
     - Action buttons match current status (new shows Ignore/Done, ignored shows Mark New, done shows Mark New)
     - Response textarea appears only for done status
-    - View on Reddit opens correct permalink
+    - Response textarea auto-saves on blur
+    - Response textarea auto-saves after typing pause (debounced)
+    - "Saved" indicator appears briefly after successful save
+    - responded_at timestamp displays when set
+    - View on Reddit opens correct permalink in new tab
 
 ### 6.3 Create Post List Component
 
@@ -491,6 +514,7 @@ User interface layer built bottom-up from primitives to composed views.
     - Shows all tags with colors
     - "All" option to clear selection
     - Multiple tags can be selected
+    - Selection persists across tab switches (state managed by parent)
   - Dependencies: 1.9, 6.1
   - Tests:
     - Displays all available tags
@@ -498,6 +522,7 @@ User interface layer built bottom-up from primitives to composed views.
     - "All" option clears selection
     - Selected tags are visually indicated
     - Calls onChange with selected tag IDs
+    - Selection state is controlled by parent (not internal state)
 
 ### 6.6 Create Subreddit Settings Component
 
@@ -524,19 +549,20 @@ User interface layer built bottom-up from primitives to composed views.
     - Lists tags with expand/collapse for terms
     - Add tag button opens form
     - Edit tag (name, color)
-    - Delete tag with confirmation
+    - Delete tag with confirmation dialog
     - Add/remove terms per tag
-    - Color picker from palette
-  - Dependencies: 1.9, 4.3, 6.1
+    - Color picker from palette (uses TAG_COLOR_PALETTE from validations.ts)
+  - Dependencies: 1.9, 3.1, 4.3, 6.1
   - Tests:
     - Displays all tags
     - Can expand tag to see search terms
     - Can add new tag with name and color
     - Can edit existing tag name/color
-    - Can delete tag (shows confirmation)
+    - Can delete tag (shows confirmation dialog before deleting)
     - Can add terms to existing tag
     - Can remove terms from tag
-    - Color picker shows palette options
+    - Color picker shows all 8 palette options
+    - Default color is selected when creating new tag
 
 ### 6.8 Create Suggest Terms Component
 
@@ -544,20 +570,23 @@ User interface layer built bottom-up from primitives to composed views.
   - Files: `webapp/components/settings/suggest-terms.tsx`
   - Props: `{ tagName: string, existingTerms: string[], onAdd: (terms) => void }`
   - Features:
-    - "Suggest Terms" button
-    - Loading state with spinner
+    - "Suggest Terms" button (with sparkle icon or similar)
+    - Button disabled for 2 seconds after click (client-side rate limiting)
+    - Loading state with spinner and "Thinking..." text
     - Checkbox list of suggestions
-    - Existing terms pre-checked and marked
-    - "Add Selected" button
+    - Existing terms pre-checked and marked as "(already added)"
+    - "Add Selected" button to add checked terms
   - Dependencies: 1.9, 5.1
   - Tests:
-    - Button triggers API call
-    - Loading spinner shows during fetch
+    - Button triggers API call to /api/suggest-terms
+    - Button is disabled for 2 seconds after click (spam prevention)
+    - Loading spinner and "Thinking..." shows during fetch
     - Suggestions display as checkboxes
-    - Existing terms marked as "(already added)"
+    - Existing terms are pre-checked and marked as "(already added)"
     - Can select/deselect suggestions
-    - Add Selected adds only new selected terms
-    - API error shows user-friendly message
+    - Add Selected adds only new selected terms (not already-existing ones)
+    - API error shows user-friendly message (not crash)
+    - Empty suggestions array shows "No suggestions found" message
 
 ### 6.9 Create Settings Panel Component
 
@@ -595,22 +624,28 @@ User interface layer built bottom-up from primitives to composed views.
 - [ ] **Implement main page with all components**
   - Files: `webapp/app/page.tsx`
   - Features:
-    - React Query provider setup
-    - Header with fetch/settings
+    - React Query provider setup (via Providers wrapper)
+    - Header with fetch/settings buttons
     - Status tabs with counts
-    - Tag filter
+    - Tag filter (selection persists across tab switches)
     - Post list for current status/filter
     - Settings panel (modal)
-    - Toast notifications for errors
-  - Dependencies: 6.3, 6.4, 6.5, 6.9, 6.10
+    - Toast notifications for errors and success feedback
+  - State Management:
+    - Current status tab (state)
+    - Selected tag IDs for filter (state, persists across tab changes)
+    - Settings panel open/closed (state)
+  - Dependencies: 6.3, 6.4, 6.5, 6.9, 6.10, 6.12
   - Tests:
     - Page loads without errors
     - All components render correctly
-    - Tab switching updates post list
+    - Tab switching updates post list but preserves tag filter selection
     - Tag filter updates post list
     - Status changes reflect immediately (optimistic update)
     - Fetch button works end-to-end
     - Settings panel opens and closes
+    - Toast appears on successful fetch with count
+    - Toast appears on errors
 
 ### 6.12 Setup React Query Provider
 
@@ -787,45 +822,95 @@ Verification layer ensuring correctness.
 - [ ] **Write Playwright tests for post lifecycle**
   - Files: `webapp/e2e/posts.spec.ts`
   - Scenarios:
-    - View posts in each status tab
-    - Change post status via buttons
-    - Add response text to done post
-    - Filter posts by tag
+    - View posts in each status tab (new, ignored, done)
+    - Change post status via buttons (new->ignored, new->done, ignored->new, done->new)
+    - Add response text to done post (verify auto-save on blur)
+    - Filter posts by single tag
+    - Filter posts by multiple tags (OR logic)
+    - Combined status + tag filtering
+    - Verify pagination works for large result sets
+    - Verify posts ordered by reddit_created_at descending
   - Dependencies: All phases, 1.7
   - Tests:
     - Full user flow works end-to-end
+    - Tab counts are accurate and update after status changes
     - Status changes persist across page reload
-    - Response text saves correctly
+    - Response text saves correctly and shows "Saved" indicator
+    - responded_at timestamp displays for done posts
+    - Tag filter selection persists across tab switches
+    - Posts with multiple tags show all tag badges
 
 ### 8.6 E2E Tests - Settings Flow
 
 - [ ] **Write Playwright tests for settings**
   - Files: `webapp/e2e/settings.spec.ts`
   - Scenarios:
-    - Add and remove subreddit
-    - Create tag with search terms
-    - Edit tag color
-    - Delete tag
-    - Use LLM term suggestions
+    - Open and close settings panel (via button and escape key)
+    - Add valid subreddit (verify normalization: "r/PostgreSQL" -> "postgresql")
+    - Add invalid subreddit (verify validation error displayed)
+    - Add duplicate subreddit (verify error displayed)
+    - Remove subreddit (verify removed from list, posts remain)
+    - Create tag with name and custom color
+    - Create tag with initial search terms
+    - Edit tag name
+    - Edit tag color using color picker
+    - Delete tag (verify confirmation dialog, verify cascade removes terms)
+    - Add search term to existing tag
+    - Remove search term from tag
+    - Use LLM term suggestions (button click, loading state, checkbox selection, add selected)
+    - Verify 2-second cooldown on suggest button
   - Dependencies: All phases, 1.7
   - Tests:
     - All settings operations work end-to-end
-    - Changes persist across sessions
+    - Changes persist across page reload
+    - Validation errors display inline
+    - Color picker shows all 8 palette colors
+    - Keyboard navigation works (tab, enter, escape)
 
 ### 8.7 E2E Tests - Fetch Flow
 
 - [ ] **Write Playwright tests for fetching posts**
   - Files: `webapp/e2e/fetch.spec.ts`
   - Scenarios:
-    - Click Fetch New with mock Reddit data
-    - Verify new posts appear
-    - Verify deduplication
-    - Verify tag assignment
+    - Click Fetch New button (verify loading state with spinner)
+    - Verify success toast shows count of new posts
+    - Verify new posts appear in "New" tab with correct data
+    - Verify deduplication (same reddit_id not duplicated on re-fetch)
+    - Verify tag assignment (posts matching search terms get correct tags)
+    - Verify posts matching multiple terms get multiple tags
+    - Handle empty results gracefully (toast with "0 new posts" or similar)
+    - Handle missing Reddit credentials gracefully (helpful message, no crash)
   - Dependencies: All phases, 1.7
   - Tests:
-    - Fetch button triggers post import
-    - New posts appear in UI
-    - Handles empty results gracefully
+    - Fetch button shows spinner during operation
+    - Button is disabled during fetch (prevents double-click)
+    - Success toast appears with count of newly added posts
+    - New posts appear in UI immediately after fetch
+    - Handles API errors gracefully with error toast
+    - Works with MSW mocks for Reddit API
+
+### 8.8 E2E Tests - Accessibility & Responsive
+
+- [ ] **Write Playwright tests for accessibility and responsiveness**
+  - Files: `webapp/e2e/accessibility.spec.ts`
+  - Scenarios:
+    - Keyboard navigation through entire UI (tab order)
+    - Focus visible states on all interactive elements
+    - Modal focus trap (settings panel)
+    - Escape key closes modals
+    - Enter/Space activates buttons
+    - Touch targets adequately sized (44px minimum)
+    - Mobile viewport (320px width) - no horizontal scroll
+    - Mobile viewport - stacked layout renders correctly
+    - Tablet viewport - layout adapts correctly
+  - Dependencies: All phases, 1.7
+  - Tests:
+    - Can navigate entire UI with keyboard only
+    - Focus indicators are visible on all focusable elements
+    - Settings modal traps focus when open
+    - UI is usable at 320px viewport width
+    - No horizontal scrollbar on mobile
+    - All interactive elements have accessible names
 
 ---
 
