@@ -11,15 +11,18 @@ This document outlines the implementation status and remaining tasks for complet
 
 ### Completed Features ✓
 - **Database Schema** - 6 core tables (users, posts, tags, subreddits, searchTerms, postTags) with proper relationships, indexes, and cascade deletes
+- **Authentication Schema** - Auth.js required tables (sessions, accounts, verification_tokens) and user authentication columns
 - **Server Actions** - Full CRUD for posts, tags, subreddits, search terms with validation (4 action files)
 - **Reddit API Client** - Using app-level credentials (password grant), rate limiting (60/min), exponential backoff, token caching, deduplication
 - **UI Components** - 22 components total (11 UI primitives + 11 app components: post-list, post-card, tag-filter, tag-badge, status-tabs, header, settings modal with subreddit/tag management, providers)
 - **React Query Hooks** - 16 hooks for all CRUD operations with proper cache invalidation (15 in index.ts + use-toast)
-- **Zod Validations** - Schemas for subreddits, tags, search terms, post status, suggest terms
-- **Unit Tests** - 5 test files (152 tests total): validations.test.ts (43), reddit.test.ts (21), subreddits.test.ts (15), tags.test.ts (44), posts.test.ts (29)
+- **Zod Validations** - Schemas for subreddits, tags, search terms, post status, suggest terms, password, email
+- **Unit Tests** - 7 test files (213 tests total): validations.test.ts (43), reddit.test.ts (21), subreddits.test.ts (15), tags.test.ts (44), posts.test.ts (29), encryption.test.ts (24), password.test.ts (17)
+- **Encryption System** - AES-256-GCM encryption utilities (encrypt/decrypt with iv:authTag:ciphertext format)
+- **Password Utilities** - bcrypt hashing with cost factor 12
 - **LLM Suggestions** - /api/suggest-terms endpoint using Groq API (falls back to env var)
 - **Toast System** - Complete notification system
-- **Project Setup** - Vitest, Playwright, MSW configured; all dependencies except auth packages
+- **Project Setup** - Vitest, Playwright, MSW configured; all dependencies including auth packages
 
 ### Specification Requirements Reference
 - **Auth**: Auth.js v5, bcrypt cost 12, password 12+ chars with upper/lower/number/symbol, 7-day sessions
@@ -32,6 +35,7 @@ The application currently uses a placeholder authentication system:
 - `webapp/app/actions/users.ts` has `getOrCreateDefaultUser()` creating "dev@example.com"
 - `getCurrentUserId()` always returns the default user ID
 - NO real authentication - this is a CRITICAL blocker for production use
+- Foundation work complete: encryption, password hashing, database schema, validation schemas
 
 ### Known Issues (Minor)
 - `webapp/lib/hooks/use-toast.ts` line 8: `TOAST_REMOVE_DELAY = 1000000` (~16.7 minutes) appears unusually high
@@ -40,8 +44,6 @@ The application currently uses a placeholder authentication system:
 
 ### Missing Files Summary (Verified)
 The following files DO NOT exist and need to be created:
-- `webapp/lib/encryption.ts` - AES-256-GCM encryption utilities
-- `webapp/lib/password.ts` - bcrypt password hashing
 - `webapp/lib/auth.ts` - Auth.js configuration
 - `webapp/middleware.ts` - Route protection
 - `webapp/app/login/page.tsx` - Login page
@@ -57,125 +59,137 @@ The following files DO NOT exist and need to be created:
 - `webapp/__tests__/components/*` - No component tests exist
 - `webapp/__tests__/api/*` - No API route tests exist
 - `webapp/__tests__/utils.test.ts` - No utils tests
-- `webapp/__tests__/encryption.test.ts` - No encryption tests
-- `webapp/__tests__/password.test.ts` - No password tests
 
-### Missing Database Schema (Verified)
+### Files That Now Exist (Previously Missing)
+- `webapp/lib/encryption.ts` - AES-256-GCM encryption utilities (COMPLETE)
+- `webapp/lib/password.ts` - bcrypt password hashing (COMPLETE)
+- `webapp/__tests__/encryption.test.ts` - Encryption tests (24 tests) (COMPLETE)
+- `webapp/__tests__/password.test.ts` - Password tests (17 tests) (COMPLETE)
+
+### Database Schema Status
+**Completed:**
 - Sessions, accounts, verification_tokens tables (required by Auth.js)
-- Users table missing columns: password_hash, reddit_access_token, reddit_refresh_token, reddit_token_expires_at, reddit_username, groq_api_key
+- Users table authentication columns: password_hash, reddit_access_token, reddit_refresh_token, reddit_token_expires_at, reddit_username, groq_api_key
+- Migration file: drizzle/migrations/0000_orange_spyke.sql
 
-### Missing Packages (Verified)
-- next-auth NOT installed
-- bcrypt NOT installed
-- @types/bcrypt NOT installed
+### Package Status
+**Installed:**
+- next-auth@beta (Auth.js v5)
+- bcrypt
+- @types/bcrypt (dev dependency)
 
 ---
 
 ## Phase 1: Authentication Foundation
 
-**Status: NOT STARTED**
+**Status: PARTIAL (4/11 tasks complete)**
 **Priority: CRITICAL** - All other phases depend on this
 
 Authentication is the foundational layer that all other features depend on.
 
 ### 1.1 Install Authentication Dependencies
-- [ ] **Add auth packages to package.json**
+- [x] **Add auth packages to package.json** - COMPLETE
   - Description: Install next-auth (Auth.js v5) and bcrypt packages
   - Dependencies: None
   - Files to modify: `webapp/package.json`
   - Commands: `npm install next-auth@beta bcrypt && npm install -D @types/bcrypt`
   - Acceptance Criteria:
-    - [ ] next-auth@beta installed
-    - [ ] bcrypt installed
-    - [ ] @types/bcrypt installed as dev dependency
+    - [x] next-auth@beta installed
+    - [x] bcrypt installed
+    - [x] @types/bcrypt installed as dev dependency
   - **Test Requirements**:
     - Verify packages are in package.json
     - Verify imports work without errors
 
 ### 1.2 Database Schema for Authentication
-- [ ] **Add authentication columns to users table**
+- [x] **Add authentication columns to users table** - COMPLETE
   - Description: Extend the users table with password_hash column and OAuth token columns for Reddit integration
   - Dependencies: None
   - Files to modify: `webapp/drizzle/schema.ts`, create migration in `webapp/drizzle/`
   - Acceptance Criteria:
-    - [ ] users table has `password_hash` column (text, nullable for OAuth-only users)
-    - [ ] users table has `reddit_access_token` column (text, nullable, for encrypted token)
-    - [ ] users table has `reddit_refresh_token` column (text, nullable, for encrypted token)
-    - [ ] users table has `reddit_token_expires_at` column (timestamp, nullable)
-    - [ ] users table has `reddit_username` column (text, nullable)
-    - [ ] users table has `groq_api_key` column (text, nullable, for encrypted key)
-    - [ ] Migration runs successfully without data loss
+    - [x] users table has `password_hash` column (text, nullable for OAuth-only users)
+    - [x] users table has `reddit_access_token` column (text, nullable, for encrypted token)
+    - [x] users table has `reddit_refresh_token` column (text, nullable, for encrypted token)
+    - [x] users table has `reddit_token_expires_at` column (timestamp, nullable)
+    - [x] users table has `reddit_username` column (text, nullable)
+    - [x] users table has `groq_api_key` column (text, nullable, for encrypted key)
+    - [x] Migration runs successfully without data loss
   - **Test Requirements**:
     - Unit test: Verify schema exports include new columns
     - Integration test: Migration applies cleanly to test database
 
-- [ ] **Create Auth.js required tables**
+- [x] **Create Auth.js required tables** - COMPLETE
   - Description: Add sessions, accounts, and verification_tokens tables required by Auth.js v5
   - Dependencies: None
   - Files to create/modify: `webapp/drizzle/schema.ts`, create migration
+  - Migration file: `drizzle/migrations/0000_orange_spyke.sql`
   - Acceptance Criteria:
-    - [ ] `sessions` table exists with: id, sessionToken, userId, expires
-    - [ ] `accounts` table exists with: id, userId, type, provider, providerAccountId, refresh_token, access_token, expires_at, token_type, scope, id_token, session_state
-    - [ ] `verification_tokens` table exists with: identifier, token, expires
-    - [ ] Foreign key relationships properly defined with cascade deletes
-    - [ ] Migration runs successfully
+    - [x] `sessions` table exists with: id, sessionToken, userId, expires
+    - [x] `accounts` table exists with: id, userId, type, provider, providerAccountId, refresh_token, access_token, expires_at, token_type, scope, id_token, session_state
+    - [x] `verification_tokens` table exists with: identifier, token, expires
+    - [x] Foreign key relationships properly defined with cascade deletes
+    - [x] Migration runs successfully
   - **Test Requirements**:
     - Unit test: Verify all Auth.js tables are exported from schema
     - Integration test: Verify foreign key constraints work correctly
 
 ### 1.3 Encryption System
-- [ ] **Implement AES-256-GCM encryption utilities**
+- [x] **Implement AES-256-GCM encryption utilities** - COMPLETE
   - Description: Create encryption module for sensitive data (tokens, API keys)
   - Dependencies: None
-  - Files to create: `webapp/lib/encryption.ts`
+  - Files created: `webapp/lib/encryption.ts`
+  - Tests: `webapp/__tests__/encryption.test.ts` (24 tests)
   - Acceptance Criteria:
-    - [ ] `encrypt(plaintext: string): string` function implemented
-    - [ ] `decrypt(ciphertext: string): string` function implemented
-    - [ ] Uses AES-256-GCM algorithm
-    - [ ] Output format is `iv:authTag:ciphertext` (base64 encoded)
-    - [ ] Uses `ENCRYPTION_KEY` environment variable (32 bytes for AES-256)
-    - [ ] Throws meaningful errors for invalid input or missing key
+    - [x] `encrypt(plaintext: string): string` function implemented
+    - [x] `decrypt(ciphertext: string): string` function implemented
+    - [x] Uses AES-256-GCM algorithm
+    - [x] Output format is `iv:authTag:ciphertext` (base64 encoded)
+    - [x] Uses `ENCRYPTION_KEY` environment variable (32 bytes for AES-256)
+    - [x] Throws meaningful errors for invalid input or missing key
   - **Test Requirements**:
-    - Unit test: encrypt/decrypt round-trip returns original plaintext
-    - Unit test: Different plaintexts produce different ciphertexts (IV uniqueness)
-    - Unit test: Tampered ciphertext throws authentication error
-    - Unit test: Missing ENCRYPTION_KEY throws descriptive error
-    - Unit test: Invalid ciphertext format throws descriptive error
+    - [x] Unit test: encrypt/decrypt round-trip returns original plaintext
+    - [x] Unit test: Different plaintexts produce different ciphertexts (IV uniqueness)
+    - [x] Unit test: Tampered ciphertext throws authentication error
+    - [x] Unit test: Missing ENCRYPTION_KEY throws descriptive error
+    - [x] Unit test: Invalid ciphertext format throws descriptive error
 
 ### 1.4 Password Utilities
-- [ ] **Implement password hashing utilities**
+- [x] **Implement password hashing utilities** - COMPLETE
   - Description: Create password hashing and verification functions using bcrypt
   - Dependencies: 1.1 (bcrypt package)
-  - Files to create: `webapp/lib/password.ts`
+  - Files created: `webapp/lib/password.ts`
+  - Tests: `webapp/__tests__/password.test.ts` (17 tests)
   - Acceptance Criteria:
-    - [ ] `hashPassword(password: string): Promise<string>` function implemented
-    - [ ] `verifyPassword(password: string, hash: string): Promise<boolean>` function implemented
-    - [ ] Uses bcrypt with cost factor 12 (per spec)
-    - [ ] Hash output is valid bcrypt format
+    - [x] `hashPassword(password: string): Promise<string>` function implemented
+    - [x] `verifyPassword(password: string, hash: string): Promise<boolean>` function implemented
+    - [x] Uses bcrypt with cost factor 12 (per spec)
+    - [x] Hash output is valid bcrypt format
   - **Test Requirements**:
-    - Unit test: hashPassword produces valid bcrypt hash
-    - Unit test: verifyPassword returns true for correct password
-    - Unit test: verifyPassword returns false for incorrect password
-    - Unit test: Different passwords produce different hashes
+    - [x] Unit test: hashPassword produces valid bcrypt hash
+    - [x] Unit test: verifyPassword returns true for correct password
+    - [x] Unit test: verifyPassword returns false for incorrect password
+    - [x] Unit test: Different passwords produce different hashes
 
-- [ ] **Implement password validation schema**
+- [x] **Implement password validation schema** - COMPLETE
   - Description: Create Zod schema for password requirements per specification
   - Dependencies: None
-  - Files to modify: `webapp/lib/validations.ts`
+  - Files modified: `webapp/lib/validations.ts`
+  - Tests: Added to `webapp/__tests__/validations.test.ts`
   - Acceptance Criteria:
-    - [ ] Password schema requires minimum 12 characters
-    - [ ] Password schema requires at least one uppercase letter
-    - [ ] Password schema requires at least one lowercase letter
-    - [ ] Password schema requires at least one number
-    - [ ] Password schema requires at least one symbol
-    - [ ] Validation error messages are user-friendly and specific
+    - [x] Password schema requires minimum 12 characters
+    - [x] Password schema requires at least one uppercase letter
+    - [x] Password schema requires at least one lowercase letter
+    - [x] Password schema requires at least one number
+    - [x] Password schema requires at least one symbol
+    - [x] Validation error messages are user-friendly and specific
+    - [x] Email validation schema added
   - **Test Requirements**:
-    - Unit test: Valid password passes validation
-    - Unit test: Password <12 chars fails with appropriate message
-    - Unit test: Password without uppercase fails
-    - Unit test: Password without lowercase fails
-    - Unit test: Password without number fails
-    - Unit test: Password without symbol fails
+    - [x] Unit test: Valid password passes validation
+    - [x] Unit test: Password <12 chars fails with appropriate message
+    - [x] Unit test: Password without uppercase fails
+    - [x] Unit test: Password without lowercase fails
+    - [x] Unit test: Password without number fails
+    - [x] Unit test: Password without symbol fails
 
 ### 1.5 Auth.js Configuration
 - [ ] **Set up Auth.js v5 (NextAuth) configuration**
@@ -623,19 +637,21 @@ Note: Playwright is configured but `webapp/e2e/` directory only contains `.gitke
 
 ## Phase 8: Test Coverage Gaps
 
-**Status: PARTIAL** (server action tests complete, other categories not started)
+**Status: PARTIAL** (server action tests complete, encryption/password tests complete, other categories not started)
 **Priority: LOW** - Additional quality assurance
 
-Note: Current test coverage includes 152 tests across 5 files:
+Note: Current test coverage includes 213 tests across 7 files:
 - `webapp/__tests__/validations.test.ts` (43 tests)
 - `webapp/__tests__/reddit.test.ts` (21 tests)
 - `webapp/__tests__/actions/subreddits.test.ts` (15 tests)
 - `webapp/__tests__/actions/tags.test.ts` (44 tests)
 - `webapp/__tests__/actions/posts.test.ts` (29 tests)
+- `webapp/__tests__/encryption.test.ts` (24 tests)
+- `webapp/__tests__/password.test.ts` (17 tests)
 
 **Verified Missing:** No .test.tsx files exist (no component tests). No hook tests exist.
 
-Missing test categories: hooks, components, API routes, utils, encryption, password utilities.
+Missing test categories: hooks, components, API routes, utils.
 
 ### 8.1 Missing Unit Tests
 - [ ] **Add utils.ts unit tests**
@@ -654,22 +670,22 @@ Missing test categories: hooks, components, API routes, utils, encryption, passw
     - [ ] Test missing API key handling
     - [ ] Test rate limiting behavior
 
-- [ ] **Add encryption module tests**
-  - Description: Test encryption utilities (once implemented in Phase 1.3)
-  - Files to create: `webapp/__tests__/encryption.test.ts`
+- [x] **Add encryption module tests** - COMPLETE
+  - Description: Test encryption utilities
+  - Files created: `webapp/__tests__/encryption.test.ts` (24 tests)
   - Acceptance Criteria:
-    - [ ] Test encrypt/decrypt round-trip
-    - [ ] Test IV uniqueness
-    - [ ] Test tamper detection
-    - [ ] Test error handling for missing key
+    - [x] Test encrypt/decrypt round-trip
+    - [x] Test IV uniqueness
+    - [x] Test tamper detection
+    - [x] Test error handling for missing key
 
-- [ ] **Add password module tests**
-  - Description: Test password utilities (once implemented in Phase 1.4)
-  - Files to create: `webapp/__tests__/password.test.ts`
+- [x] **Add password module tests** - COMPLETE
+  - Description: Test password utilities
+  - Files created: `webapp/__tests__/password.test.ts` (17 tests)
   - Acceptance Criteria:
-    - [ ] Test hash generation
-    - [ ] Test password verification
-    - [ ] Test bcrypt cost factor
+    - [x] Test hash generation
+    - [x] Test password verification
+    - [x] Test bcrypt cost factor
 
 ### 8.2 Component Tests
 - [ ] **Add React component tests**
@@ -697,21 +713,21 @@ Missing test categories: hooks, components, API routes, utils, encryption, passw
 
 | Phase | Description | Tasks | Status | Dependencies | Priority |
 |-------|-------------|-------|--------|--------------|----------|
-| 1 | Authentication Foundation | 11 | NOT STARTED | None | **CRITICAL** |
+| 1 | Authentication Foundation | 11 | PARTIAL (4/11) | None | **CRITICAL** |
 | 2 | Settings Foundation | 2 | NOT STARTED | Phase 1 | HIGH |
 | 3 | Reddit OAuth Integration | 4 | NOT STARTED | Phase 1 | HIGH |
 | 4 | User API Keys (BYOK) | 3 | NOT STARTED | Phase 1 | MEDIUM |
-| 5 | UI Completion (Pagination) | 1 | NOT STARTED | None | LOW |
+| 5 | UI Completion (Pagination) | 1 | NOT STARTED | None | MEDIUM |
 | 6 | Minor Improvements | 2 | PARTIAL (1/2) | Various | LOW |
 | 7 | E2E Testing | 6 | NOT STARTED | All features | MEDIUM |
-| 8 | Test Coverage Gaps | 6 | PARTIAL | None | LOW |
+| 8 | Test Coverage Gaps | 6 | PARTIAL (2/6) | None | LOW |
 
-**Total Remaining Tasks: 35**
+**Total Remaining Tasks: 29** (was 35, completed 6)
 
 ### Acceptance Criteria Test Coverage (by spec)
 | Spec | Criteria | Tested | Gap |
 |------|----------|--------|-----|
-| authentication.md | 16 | 0 | 16 |
+| authentication.md | 16 | 4 | 12 |
 | user-api-keys.md | 12 | 0 | 12 |
 | tag-system.md | 8 | 7 | 1 |
 | post-management.md | 9 | 8 | 1 |
@@ -721,19 +737,21 @@ Missing test categories: hooks, components, API routes, utils, encryption, passw
 | ui-components.md | 24 | 0 | 24 |
 
 **Completed Tasks (from analysis):**
-- Database schema (6 core tables)
+- Database schema (6 core tables + 3 Auth.js tables + auth columns)
 - Server actions (4 files: posts, tags, subreddits, users placeholder)
 - UI Components (22 components)
 - React Query hooks (16 hooks)
-- Zod validations (5 schemas + getNextTagColor utility - defined but not integrated)
-- Unit tests (5 test files, 152 tests total)
+- Zod validations (5 schemas + getNextTagColor utility + password/email schemas)
+- Unit tests (7 test files, 213 tests total)
+- Encryption system (AES-256-GCM)
+- Password utilities (bcrypt cost 12)
 - LLM suggestions endpoint
 - Toast system
-- Project configuration
+- Project configuration (including auth packages)
 
 ### Critical Path
 ```
-Phase 1 (Authentication) - CRITICAL BLOCKER
+Phase 1 (Authentication) - PARTIAL (foundation complete, UI/integration remaining)
     |
     +---> Phase 2 (Settings Foundation)
     |         |
@@ -754,7 +772,7 @@ Phase 6.1 (getNextTagColor) ---> Independent, can start anytime
 Phase 7.1 (Playwright Setup) ---> Prerequisite for all E2E tests
 Phase 7.3 (Core E2E Tests) ---> Can start after 7.1
 
-Phase 8 (Test Coverage Gaps) ---> Independent, can start anytime
+Phase 8 (Test Coverage Gaps) ---> Partial complete, remaining independent
 ```
 
 ### Quick Wins (No Dependencies)
@@ -765,16 +783,15 @@ These tasks can be completed immediately without waiting for Phase 1:
 4. **Phase 8.1** - Add API route tests for suggest-terms (~2 hours)
 
 ### Recommended Implementation Order
-1. **Phase 1.1-1.4** - Install deps, schema, encryption, password utils (parallel work possible)
-2. **Phase 1.5-1.8** - Auth.js config, middleware, UI, update actions (sequential)
-3. **Phase 5** - Pagination (independent, can be done in parallel with Phase 2-4)
-4. **Phase 6.1** - getNextTagColor integration (quick win)
-5. **Phase 2** - Settings foundation
-6. **Phase 3** - Reddit OAuth (can parallel with Phase 4)
-7. **Phase 4** - User API Keys
-8. **Phase 8** - Additional unit/component/hook tests (can be done incrementally)
-9. **Phase 7** - E2E Testing (after all features)
-10. **Phase 6.2** - Subreddit verification (optional, after Phase 3)
+1. **Phase 1.5-1.8** - Auth.js config, middleware, UI, update actions (sequential) - foundation now complete
+2. **Phase 5** - Pagination (independent, can be done in parallel with Phase 2-4)
+3. **Phase 6.1** - getNextTagColor integration (quick win)
+4. **Phase 2** - Settings foundation
+5. **Phase 3** - Reddit OAuth (can parallel with Phase 4)
+6. **Phase 4** - User API Keys
+7. **Phase 8** - Additional unit/component/hook tests (can be done incrementally)
+8. **Phase 7** - E2E Testing (after all features)
+9. **Phase 6.2** - Subreddit verification (optional, after Phase 3)
 
 ### Environment Variables Required
 ```bash
@@ -800,8 +817,6 @@ REDDIT_PASSWORD=                 # Remove after per-user OAuth implemented
 webapp/
 ├── lib/
 │   ├── auth.ts                           # Phase 1.5
-│   ├── encryption.ts                     # Phase 1.3
-│   ├── password.ts                       # Phase 1.4
 │   └── llm.ts                            # Phase 4.3 (optional refactor)
 ├── middleware.ts                         # Phase 1.6
 ├── app/
@@ -836,8 +851,6 @@ webapp/
 │       └── pagination.tsx                # Phase 5.1
 ├── __tests__/
 │   ├── utils.test.ts                     # Phase 8.1
-│   ├── encryption.test.ts                # Phase 8.1
-│   ├── password.test.ts                  # Phase 8.1
 │   ├── api/
 │   │   └── suggest-terms.test.ts         # Phase 8.1
 │   ├── components/                       # Phase 8.2
@@ -855,14 +868,25 @@ webapp/
     └── settings.spec.ts                  # Phase 7.4
 ```
 
+### Files That Now Exist (Previously in "Files to Create")
+```
+webapp/
+├── lib/
+│   ├── encryption.ts                     # Phase 1.3 - COMPLETE
+│   └── password.ts                       # Phase 1.4 - COMPLETE
+└── __tests__/
+    ├── encryption.test.ts                # Phase 8.1 - COMPLETE (24 tests)
+    └── password.test.ts                  # Phase 8.1 - COMPLETE (17 tests)
+```
+
 ### Files to Modify (Summary)
 ```
 webapp/
-├── package.json                          # Phase 1.1 (add auth deps)
+├── package.json                          # Phase 1.1 - COMPLETE (auth deps added)
 ├── drizzle/
-│   └── schema.ts                         # Phase 1.2 (auth columns + tables)
+│   └── schema.ts                         # Phase 1.2 - COMPLETE (auth columns + tables)
 ├── lib/
-│   ├── validations.ts                    # Phase 1.4 (password schema)
+│   ├── validations.ts                    # Phase 1.4 - COMPLETE (password/email schema)
 │   └── reddit.ts                         # Phase 3.1 (per-user tokens)
 ├── components/
 │   ├── header.tsx                        # Phase 1.7 (user menu)

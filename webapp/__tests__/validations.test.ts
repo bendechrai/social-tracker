@@ -12,6 +12,8 @@ import {
   searchTermSchema,
   postStatusSchema,
   suggestTermsSchema,
+  passwordSchema,
+  emailSchema,
   TAG_COLOR_PALETTE,
   getNextTagColor,
 } from "@/lib/validations";
@@ -388,5 +390,185 @@ describe("getNextTagColor", () => {
   it("handles non-palette colors in used list", () => {
     const result = getNextTagColor(["#000000", "#ffffff"]);
     expect(result).toBe(TAG_COLOR_PALETTE[0]);
+  });
+});
+
+describe("passwordSchema", () => {
+  describe("valid passwords", () => {
+    it("accepts password meeting all requirements", () => {
+      const result = passwordSchema.safeParse("SecurePass123!");
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts password with exactly 12 characters", () => {
+      const result = passwordSchema.safeParse("Abcdefg123!!");
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts password with various symbols", () => {
+      const validPasswords = [
+        "Password123!",
+        "Password123@",
+        "Password123#",
+        "Password123$",
+        "Password123%",
+        "Password123^",
+        "Password123&",
+        "Password123*",
+        "Password123(",
+        "Password123)",
+        "Password123_",
+        "Password123+",
+        "Password123-",
+        "Password123=",
+        "Password123[",
+        "Password123]",
+        "Password123{",
+        "Password123}",
+        "Password123|",
+        "Password123;",
+        "Password123'",
+        'Password123"',
+        "Password123:",
+        "Password123,",
+        "Password123.",
+        "Password123<",
+        "Password123>",
+        "Password123?",
+        "Password123/",
+      ];
+
+      for (const password of validPasswords) {
+        const result = passwordSchema.safeParse(password);
+        expect(result.success).toBe(true);
+      }
+    });
+
+    it("accepts very long password", () => {
+      const result = passwordSchema.safeParse("Aa1!" + "x".repeat(100));
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe("invalid passwords - too short", () => {
+    it("rejects password with 11 characters", () => {
+      const result = passwordSchema.safeParse("Abcdefg123!");
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toContain("at least 12 characters");
+      }
+    });
+
+    it("rejects empty password", () => {
+      const result = passwordSchema.safeParse("");
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("invalid passwords - missing uppercase", () => {
+    it("rejects password without uppercase letter", () => {
+      const result = passwordSchema.safeParse("securepass123!");
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const messages = result.error.issues.map((i) => i.message);
+        expect(messages.some((m) => m.includes("uppercase"))).toBe(true);
+      }
+    });
+  });
+
+  describe("invalid passwords - missing lowercase", () => {
+    it("rejects password without lowercase letter", () => {
+      const result = passwordSchema.safeParse("SECUREPASS123!");
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const messages = result.error.issues.map((i) => i.message);
+        expect(messages.some((m) => m.includes("lowercase"))).toBe(true);
+      }
+    });
+  });
+
+  describe("invalid passwords - missing number", () => {
+    it("rejects password without number", () => {
+      const result = passwordSchema.safeParse("SecurePassword!");
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const messages = result.error.issues.map((i) => i.message);
+        expect(messages.some((m) => m.includes("number"))).toBe(true);
+      }
+    });
+  });
+
+  describe("invalid passwords - missing symbol", () => {
+    it("rejects password without symbol", () => {
+      const result = passwordSchema.safeParse("SecurePass1234");
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const messages = result.error.issues.map((i) => i.message);
+        expect(messages.some((m) => m.includes("symbol"))).toBe(true);
+      }
+    });
+  });
+});
+
+describe("emailSchema", () => {
+  describe("valid emails", () => {
+    it("accepts standard email format", () => {
+      const result = emailSchema.safeParse("user@example.com");
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts email with subdomain", () => {
+      const result = emailSchema.safeParse("user@mail.example.com");
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts email with plus sign", () => {
+      const result = emailSchema.safeParse("user+tag@example.com");
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts email with dots in local part", () => {
+      const result = emailSchema.safeParse("first.last@example.com");
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts email with numbers", () => {
+      const result = emailSchema.safeParse("user123@example123.com");
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe("invalid emails", () => {
+    it("rejects email without @ symbol", () => {
+      const result = emailSchema.safeParse("userexample.com");
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toBe("Invalid email address");
+      }
+    });
+
+    it("rejects email without domain", () => {
+      const result = emailSchema.safeParse("user@");
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects email without local part", () => {
+      const result = emailSchema.safeParse("@example.com");
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects empty string", () => {
+      const result = emailSchema.safeParse("");
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects email longer than 255 characters", () => {
+      const longEmail = "a".repeat(250) + "@b.com";
+      const result = emailSchema.safeParse(longEmail);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toContain("at most 255 characters");
+      }
+    });
   });
 });

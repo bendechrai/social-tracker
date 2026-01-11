@@ -15,6 +15,14 @@ import { relations } from "drizzle-orm";
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: varchar("email", { length: 255 }).notNull().unique(),
+  passwordHash: text("password_hash"),
+  // Reddit OAuth tokens (encrypted with AES-256-GCM)
+  redditAccessToken: text("reddit_access_token"),
+  redditRefreshToken: text("reddit_refresh_token"),
+  redditTokenExpiresAt: timestamp("reddit_token_expires_at"),
+  redditUsername: varchar("reddit_username", { length: 100 }),
+  // User's Groq API key (encrypted with AES-256-GCM)
+  groqApiKey: text("groq_api_key"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at")
     .notNull()
@@ -26,7 +34,71 @@ export const usersRelations = relations(users, ({ many }) => ({
   subreddits: many(subreddits),
   tags: many(tags),
   posts: many(posts),
+  sessions: many(sessions),
+  accounts: many(accounts),
 }));
+
+// Auth.js Sessions table
+export const sessions = pgTable("sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionToken: varchar("session_token", { length: 255 }).notNull().unique(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expires: timestamp("expires").notNull(),
+});
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, {
+    fields: [sessions.userId],
+    references: [users.id],
+  }),
+}));
+
+// Auth.js Accounts table (for OAuth providers)
+export const accounts = pgTable(
+  "accounts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: varchar("type", { length: 255 }).notNull(),
+    provider: varchar("provider", { length: 255 }).notNull(),
+    providerAccountId: varchar("provider_account_id", { length: 255 }).notNull(),
+    refreshToken: text("refresh_token"),
+    accessToken: text("access_token"),
+    expiresAt: integer("expires_at"),
+    tokenType: varchar("token_type", { length: 255 }),
+    scope: text("scope"),
+    idToken: text("id_token"),
+    sessionState: text("session_state"),
+  },
+  (table) => [
+    uniqueIndex("accounts_provider_account_id_idx").on(
+      table.provider,
+      table.providerAccountId
+    ),
+  ]
+);
+
+export const accountsRelations = relations(accounts, ({ one }) => ({
+  user: one(users, {
+    fields: [accounts.userId],
+    references: [users.id],
+  }),
+}));
+
+// Auth.js Verification Tokens table (for email verification)
+export const verificationTokens = pgTable(
+  "verification_tokens",
+  {
+    identifier: varchar("identifier", { length: 255 }).notNull(),
+    token: varchar("token", { length: 255 }).notNull().unique(),
+    expires: timestamp("expires").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.identifier, table.token] })]
+);
 
 // Subreddits table
 export const subreddits = pgTable(
@@ -178,3 +250,12 @@ export type NewPost = typeof posts.$inferInsert;
 
 export type PostTag = typeof postTags.$inferSelect;
 export type NewPostTag = typeof postTags.$inferInsert;
+
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
+
+export type Account = typeof accounts.$inferSelect;
+export type NewAccount = typeof accounts.$inferInsert;
+
+export type VerificationToken = typeof verificationTokens.$inferSelect;
+export type NewVerificationToken = typeof verificationTokens.$inferInsert;

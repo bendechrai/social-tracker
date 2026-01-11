@@ -78,7 +78,33 @@ export function getNextTagColor(existingColors: string[]): string {
   return TAG_COLOR_PALETTE[0];
 }
 
+// Password validation schema
+// Requirements: 12+ chars, uppercase, lowercase, number, symbol
+export const passwordSchema = z
+  .string()
+  .min(12, "Password must be at least 12 characters")
+  .refine((val) => /[A-Z]/.test(val), {
+    message: "Password must contain at least one uppercase letter",
+  })
+  .refine((val) => /[a-z]/.test(val), {
+    message: "Password must contain at least one lowercase letter",
+  })
+  .refine((val) => /[0-9]/.test(val), {
+    message: "Password must contain at least one number",
+  })
+  .refine((val) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(val), {
+    message: "Password must contain at least one symbol (!@#$%^&*()_+-=[]{}';:\"\\|,.<>/?)",
+  });
+
+// Email validation schema
+export const emailSchema = z
+  .string()
+  .email("Invalid email address")
+  .max(255, "Email must be at most 255 characters");
+
 // Type exports
 export type PostStatus = z.infer<typeof postStatusSchema>;
 export type TagInput = z.infer<typeof tagSchema>;
 export type SuggestTermsInput = z.infer<typeof suggestTermsSchema>;
+export type PasswordInput = z.infer<typeof passwordSchema>;
+export type EmailInput = z.infer<typeof emailSchema>;
