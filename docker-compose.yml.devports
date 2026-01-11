@@ -31,8 +31,9 @@ services:
     environment:
       # Database (uses docker network, not localhost)
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/social_tracker
-      # These must be set in your shell or .env file
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # Claude Code OAuth token (NOT the API key)
+      # Create at: claude /settings or via CLI 'claude' first run
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
       - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID}
       - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET}
       - REDDIT_USERNAME=${REDDIT_USERNAME}

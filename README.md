@@ -40,9 +40,9 @@ Edit `.env` and add your API keys. See [Getting API Keys](#getting-api-keys) bel
 
 ```bash
 # Required for Ralph (autonomous building)
-ANTHROPIC_API_KEY=
+CLAUDE_CODE_OAUTH_TOKEN=
 
-# Required for the app
+# Optional for the app (works without these)
 REDDIT_CLIENT_ID=
 REDDIT_CLIENT_SECRET=
 REDDIT_USERNAME=
@@ -122,18 +122,26 @@ Reddit now requires API access approval for apps built outside their Devvit plat
 
 > **Note**: "Script" type apps authenticate as you personally. Your Reddit username and password are used to obtain OAuth tokens. This is the simplest auth flow for personal/single-user tools.
 
-### Anthropic API Key
+### Claude Code OAuth Token
 
+Claude Code uses an OAuth token, not an API key. There are two ways to get one:
+
+**Option A: Via Claude CLI (easiest)**
+1. Install Claude Code: `npm install -g @anthropic-ai/claude-code`
+2. Run `claude` in your terminal
+3. Follow the authentication prompts
+4. Run `claude /settings` and copy your OAuth token
+
+**Option B: Via Console**
 1. Go to https://console.anthropic.com/
-2. Sign up or log in
-3. Navigate to **API Keys** in the left sidebar
-4. Click **"Create Key"**
-5. Name it (e.g., `social-tracker-ralph`)
-6. Copy the key (you won't see it again!)
-7. Add to `.env`:
-   ```
-   ANTHROPIC_API_KEY=sk-ant-...
-   ```
+2. Navigate to **Settings** → **OAuth tokens**
+3. Create a new token
+4. Copy the token (starts with `sk-ant-oat...`)
+
+Add to `.env`:
+```
+CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat...
+```
 
 ### Groq API Key
 

@@ -18,20 +18,24 @@ check_env() {
     fi
 }
 
-# Source .env if it exists
+# Source .env if it exists (for our validation and for docker compose)
 if [ -f .env ]; then
     set -a
     source .env
     set +a
+else
+    echo "Error: .env file not found"
+    echo "Run 'cp .env.devports.example .env.devports && devports setup' first"
+    exit 1
 fi
 
-# Required for Claude CLI
-check_env "ANTHROPIC_API_KEY"
+# Required for Claude Code CLI
+check_env "CLAUDE_CODE_OAUTH_TOKEN"
 
 # Build the ralph container if needed
 echo "Building Ralph container..."
-docker compose build ralph
+docker compose --env-file .env build ralph
 
 # Run the loop inside the container
 echo "Starting Ralph..."
-docker compose run --rm ralph ./loop.sh "$@"
+docker compose --env-file .env run --rm ralph ./loop.sh "$@"
