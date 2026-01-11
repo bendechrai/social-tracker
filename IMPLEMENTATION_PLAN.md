@@ -18,7 +18,7 @@ This document outlines the implementation status and remaining tasks for complet
 - **UI Components** - 24 components total (12 UI primitives including Label + 12 app components: post-list, post-card, tag-filter, tag-badge, status-tabs, header, user-menu, settings modal with subreddit/tag management, providers)
 - **React Query Hooks** - 16 hooks for all CRUD operations with proper cache invalidation (15 in index.ts + use-toast)
 - **Zod Validations** - Schemas for subreddits, tags, search terms, post status, suggest terms, password, email
-- **Unit Tests** - 12 test files (327 tests total): validations.test.ts (72), reddit.test.ts (16), subreddits.test.ts (21), tags.test.ts (34), posts.test.ts (32), encryption.test.ts (24), password.test.ts (17), auth.test.ts (22), actions/auth.test.ts (20), middleware.test.ts (18), components/pagination.test.tsx (23), actions/api-keys.test.ts (28)
+- **Unit Tests** - 13 test files (342 tests total): validations.test.ts (72), reddit.test.ts (16), subreddits.test.ts (21), tags.test.ts (34), posts.test.ts (32), encryption.test.ts (24), password.test.ts (17), auth.test.ts (22), actions/auth.test.ts (20), middleware.test.ts (18), components/pagination.test.tsx (23), actions/api-keys.test.ts (28), actions/reddit-connection.test.ts (15)
 - **Encryption System** - AES-256-GCM encryption utilities (encrypt/decrypt with iv:authTag:ciphertext format)
 - **Password Utilities** - bcrypt hashing with cost factor 12
 - **LLM Suggestions** - /api/suggest-terms endpoint using Groq API (falls back to env var)
@@ -49,7 +49,6 @@ The application now has a complete authentication system:
 
 ### Missing Files Summary (Verified)
 The following files DO NOT exist and need to be created:
-- `webapp/app/actions/reddit-connection.ts` - Reddit OAuth connection
 - `webapp/__tests__/hooks/*` - No hook tests exist
 - `webapp/__tests__/api/*` - No API route tests exist
 - `webapp/__tests__/utils.test.ts` - No utils tests
@@ -74,8 +73,12 @@ The following files DO NOT exist and need to be created:
 - `webapp/app/settings/layout.tsx` - Settings layout with sidebar navigation (COMPLETE)
 - `webapp/app/settings/page.tsx` - Redirects to account settings (COMPLETE)
 - `webapp/app/settings/account/page.tsx` - Account settings with password change form (COMPLETE)
-- `webapp/app/settings/connected-accounts/page.tsx` - Placeholder for Phase 3 (COMPLETE)
+- `webapp/app/settings/connected-accounts/page.tsx` - Functional Reddit connection UI (COMPLETE)
 - `webapp/app/settings/api-keys/page.tsx` - Placeholder for Phase 4 (COMPLETE)
+- `webapp/app/api/auth/reddit/route.ts` - Reddit OAuth initiation endpoint (COMPLETE)
+- `webapp/app/api/auth/reddit/callback/route.ts` - Reddit OAuth callback endpoint (COMPLETE)
+- `webapp/app/actions/reddit-connection.ts` - Reddit connection server actions (COMPLETE)
+- `webapp/__tests__/actions/reddit-connection.test.ts` - Reddit connection tests (15 tests) (COMPLETE)
 - `webapp/app/actions/api-keys.ts` - API key server actions (saveGroqApiKey, hasGroqApiKey, getGroqApiKeyHint, getGroqApiKey, deleteGroqApiKey) (COMPLETE)
 - `webapp/__tests__/actions/api-keys.test.ts` - API key action tests (28 tests) (COMPLETE)
 
@@ -367,59 +370,69 @@ Note: Settings pages have been created with dedicated routes for Account, Connec
 
 ## Phase 3: Reddit OAuth Integration
 
-**Status: NOT STARTED**
+**Status: COMPLETE (4/4 tasks complete)**
 **Priority: HIGH** - Required for per-user Reddit access
 **Dependencies: Phase 1 (Authentication)**
 
-Note: Currently the app uses app-level password grant authentication (REDDIT_USERNAME/REDDIT_PASSWORD env vars). This phase implements per-user OAuth as specified.
+Note: The app now supports per-user OAuth as specified. App-level password grant authentication (REDDIT_USERNAME/REDDIT_PASSWORD env vars) can still be used as fallback for development.
+
+**Files Created:**
+- `webapp/app/api/auth/reddit/route.ts` - OAuth initiation endpoint
+- `webapp/app/api/auth/reddit/callback/route.ts` - OAuth callback endpoint
+- `webapp/app/actions/reddit-connection.ts` - Server actions (getRedditConnectionStatus, hasRedditConnection, disconnectReddit, isRedditOAuthConfigured)
+- `webapp/__tests__/actions/reddit-connection.test.ts` - 15 unit tests
+
+**Files Modified:**
+- `webapp/app/settings/connected-accounts/page.tsx` - Updated with functional UI for Reddit connection
+- `webapp/lib/reddit.ts` - Updated with per-user token support (fetchRedditPostsForUser, token refresh)
 
 ### 3.1 Reddit OAuth Flow
-- [ ] **Implement Reddit OAuth initiation**
+- [x] **Implement Reddit OAuth initiation** - COMPLETE
   - Description: Generate OAuth URL and redirect user to Reddit for authorization
   - Dependencies: Phase 1 (Authentication)
-  - Files to create: `webapp/app/api/auth/reddit/route.ts`
+  - Files created: `webapp/app/api/auth/reddit/route.ts`
   - Acceptance Criteria:
-    - [ ] Generates proper Reddit OAuth URL with required scopes (read, identity)
-    - [ ] Includes state parameter for CSRF protection (stored in session/cookie)
-    - [ ] Uses REDDIT_CLIENT_ID env var
-    - [ ] Redirect URI matches registered Reddit app callback URL
-    - [ ] Returns redirect response to Reddit authorization page
+    - [x] Generates proper Reddit OAuth URL with required scopes (read, identity)
+    - [x] Includes state parameter for CSRF protection (stored in session/cookie)
+    - [x] Uses REDDIT_CLIENT_ID env var
+    - [x] Redirect URI matches registered Reddit app callback URL
+    - [x] Returns redirect response to Reddit authorization page
   - **Test Requirements**:
     - Unit test: Generated URL contains correct scopes
     - Unit test: State parameter is cryptographically random
     - Integration test: Redirect URL is properly formatted
 
-- [ ] **Implement Reddit OAuth callback route**
+- [x] **Implement Reddit OAuth callback route** - COMPLETE
   - Description: Handle OAuth callback from Reddit after user authorization
   - Dependencies: 3.1 (OAuth initiation), 1.3 (Encryption)
-  - Files to create: `webapp/app/api/auth/reddit/callback/route.ts`
+  - Files created: `webapp/app/api/auth/reddit/callback/route.ts`
   - Acceptance Criteria:
-    - [ ] Validates state parameter matches (CSRF protection)
-    - [ ] Receives authorization code from Reddit
-    - [ ] Exchanges code for access and refresh tokens
-    - [ ] Encrypts tokens using encryption module before storage
-    - [ ] Stores encrypted tokens in users table
-    - [ ] Stores token expiration time
-    - [ ] Redirects to settings page on success with success message
-    - [ ] Error handling for OAuth failures (user denied, invalid code, etc.)
+    - [x] Validates state parameter matches (CSRF protection)
+    - [x] Receives authorization code from Reddit
+    - [x] Exchanges code for access and refresh tokens
+    - [x] Encrypts tokens using encryption module before storage
+    - [x] Stores encrypted tokens in users table
+    - [x] Stores token expiration time
+    - [x] Redirects to settings page on success with success message
+    - [x] Error handling for OAuth failures (user denied, invalid code, etc.)
   - **Test Requirements**:
     - Unit test: Invalid state parameter returns error
     - Unit test: Token exchange failure handled gracefully
     - Integration test: Tokens are encrypted before database storage
     - Integration test: Successful flow updates user record
 
-- [ ] **Refactor Reddit API client for per-user tokens**
+- [x] **Refactor Reddit API client for per-user tokens** - COMPLETE
   - Description: Update Reddit API calls to use user's OAuth tokens instead of app-level credentials
   - Dependencies: 3.1 (OAuth flow complete), 1.3 (Encryption)
-  - Files to modify: `webapp/lib/reddit.ts`
+  - Files modified: `webapp/lib/reddit.ts`
   - Acceptance Criteria:
-    - [ ] New function signature accepts userId to fetch user's tokens
-    - [ ] Decrypt tokens before use
-    - [ ] Implement automatic token refresh when access token expired
-    - [ ] Update refresh token in database after refresh
-    - [ ] Update all Reddit API call functions to use per-user auth
-    - [ ] Graceful error handling when user has no connected Reddit account
-    - [ ] Maintain backward compatibility during transition (optional fallback to env vars for development)
+    - [x] New function signature accepts userId to fetch user's tokens
+    - [x] Decrypt tokens before use
+    - [x] Implement automatic token refresh when access token expired
+    - [x] Update refresh token in database after refresh
+    - [x] Update all Reddit API call functions to use per-user auth
+    - [x] Graceful error handling when user has no connected Reddit account
+    - [x] Maintain backward compatibility during transition (optional fallback to env vars for development)
   - **Test Requirements**:
     - Unit test: Token refresh logic works correctly
     - Unit test: Expired token triggers refresh
@@ -427,21 +440,22 @@ Note: Currently the app uses app-level password grant authentication (REDDIT_USE
     - Integration test: API calls work with decrypted user tokens
 
 ### 3.2 Reddit Connection UI
-- [ ] **Create Connected Accounts settings section**
+- [x] **Create Connected Accounts settings section** - COMPLETE
   - Description: UI to connect/disconnect Reddit account
   - Dependencies: 3.1 (OAuth flow), 2.1 (Settings page)
-  - Files to create: `webapp/app/settings/connected-accounts/page.tsx`
-  - Files to create: `webapp/app/actions/reddit-connection.ts`
+  - Files modified: `webapp/app/settings/connected-accounts/page.tsx`
+  - Files created: `webapp/app/actions/reddit-connection.ts`
+  - Tests: `webapp/__tests__/actions/reddit-connection.test.ts` (15 tests)
   - Acceptance Criteria:
-    - [ ] Shows Reddit connection status (connected/not connected)
-    - [ ] If connected, shows Reddit username (fetched via identity scope)
-    - [ ] Shows when token expires
-    - [ ] "Connect Reddit" button initiates OAuth flow
-    - [ ] "Disconnect" button removes stored tokens from database
-    - [ ] Confirmation dialog before disconnect
-    - [ ] Success/error toast notifications
+    - [x] Shows Reddit connection status (connected/not connected)
+    - [x] If connected, shows Reddit username (fetched via identity scope)
+    - [x] Shows when token expires
+    - [x] "Connect Reddit" button initiates OAuth flow
+    - [x] "Disconnect" button removes stored tokens from database
+    - [x] Confirmation dialog before disconnect
+    - [x] Success/error toast notifications
   - **Test Requirements**:
-    - Unit test: Disconnect action removes tokens from database
+    - [x] Unit test: Disconnect action removes tokens from database
     - E2E test: Connect and disconnect flows (Phase 7)
 
 ---
@@ -679,7 +693,7 @@ Note: Playwright is configured but `webapp/e2e/` directory only contains `.gitke
 **Status: PARTIAL** (server action tests complete, encryption/password tests complete, auth tests complete, component tests started, other categories not started)
 **Priority: LOW** - Additional quality assurance
 
-Note: Current test coverage includes 327 tests across 12 files:
+Note: Current test coverage includes 342 tests across 13 files:
 - `webapp/__tests__/validations.test.ts` (72 tests)
 - `webapp/__tests__/reddit.test.ts` (16 tests)
 - `webapp/__tests__/actions/subreddits.test.ts` (21 tests)
@@ -687,6 +701,7 @@ Note: Current test coverage includes 327 tests across 12 files:
 - `webapp/__tests__/actions/posts.test.ts` (32 tests)
 - `webapp/__tests__/actions/auth.test.ts` (20 tests)
 - `webapp/__tests__/actions/api-keys.test.ts` (28 tests)
+- `webapp/__tests__/actions/reddit-connection.test.ts` (15 tests)
 - `webapp/__tests__/encryption.test.ts` (24 tests)
 - `webapp/__tests__/password.test.ts` (17 tests)
 - `webapp/__tests__/auth.test.ts` (22 tests)
@@ -768,14 +783,14 @@ Missing test categories: hooks, API routes, utils.
 |-------|-------------|-------|--------|--------------|----------|
 | 1 | Authentication Foundation | 8 | **COMPLETE (8/8)** | None | **CRITICAL** |
 | 2 | Settings Foundation | 2 | **COMPLETE (2/2)** | Phase 1 | HIGH |
-| 3 | Reddit OAuth Integration | 4 | NOT STARTED | Phase 1 | HIGH |
+| 3 | Reddit OAuth Integration | 4 | **COMPLETE (4/4)** | Phase 1 | HIGH |
 | 4 | User API Keys (BYOK) | 3 | **COMPLETE (3/3)** | Phase 1 | MEDIUM |
 | 5 | UI Completion (Pagination) | 1 | **COMPLETE (1/1)** | None | MEDIUM |
 | 6 | Minor Improvements | 2 | **COMPLETE (2/2)** | Various | LOW |
 | 7 | E2E Testing | 6 | NOT STARTED | All features | MEDIUM |
 | 8 | Test Coverage Gaps | 7 | PARTIAL (3/7) | None | LOW |
 
-**Total Remaining Tasks: 15** (was 18, completed Phase 4: 4.1, 4.2, 4.3)
+**Total Remaining Tasks: 11** (was 15, completed Phase 3: 3.1, 3.2)
 
 ### Acceptance Criteria Test Coverage (by spec)
 | Spec | Criteria | Tested | Gap |
@@ -791,11 +806,11 @@ Missing test categories: hooks, API routes, utils.
 
 **Completed Tasks (from analysis):**
 - Database schema (6 core tables + 3 Auth.js tables + auth columns)
-- Server actions (5 files: posts, tags, subreddits, users, auth)
+- Server actions (6 files: posts, tags, subreddits, users, auth, reddit-connection)
 - UI Components (25 components including user-menu, Label, and pagination)
 - React Query hooks (16 hooks)
 - Zod validations (5 schemas + getNextTagColor utility + password/email schemas)
-- Unit tests (12 test files, 327 tests total)
+- Unit tests (13 test files, 342 tests total)
 - Encryption system (AES-256-GCM)
 - Password utilities (bcrypt cost 12)
 - LLM suggestions endpoint
@@ -803,6 +818,7 @@ Missing test categories: hooks, API routes, utils.
 - Project configuration (including auth packages)
 - **Phase 1 Authentication** - Complete Auth.js implementation with login/signup pages, user menu, middleware, and real session-based auth
 - **Phase 2 Settings Foundation** - Settings pages with layout, sidebar navigation, account settings with password change, and placeholders for connected accounts and API keys
+- **Phase 3 Reddit OAuth Integration** - Complete per-user OAuth with initiation/callback routes, server actions for connection status/disconnect, functional UI, and updated Reddit API client with token refresh
 - **Phase 4 User API Keys (BYOK)** - Complete API key management with server actions (save, get, delete, hint), functional UI in settings, and LLM integration with user key fallback
 - **Phase 5 Pagination** - Complete pagination UI with Previous/Next buttons, page indicator, and page size selector
 - **Phase 6 getNextTagColor** - Integrated color rotation in tag creation
@@ -813,11 +829,11 @@ Phase 1 (Authentication) - COMPLETE
     |
     +---> Phase 2 (Settings Foundation) - COMPLETE
     |         |
-    |         +---> Phase 7.4 (Settings E2E Tests)
+    |         +---> Phase 7.4 (Settings E2E Tests) - READY TO START
     |
-    +---> Phase 3 (Reddit OAuth) - READY TO START
+    +---> Phase 3 (Reddit OAuth) - COMPLETE
     |         |
-    |         +---> Phase 6.2 (Subreddit Verification - optional)
+    |         +---> Phase 6.2 (Subreddit Verification - optional) - READY TO START
     |
     +---> Phase 4 (User API Keys) - COMPLETE
     |
@@ -846,7 +862,7 @@ These tasks can be completed immediately:
 3. ~~**Phase 6.1** - getNextTagColor integration~~ - COMPLETE
 4. ~~**Phase 2** - Settings foundation~~ - COMPLETE
 5. ~~**Phase 4** - User API Keys~~ - COMPLETE
-6. **Phase 3** - Reddit OAuth
+6. ~~**Phase 3** - Reddit OAuth~~ - COMPLETE
 7. **Phase 8** - Additional unit/component/hook tests (can be done incrementally)
 8. **Phase 7** - E2E Testing (after all features)
 9. **Phase 6.2** - Subreddit verification (optional, after Phase 3)
@@ -875,15 +891,6 @@ REDDIT_PASSWORD=                 # Remove after per-user OAuth implemented
 webapp/
 ├── lib/
 │   └── llm.ts                            # Phase 4.3 (optional refactor)
-├── app/
-│   ├── actions/
-│   │   └── reddit-connection.ts          # Phase 3.2
-│   └── api/
-│       └── auth/
-│           └── reddit/
-│               ├── route.ts              # Phase 3.1
-│               └── callback/
-│                   └── route.ts          # Phase 3.1
 ├── __tests__/
 │   ├── utils.test.ts                     # Phase 8.1
 │   ├── api/
@@ -923,16 +930,21 @@ webapp/
 │   │   ├── account/
 │   │   │   └── page.tsx                  # Phase 2.2 - COMPLETE
 │   │   ├── connected-accounts/
-│   │   │   └── page.tsx                  # Phase 3.2 - Placeholder COMPLETE
+│   │   │   └── page.tsx                  # Phase 3.2 - COMPLETE (functional UI)
 │   │   └── api-keys/
 │   │       └── page.tsx                  # Phase 4.2 - COMPLETE (functional UI)
 │   ├── actions/
 │   │   ├── auth.ts                       # Phase 1.7 - COMPLETE
-│   │   └── api-keys.ts                   # Phase 4.1 - COMPLETE
+│   │   ├── api-keys.ts                   # Phase 4.1 - COMPLETE
+│   │   └── reddit-connection.ts          # Phase 3.2 - COMPLETE
 │   └── api/
 │       └── auth/
-│           └── [...nextauth]/
-│               └── route.ts              # Phase 1.5 - COMPLETE
+│           ├── [...nextauth]/
+│           │   └── route.ts              # Phase 1.5 - COMPLETE
+│           └── reddit/
+│               ├── route.ts              # Phase 3.1 - COMPLETE
+│               └── callback/
+│                   └── route.ts          # Phase 3.1 - COMPLETE
 ├── components/
 │   ├── user-menu.tsx                     # Phase 1.7 - COMPLETE
 │   └── ui/
@@ -944,7 +956,8 @@ webapp/
     ├── middleware.test.ts                # Phase 1.6 - COMPLETE (18 tests)
     ├── actions/
     │   ├── auth.test.ts                  # Phase 1.7 - COMPLETE (20 tests)
-    │   └── api-keys.test.ts              # Phase 4.1 - COMPLETE (28 tests)
+    │   ├── api-keys.test.ts              # Phase 4.1 - COMPLETE (28 tests)
+    │   └── reddit-connection.test.ts     # Phase 3.2 - COMPLETE (15 tests)
     └── components/
         └── pagination.test.tsx           # Phase 8.2 - COMPLETE (23 tests)
 ```
@@ -957,7 +970,7 @@ webapp/
 │   └── schema.ts                         # Phase 1.2 - COMPLETE (auth columns + tables)
 ├── lib/
 │   ├── validations.ts                    # Phase 1.4 - COMPLETE (password/email schema)
-│   └── reddit.ts                         # Phase 3.1 (per-user tokens)
+│   └── reddit.ts                         # Phase 3.1 - COMPLETE (per-user tokens, fetchRedditPostsForUser, token refresh)
 ├── components/
 │   ├── header.tsx                        # Phase 1.7 - COMPLETE (user menu integrated)
 │   └── providers.tsx                     # Phase 1.7 - COMPLETE (SessionProvider added)

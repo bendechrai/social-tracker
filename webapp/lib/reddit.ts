@@ -1,11 +1,18 @@
 // Reddit API client with OAuth2 authentication
 // Handles token acquisition, rate limiting, and post fetching
+// Supports per-user OAuth tokens with fallback to app-level credentials
+
+import { db } from "@/lib/db";
+import { users } from "@/drizzle/schema";
+import { decrypt, encrypt } from "@/lib/encryption";
+import { eq } from "drizzle-orm";
 
 interface RedditTokenResponse {
   access_token: string;
   token_type: string;
   expires_in: number;
   scope: string;
+  refresh_token?: string;
 }
 
 interface RedditPost {
@@ -34,7 +41,14 @@ interface RedditListingResponse {
   };
 }
 
-// Token cache
+interface UserTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: Date;
+  username: string;
+}
+
+// Token cache for app-level credentials (backward compatibility)
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 // Clear token cache (for testing)
@@ -47,7 +61,7 @@ const RATE_LIMIT = 60;
 const RATE_WINDOW = 60 * 1000; // 1 minute in ms
 const requestTimestamps: number[] = [];
 
-// Check if Reddit API credentials are configured
+// Check if Reddit app-level credentials are configured (for fallback)
 export function isRedditConfigured(): boolean {
   return !!(
     process.env.REDDIT_CLIENT_ID &&
@@ -57,7 +71,139 @@ export function isRedditConfigured(): boolean {
   );
 }
 
-// Acquire OAuth2 token from Reddit
+// Check if Reddit OAuth app credentials are configured
+export function isRedditOAuthConfigured(): boolean {
+  return !!(
+    process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET
+  );
+}
+
+/**
+ * Get user's Reddit tokens from the database.
+ * Returns null if user has no connected Reddit account.
+ */
+async function getUserTokens(userId: string): Promise<UserTokens | null> {
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: {
+      redditAccessToken: true,
+      redditRefreshToken: true,
+      redditTokenExpiresAt: true,
+      redditUsername: true,
+    },
+  });
+
+  if (
+    !user?.redditAccessToken ||
+    !user?.redditRefreshToken ||
+    !user?.redditUsername
+  ) {
+    return null;
+  }
+
+  try {
+    return {
+      accessToken: decrypt(user.redditAccessToken),
+      refreshToken: decrypt(user.redditRefreshToken),
+      expiresAt: user.redditTokenExpiresAt ?? new Date(0),
+      username: user.redditUsername,
+    };
+  } catch (error) {
+    console.error("Error decrypting Reddit tokens:", error);
+    return null;
+  }
+}
+
+/**
+ * Refresh user's Reddit access token using refresh token.
+ * Updates the database with new tokens.
+ */
+async function refreshUserToken(
+  userId: string,
+  refreshToken: string
+): Promise<string | null> {
+  const clientId = process.env.REDDIT_CLIENT_ID;
+  const clientSecret = process.env.REDDIT_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    console.error("Reddit OAuth credentials not configured");
+    return null;
+  }
+
+  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+
+  const response = await fetch("https://www.reddit.com/api/v1/access_token", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "SocialTracker/1.0",
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    }).toString(),
+  });
+
+  if (!response.ok) {
+    console.error("Failed to refresh Reddit token:", response.status);
+    return null;
+  }
+
+  const data = (await response.json()) as RedditTokenResponse;
+
+  // Calculate new expiration time
+  const expiresAt = new Date(Date.now() + data.expires_in * 1000);
+
+  // Encrypt tokens before storage
+  const encryptedAccessToken = encrypt(data.access_token);
+  // Reddit may or may not return a new refresh token
+  const encryptedRefreshToken = data.refresh_token
+    ? encrypt(data.refresh_token)
+    : encrypt(refreshToken);
+
+  // Update database
+  await db
+    .update(users)
+    .set({
+      redditAccessToken: encryptedAccessToken,
+      redditRefreshToken: encryptedRefreshToken,
+      redditTokenExpiresAt: expiresAt,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, userId));
+
+  return data.access_token;
+}
+
+/**
+ * Get a valid access token for the user.
+ * Refreshes if expired.
+ */
+async function getUserAccessToken(userId: string): Promise<{
+  token: string;
+  username: string;
+} | null> {
+  const tokens = await getUserTokens(userId);
+  if (!tokens) {
+    return null;
+  }
+
+  // Check if token is expired (with 5 minute buffer)
+  const isExpired = tokens.expiresAt.getTime() < Date.now() + 5 * 60 * 1000;
+
+  if (isExpired) {
+    const newToken = await refreshUserToken(userId, tokens.refreshToken);
+    if (!newToken) {
+      return null;
+    }
+    return { token: newToken, username: tokens.username };
+  }
+
+  return { token: tokens.accessToken, username: tokens.username };
+}
+
+// Acquire OAuth2 token from Reddit using app-level credentials (fallback)
 async function getAccessToken(): Promise<string | null> {
   if (!isRedditConfigured()) {
     console.warn("Reddit API credentials not configured");
@@ -184,6 +330,56 @@ export interface FetchedPost {
   numComments: number;
 }
 
+/**
+ * Fetch Reddit posts for a specific user.
+ * Uses the user's OAuth tokens if connected, or falls back to app-level credentials.
+ *
+ * @param userId - The user's ID to fetch tokens for
+ * @param subreddits - List of subreddits to search
+ * @param searchTerms - List of search terms to match
+ * @param timeWindowHours - How far back to search (default: 1 hour)
+ */
+export async function fetchRedditPostsForUser(
+  userId: string,
+  subreddits: string[],
+  searchTerms: string[],
+  timeWindowHours = 1
+): Promise<FetchedPost[]> {
+  // Try user's OAuth tokens first
+  const userAuth = await getUserAccessToken(userId);
+
+  if (userAuth) {
+    return fetchPostsWithToken(
+      userAuth.token,
+      userAuth.username,
+      subreddits,
+      searchTerms,
+      timeWindowHours
+    );
+  }
+
+  // Fall back to app-level credentials if available
+  if (isRedditConfigured()) {
+    const token = await getAccessToken();
+    if (token) {
+      return fetchPostsWithToken(
+        token,
+        process.env.REDDIT_USERNAME!,
+        subreddits,
+        searchTerms,
+        timeWindowHours
+      );
+    }
+  }
+
+  console.warn("No Reddit authentication available for user", userId);
+  return [];
+}
+
+/**
+ * Fetch Reddit posts using app-level credentials (backward compatibility).
+ * @deprecated Use fetchRedditPostsForUser with userId instead.
+ */
 export async function fetchRedditPosts(
   subreddits: string[],
   searchTerms: string[],
@@ -199,6 +395,25 @@ export async function fetchRedditPosts(
     return [];
   }
 
+  return fetchPostsWithToken(
+    token,
+    process.env.REDDIT_USERNAME!,
+    subreddits,
+    searchTerms,
+    timeWindowHours
+  );
+}
+
+/**
+ * Internal function to fetch posts with a given token and username.
+ */
+async function fetchPostsWithToken(
+  token: string,
+  username: string,
+  subreddits: string[],
+  searchTerms: string[],
+  timeWindowHours: number
+): Promise<FetchedPost[]> {
   const posts: FetchedPost[] = [];
   const seenIds = new Set<string>();
 
@@ -223,7 +438,7 @@ export async function fetchRedditPosts(
       const response = await fetchWithRetry(url.toString(), {
         headers: {
           Authorization: `Bearer ${token}`,
-          "User-Agent": `SocialTracker/1.0 (by /u/${process.env.REDDIT_USERNAME})`,
+          "User-Agent": `SocialTracker/1.0 (by /u/${username})`,
         },
       });
 
@@ -261,4 +476,12 @@ export async function fetchRedditPosts(
   posts.sort((a, b) => b.redditCreatedAt.getTime() - a.redditCreatedAt.getTime());
 
   return posts;
+}
+
+/**
+ * Check if a user has Reddit connected.
+ */
+export async function isUserRedditConnected(userId: string): Promise<boolean> {
+  const tokens = await getUserTokens(userId);
+  return tokens !== null;
 }
