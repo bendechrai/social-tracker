@@ -6,18 +6,108 @@ Complete implementation roadmap for the Social Media Tracker application. Tasks 
 
 ---
 
+## V1 vs V2 Scope
+
+This document describes **V1 (Current)** implementation scope. The specification documents describe features intended for future versions.
+
+### V1 Scope (Current Implementation)
+
+V1 is a **single-user application** with app-level credentials:
+
+- **Authentication:** Single hardcoded user (dev@example.com) - no login/signup required
+- **Reddit Integration:** App-level Reddit credentials via environment variables (REDDIT_CLIENT_ID, etc.)
+- **LLM Integration:** Groq API key via environment variable (GROQ_API_KEY)
+- **Database:** Simplified schema without password hashing or encrypted fields
+
+This approach is appropriate for:
+- Personal use / single developer
+- Development and testing
+- Proof of concept
+
+### V2 Scope (Future - Do Not Implement Now)
+
+V2 will add **multi-user support** with proper authentication and security:
+
+- **Authentication System** (specs/authentication.md):
+  - Auth.js v5 with credentials-based login
+  - Password hashing with bcrypt (cost factor 12)
+  - 7-day sessions with secure cookies
+  - Database tables: sessions, accounts, verification_tokens
+
+- **Per-User OAuth** (specs/reddit-integration.md):
+  - Users connect their own Reddit accounts in Settings
+  - OAuth tokens stored per-user
+  - No shared app-level credentials
+
+- **Encrypted API Keys** (specs/user-api-keys.md):
+  - user_api_keys table with AES-256-GCM encryption
+  - Users provide their own Groq API keys (BYOK)
+  - Keys encrypted at rest with per-user salt
+
+- **Extended Database Schema** (specs/database-schema.md):
+  - users.password_hash column
+  - Sessions, accounts, verification_tokens tables
+  - user_api_keys table with encrypted fields
+
+**Important:** The spec documents describe the V2 vision. V1 implementation intentionally omits these features to reduce complexity for initial release.
+
+---
+
 ## Current Status Summary
 
-**Completed:** 41/46 tasks
+**Completed:** 41/46 tasks (Phases 1-7 core functionality complete)
 
-**All code implementation is complete (Phases 1-7).** Phase 8 testing is in progress.
+**All V1 code implementation is complete.** Phase 8 testing is in progress.
 
-**Next Steps:**
-1. Continue Phase 8 testing (Unit Tests - Server Actions, UI Components)
-2. Create E2E tests (Phases 8.5-8.8)
-3. Complete keyboard accessibility (Phase 7.5) and responsive design (Phase 7.6)
-4. Run full validation suite (npm run typecheck && npm run lint && npm run build)
-5. Commit and tag
+### Remaining Tasks (Prioritized)
+
+#### HIGH PRIORITY (Required for V1 Completion)
+
+| Task | Description | Acceptance Criteria |
+|------|-------------|---------------------|
+| 8.4 | UI Component unit tests | All component interactions verified with React Testing Library |
+| 8.5 | E2E Posts management tests | Full post lifecycle flows tested end-to-end |
+| 8.6 | E2E Settings flow tests | All settings CRUD operations verified |
+| 8.7 | E2E Fetch flow tests | Reddit fetch integration verified |
+| 8.8 | E2E Accessibility tests | Keyboard navigation and responsive design verified |
+| Fix | Database transactions in tags.ts | createTag with initialTerms uses transaction |
+| Fix | Database transactions in posts.ts | fetchNewPosts uses transaction |
+
+#### MEDIUM PRIORITY (Polish Items)
+
+| Task | Description | Acceptance Criteria |
+|------|-------------|---------------------|
+| 7.5 | Complete keyboard accessibility | Color picker supports arrow key navigation |
+| 7.6 | Complete responsive design | All breakpoints tested and verified |
+
+#### FUTURE (V2 Scope - Do Not Implement Now)
+
+| Spec Document | Feature | Notes |
+|---------------|---------|-------|
+| specs/authentication.md | Auth.js v5 login/signup | Multi-user support |
+| specs/user-api-keys.md | Encrypted API key storage | BYOK with AES-256-GCM |
+| specs/reddit-integration.md | Per-user Reddit OAuth | Users connect own accounts |
+
+---
+
+## Known Issues
+
+### Code Quality Issues Requiring Attention
+
+1. **Missing Database Transaction in tags.ts (lines 120-143)**
+   - **Issue:** `createTag` with `initialTerms` parameter performs multiple database operations without a transaction
+   - **Risk:** Partial tag creation if term insertion fails
+   - **Fix:** Wrap tag and term insertions in a database transaction
+
+2. **Missing Database Transaction in posts.ts (lines 414-467)**
+   - **Issue:** `fetchNewPosts` performs multiple database operations without a transaction
+   - **Risk:** Inconsistent state if operation fails mid-way
+   - **Fix:** Wrap post insertion and tag assignment in a database transaction
+
+3. **Missing Input Validation in tag-badge.tsx**
+   - **Issue:** `getContrastColor()` function does not validate hex color format
+   - **Risk:** Runtime errors if invalid color string is passed
+   - **Fix:** Add hex color format validation before processing
 
 ---
 
@@ -716,33 +806,43 @@ Connect all pieces and ensure production readiness.
 
 ### 7.5 Add Keyboard Accessibility
 
-- [ ] **Ensure keyboard navigation works**
+- [~] **Ensure keyboard navigation works**
   - Files: Various components
   - Features:
     - Tab navigation through interactive elements
     - Enter/Space activates buttons
     - Escape closes modals
     - Focus visible states
+  - Status: Partially complete - Radix UI provides base accessibility, but color picker lacks arrow key navigation
   - Dependencies: All UI components
   - Tests:
     - Can navigate entire UI with keyboard only
     - Focus states are visible
     - Modals trap focus appropriately
+  - Remaining Work:
+    - [ ] Add arrow key navigation to color picker component
+    - [ ] Verify focus trap in settings modal
+    - [ ] Test complete keyboard navigation flow
 
 ### 7.6 Add Responsive Design
 
-- [ ] **Ensure mobile responsiveness**
+- [~] **Ensure mobile responsiveness**
   - Files: Various components, `webapp/app/globals.css`
   - Features:
     - Mobile: stacked layout, full-width cards
     - Tablet: tighter spacing
     - Desktop: full layout as designed
+  - Status: Partially complete - Tailwind responsive classes exist, but not fully tested across all breakpoints
   - Note: CSS variables and theming configured
   - Dependencies: All UI components
   - Tests:
     - UI is usable at 320px width
     - No horizontal scroll on mobile
     - Touch targets are adequately sized
+  - Remaining Work:
+    - [ ] Test all components at 320px, 768px, 1024px breakpoints
+    - [ ] Verify touch targets are minimum 44px
+    - [ ] Fix any overflow issues on mobile
 
 ---
 
@@ -805,6 +905,11 @@ Verification layer ensuring correctness.
   - Tests:
     - Uses test database or mocked db
     - All acceptance criteria from specs verified
+  - Results:
+    - subreddits.test.ts: 38 tests passing
+    - tags.test.ts: 31 tests passing
+    - posts.test.ts: 32 tests passing
+    - **Total: 101 server action tests**
 
 ### 8.4 Unit Tests - UI Components
 
@@ -816,9 +921,36 @@ Verification layer ensuring correctness.
     - TagFilter selection
     - Settings components CRUD
   - Dependencies: 6.*, 1.6
-  - Tests:
-    - Uses React Testing Library
-    - Verifies rendering and user interactions
+  - Tests to Verify (derived from acceptance criteria):
+    - **TagBadge:**
+      - [ ] Renders tag name text correctly
+      - [ ] Applies color prop as background style
+      - [ ] Text has appropriate contrast (readable)
+    - **PostCard:**
+      - [ ] Displays title, subreddit, author, time, score, comments
+      - [ ] Title link has target="_blank" and correct href
+      - [ ] Tag badges appear in top-right with correct colors
+      - [ ] "Ignore" and "Mark Done" buttons appear for status="new"
+      - [ ] "Mark as New" button appears for status="ignored"
+      - [ ] "Mark as New" button appears for status="done"
+      - [ ] Response textarea only renders when status="done"
+      - [ ] onStatusChange called with correct status when buttons clicked
+      - [ ] onResponseUpdate called on textarea blur
+      - [ ] "Saved" indicator appears after save
+    - **PostList:**
+      - [ ] Renders correct number of PostCard components
+      - [ ] Shows skeleton when isLoading=true
+      - [ ] Shows empty message when posts=[]
+    - **StatusTabs:**
+      - [ ] Renders three tabs: New, Ignored, Done
+      - [ ] Displays count in parentheses for each tab
+      - [ ] Active tab has distinct styling
+      - [ ] onChange called with status value on tab click
+    - **TagFilter:**
+      - [ ] Displays all tags from props
+      - [ ] Can select multiple tags
+      - [ ] "All" option clears selection
+      - [ ] onChange called with array of selected tag IDs
 
 ### 8.5 E2E Tests - Post Management Flow
 
@@ -834,14 +966,15 @@ Verification layer ensuring correctness.
     - Verify pagination works for large result sets
     - Verify posts ordered by reddit_created_at descending
   - Dependencies: All phases, 1.7
-  - Tests:
-    - Full user flow works end-to-end
-    - Tab counts are accurate and update after status changes
-    - Status changes persist across page reload
-    - Response text saves correctly and shows "Saved" indicator
-    - responded_at timestamp displays for done posts
-    - Tag filter selection persists across tab switches
-    - Posts with multiple tags show all tag badges
+  - Tests to Verify (derived from acceptance criteria):
+    - [ ] Tab counts display correct numbers
+    - [ ] Tab counts update immediately after status change
+    - [ ] Status changes persist after page reload
+    - [ ] Response text saves and persists after page reload
+    - [ ] "Saved" indicator appears after typing in response textarea
+    - [ ] responded_at timestamp displays for done posts with responses
+    - [ ] Tag filter selection persists when switching tabs
+    - [ ] Posts with multiple tags show all tag badges
 
 ### 8.6 E2E Tests - Settings Flow
 
@@ -863,12 +996,20 @@ Verification layer ensuring correctness.
     - Use LLM term suggestions (button click, loading state, checkbox selection, add selected)
     - Verify 2-second cooldown on suggest button
   - Dependencies: All phases, 1.7
-  - Tests:
-    - All settings operations work end-to-end
-    - Changes persist across page reload
-    - Validation errors display inline
-    - Color picker shows all 8 palette colors
-    - Keyboard navigation works (tab, enter, escape)
+  - Tests to Verify (derived from acceptance criteria):
+    - [ ] Settings panel opens when settings button clicked
+    - [ ] Settings panel closes on escape key
+    - [ ] Settings panel closes on close button click
+    - [ ] Subreddit "r/PostgreSQL" normalized to "postgresql" after add
+    - [ ] Validation error displays for subreddit names with special characters
+    - [ ] Duplicate subreddit shows error message
+    - [ ] Removed subreddit disappears from list
+    - [ ] Posts from removed subreddit still visible in posts list
+    - [ ] Color picker shows all 8 palette colors
+    - [ ] Default color selected when creating new tag
+    - [ ] Delete confirmation dialog appears before tag deletion
+    - [ ] Suggest button shows loading state during API call
+    - [ ] Suggest button disabled for 2 seconds after click
 
 ### 8.7 E2E Tests - Fetch Flow
 
@@ -884,13 +1025,15 @@ Verification layer ensuring correctness.
     - Handle empty results gracefully (toast with "0 new posts" or similar)
     - Handle missing Reddit credentials gracefully (helpful message, no crash)
   - Dependencies: All phases, 1.7
-  - Tests:
-    - Fetch button shows spinner during operation
-    - Button is disabled during fetch (prevents double-click)
-    - Success toast appears with count of newly added posts
-    - New posts appear in UI immediately after fetch
-    - Handles API errors gracefully with error toast
-    - Works with MSW mocks for Reddit API
+  - Tests to Verify (derived from acceptance criteria):
+    - [ ] Fetch button shows spinner during fetch
+    - [ ] Fetch button is disabled during fetch (no double-click)
+    - [ ] Success toast appears with "X new posts found" message
+    - [ ] New posts appear at top of "New" tab after fetch
+    - [ ] Re-fetching same posts does not create duplicates
+    - [ ] Posts matching search terms have correct tags assigned
+    - [ ] Error toast appears if Reddit API fails
+    - [ ] Graceful message if Reddit credentials not configured
 
 ### 8.8 E2E Tests - Accessibility & Responsive
 
@@ -907,13 +1050,16 @@ Verification layer ensuring correctness.
     - Mobile viewport - stacked layout renders correctly
     - Tablet viewport - layout adapts correctly
   - Dependencies: All phases, 1.7
-  - Tests:
-    - Can navigate entire UI with keyboard only
-    - Focus indicators are visible on all focusable elements
-    - Settings modal traps focus when open
-    - UI is usable at 320px viewport width
-    - No horizontal scrollbar on mobile
-    - All interactive elements have accessible names
+  - Tests to Verify (derived from acceptance criteria):
+    - [ ] Can tab through all interactive elements in logical order
+    - [ ] Focus ring visible on all focused elements
+    - [ ] Tab trapped inside settings modal when open
+    - [ ] Escape closes settings modal
+    - [ ] Enter activates focused button
+    - [ ] Space activates focused button
+    - [ ] No horizontal scrollbar at 320px viewport width
+    - [ ] Post cards stack vertically on mobile
+    - [ ] All buttons/links at least 44px touch target
 
 ---
 
