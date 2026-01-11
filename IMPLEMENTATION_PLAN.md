@@ -49,7 +49,6 @@ The application now has a complete authentication system:
 
 ### Missing Files Summary (Verified)
 The following files DO NOT exist and need to be created:
-- `webapp/app/settings/` - Entire directory (settings is modal only, no dedicated pages)
 - `webapp/app/actions/api-keys.ts` - API key management
 - `webapp/app/actions/reddit-connection.ts` - Reddit OAuth connection
 - `webapp/__tests__/hooks/*` - No hook tests exist
@@ -73,6 +72,11 @@ The following files DO NOT exist and need to be created:
 - `webapp/app/actions/auth.ts` - Auth server actions (signup, changePassword) (COMPLETE)
 - `webapp/components/user-menu.tsx` - User dropdown menu component (COMPLETE)
 - `webapp/__tests__/actions/auth.test.ts` - Auth action tests (20 tests) (COMPLETE)
+- `webapp/app/settings/layout.tsx` - Settings layout with sidebar navigation (COMPLETE)
+- `webapp/app/settings/page.tsx` - Redirects to account settings (COMPLETE)
+- `webapp/app/settings/account/page.tsx` - Account settings with password change form (COMPLETE)
+- `webapp/app/settings/connected-accounts/page.tsx` - Placeholder for Phase 3 (COMPLETE)
+- `webapp/app/settings/api-keys/page.tsx` - Placeholder for Phase 4 (COMPLETE)
 
 ### Database Schema Status
 **Completed:**
@@ -312,39 +316,46 @@ Authentication is the foundational layer that all other features depend on.
 
 ## Phase 2: Settings Foundation
 
-**Status: NOT STARTED**
+**Status: COMPLETE (2/2 tasks complete)**
 **Priority: HIGH** - Required for user-configurable features
 **Dependencies: Phase 1 (Authentication)**
 
-Note: Currently settings functionality exists only as a modal. This phase creates dedicated settings pages.
+Note: Settings pages have been created with dedicated routes for Account, Connected Accounts, and API Keys sections.
+
+**Files Created:**
+- `webapp/app/settings/layout.tsx` - Settings layout with sidebar navigation
+- `webapp/app/settings/page.tsx` - Redirects to account settings
+- `webapp/app/settings/account/page.tsx` - Account settings with password change form
+- `webapp/app/settings/connected-accounts/page.tsx` - Placeholder for Phase 3
+- `webapp/app/settings/api-keys/page.tsx` - Placeholder for Phase 4
 
 ### 2.1 Settings Page Structure
-- [ ] **Create settings page layout**
+- [x] **Create settings page layout** - COMPLETE
   - Description: Settings page with navigation for Account, Connected Accounts, API Keys sections
   - Dependencies: Phase 1 (Authentication)
-  - Files to create: `webapp/app/settings/page.tsx`, `webapp/app/settings/layout.tsx`
+  - Files created: `webapp/app/settings/page.tsx`, `webapp/app/settings/layout.tsx`
   - Acceptance Criteria:
-    - [ ] Settings page accessible at /settings
-    - [ ] Protected route (requires authentication via middleware)
-    - [ ] Sidebar or tab navigation for different sections
-    - [ ] Responsive layout (sidebar collapses on mobile)
-    - [ ] Breadcrumb navigation
+    - [x] Settings page accessible at /settings
+    - [x] Protected route (requires authentication via middleware)
+    - [x] Sidebar or tab navigation for different sections
+    - [x] Responsive layout (sidebar collapses on mobile)
+    - [x] Breadcrumb navigation
   - **Test Requirements**:
     - E2E test: Navigation between settings sections (Phase 7)
 
 ### 2.2 Account Settings
-- [ ] **Implement password change functionality**
+- [x] **Implement password change functionality** - COMPLETE
   - Description: Allow users to change their password
   - Dependencies: 2.1 (Settings page), 1.4 (password utilities)
-  - Files to create: `webapp/app/settings/account/page.tsx`
-  - Files to modify: `webapp/app/actions/auth.ts`
+  - Files created: `webapp/app/settings/account/page.tsx`
+  - Files modified: `webapp/app/actions/auth.ts`
   - Acceptance Criteria:
-    - [ ] Form with current password, new password, confirm new password
-    - [ ] Validates current password before allowing change
-    - [ ] New password must meet password requirements (shown to user)
-    - [ ] Success toast notification on password change
-    - [ ] Error handling for incorrect current password
-    - [ ] Form clears after successful change
+    - [x] Form with current password, new password, confirm new password
+    - [x] Validates current password before allowing change
+    - [x] New password must meet password requirements (shown to user)
+    - [x] Success toast notification on password change
+    - [x] Error handling for incorrect current password
+    - [x] Form clears after successful change
   - **Test Requirements**:
     - Unit test: Server action rejects incorrect current password
     - Unit test: Server action rejects invalid new password
@@ -745,7 +756,7 @@ Missing test categories: hooks, API routes, utils.
 | Phase | Description | Tasks | Status | Dependencies | Priority |
 |-------|-------------|-------|--------|--------------|----------|
 | 1 | Authentication Foundation | 8 | **COMPLETE (8/8)** | None | **CRITICAL** |
-| 2 | Settings Foundation | 2 | NOT STARTED | Phase 1 | HIGH |
+| 2 | Settings Foundation | 2 | **COMPLETE (2/2)** | Phase 1 | HIGH |
 | 3 | Reddit OAuth Integration | 4 | NOT STARTED | Phase 1 | HIGH |
 | 4 | User API Keys (BYOK) | 3 | NOT STARTED | Phase 1 | MEDIUM |
 | 5 | UI Completion (Pagination) | 1 | **COMPLETE (1/1)** | None | MEDIUM |
@@ -753,7 +764,7 @@ Missing test categories: hooks, API routes, utils.
 | 7 | E2E Testing | 6 | NOT STARTED | All features | MEDIUM |
 | 8 | Test Coverage Gaps | 7 | PARTIAL (3/7) | None | LOW |
 
-**Total Remaining Tasks: 20** (was 22, completed Phase 5.1 and 6.1)
+**Total Remaining Tasks: 18** (was 20, completed Phase 2.1 and 2.2)
 
 ### Acceptance Criteria Test Coverage (by spec)
 | Spec | Criteria | Tested | Gap |
@@ -780,6 +791,7 @@ Missing test categories: hooks, API routes, utils.
 - Toast system
 - Project configuration (including auth packages)
 - **Phase 1 Authentication** - Complete Auth.js implementation with login/signup pages, user menu, middleware, and real session-based auth
+- **Phase 2 Settings Foundation** - Settings pages with layout, sidebar navigation, account settings with password change, and placeholders for connected accounts and API keys
 - **Phase 5 Pagination** - Complete pagination UI with Previous/Next buttons, page indicator, and page size selector
 - **Phase 6 getNextTagColor** - Integrated color rotation in tag creation
 
@@ -787,7 +799,7 @@ Missing test categories: hooks, API routes, utils.
 ```
 Phase 1 (Authentication) - COMPLETE
     |
-    +---> Phase 2 (Settings Foundation) - READY TO START
+    +---> Phase 2 (Settings Foundation) - COMPLETE
     |         |
     |         +---> Phase 7.4 (Settings E2E Tests)
     |
@@ -820,7 +832,7 @@ These tasks can be completed immediately:
 1. ~~**Phase 1** - Authentication Foundation~~ - COMPLETE
 2. ~~**Phase 5** - Pagination~~ - COMPLETE
 3. ~~**Phase 6.1** - getNextTagColor integration~~ - COMPLETE
-4. **Phase 2** - Settings foundation (now unblocked by Phase 1 completion)
+4. ~~**Phase 2** - Settings foundation~~ - COMPLETE
 5. **Phase 3** - Reddit OAuth (can parallel with Phase 4)
 6. **Phase 4** - User API Keys
 7. **Phase 8** - Additional unit/component/hook tests (can be done incrementally)
@@ -852,15 +864,6 @@ webapp/
 ├── lib/
 │   └── llm.ts                            # Phase 4.3 (optional refactor)
 ├── app/
-│   ├── settings/
-│   │   ├── layout.tsx                    # Phase 2.1
-│   │   ├── page.tsx                      # Phase 2.1
-│   │   ├── account/
-│   │   │   └── page.tsx                  # Phase 2.2
-│   │   ├── connected-accounts/
-│   │   │   └── page.tsx                  # Phase 3.2
-│   │   └── api-keys/
-│   │       └── page.tsx                  # Phase 4.2
 │   ├── actions/
 │   │   ├── api-keys.ts                   # Phase 4.1
 │   │   └── reddit-connection.ts          # Phase 3.2
@@ -903,6 +906,15 @@ webapp/
 │   │   └── page.tsx                      # Phase 1.7 - COMPLETE
 │   ├── signup/
 │   │   └── page.tsx                      # Phase 1.7 - COMPLETE
+│   ├── settings/
+│   │   ├── layout.tsx                    # Phase 2.1 - COMPLETE
+│   │   ├── page.tsx                      # Phase 2.1 - COMPLETE
+│   │   ├── account/
+│   │   │   └── page.tsx                  # Phase 2.2 - COMPLETE
+│   │   ├── connected-accounts/
+│   │   │   └── page.tsx                  # Phase 3.2 - Placeholder COMPLETE
+│   │   └── api-keys/
+│   │       └── page.tsx                  # Phase 4.2 - Placeholder COMPLETE
 │   ├── actions/
 │   │   └── auth.ts                       # Phase 1.7 - COMPLETE
 │   └── api/
