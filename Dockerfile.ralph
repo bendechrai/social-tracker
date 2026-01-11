@@ -3,11 +3,12 @@
 
 FROM node:22-slim
 
-# Install dependencies
+# Install dependencies including gosu for privilege dropping
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     ca-certificates \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Claude CLI
@@ -15,12 +16,17 @@ RUN npm install -g @anthropic-ai/claude-code
 
 # Create non-root user
 RUN useradd -m -s /bin/bash ralph
-USER ralph
+
+# Copy entrypoint script
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 WORKDIR /home/ralph/project
 
-# Git config (will be overridden by env vars if set)
-RUN git config --global user.email "ralph@localhost" \
-    && git config --global user.name "Ralph"
+# Git config for ralph user (will be overridden by env vars if set)
+RUN gosu ralph git config --global user.email "ralph@localhost" \
+    && gosu ralph git config --global user.name "Ralph"
 
-# Entry point is the loop script
-ENTRYPOINT ["/bin/bash"]
+# Entry point handles permission fixes and drops to ralph
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/bin/bash"]

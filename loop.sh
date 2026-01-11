@@ -71,10 +71,10 @@ while true; do
     # -p: Headless mode (non-interactive, reads from stdin)
     # --dangerously-skip-permissions: Auto-approve all tool calls
     # --model: Use opus for complex reasoning
-    cat "$PROMPT_FILE" | claude -p \
+    # Reads prompt from file, shows interactive UI
+    cat "$PROMPT_FILE" | claude \
         --dangerously-skip-permissions \
-        --model opus \
-        --verbose
+        --model opus
 
     # Push changes after each iteration
     git push origin "$CURRENT_BRANCH" 2>/dev/null || {

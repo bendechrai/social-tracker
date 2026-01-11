@@ -1,0 +1,66 @@
+"use client";
+
+import * as React from "react";
+import { Button } from "@/components/ui/button";
+import { RefreshCwIcon, SettingsIcon, Loader2Icon } from "lucide-react";
+
+interface HeaderProps {
+  onFetch: () => Promise<{ success: boolean; count?: number; message?: string; error?: string }>;
+  onSettingsClick: () => void;
+  isFetching?: boolean;
+}
+
+export function Header({ onFetch, onSettingsClick, isFetching = false }: HeaderProps) {
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [message, setMessage] = React.useState<string | null>(null);
+
+  const handleFetch = async () => {
+    setIsLoading(true);
+    setMessage(null);
+
+    const result = await onFetch();
+
+    if (result.success) {
+      setMessage(result.message ?? `Found ${result.count ?? 0} new posts`);
+    } else {
+      setMessage(result.error ?? "Failed to fetch posts");
+    }
+
+    setIsLoading(false);
+
+    // Clear message after 5 seconds
+    setTimeout(() => setMessage(null), 5000);
+  };
+
+  const loading = isLoading || isFetching;
+
+  return (
+    <header className="border-b">
+      <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Social Tracker</h1>
+        <div className="flex items-center gap-2">
+          {message && (
+            <span className="text-sm text-muted-foreground">{message}</span>
+          )}
+          <Button onClick={handleFetch} disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2Icon className="h-4 w-4 mr-2 animate-spin" />
+                Fetching...
+              </>
+            ) : (
+              <>
+                <RefreshCwIcon className="h-4 w-4 mr-2" />
+                Fetch New
+              </>
+            )}
+          </Button>
+          <Button variant="outline" onClick={onSettingsClick}>
+            <SettingsIcon className="h-4 w-4 mr-2" />
+            Settings
+          </Button>
+        </div>
+      </div>
+    </header>
+  );
+}

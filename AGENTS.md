@@ -123,9 +123,17 @@ npm run db:studio
 
 ### Docker volume permissions for node_modules
 
-The `webapp_node_modules` Docker volume is created with root ownership, preventing npm install from working inside the Ralph container.
+The `webapp_node_modules` Docker volume may have root ownership, preventing npm install from working inside the Ralph container.
 
-**To fix this, run from the HOST machine:**
+**Recommended fix: Rebuild container with new entrypoint (handles permissions automatically):**
+```bash
+docker compose down
+docker compose build ralph
+docker compose up -d db
+./ralph.sh  # Container now auto-fixes node_modules permissions on startup
+```
+
+**Alternative fix (if rebuild not desired):**
 ```bash
 docker compose down
 docker volume rm social-tracker_webapp_node_modules
