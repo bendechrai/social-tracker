@@ -18,7 +18,7 @@ This document outlines the implementation status and remaining tasks for complet
 - **UI Components** - 24 components total (12 UI primitives including Label + 12 app components: post-list, post-card, tag-filter, tag-badge, status-tabs, header, user-menu, settings modal with subreddit/tag management, providers)
 - **React Query Hooks** - 16 hooks for all CRUD operations with proper cache invalidation (15 in index.ts + use-toast)
 - **Zod Validations** - Schemas for subreddits, tags, search terms, post status, suggest terms, password, email
-- **Unit Tests** - 11 test files (299 tests total): validations.test.ts (72), reddit.test.ts (16), subreddits.test.ts (21), tags.test.ts (34), posts.test.ts (32), encryption.test.ts (24), password.test.ts (17), auth.test.ts (22), actions/auth.test.ts (20), middleware.test.ts (18), components/pagination.test.tsx (23)
+- **Unit Tests** - 12 test files (327 tests total): validations.test.ts (72), reddit.test.ts (16), subreddits.test.ts (21), tags.test.ts (34), posts.test.ts (32), encryption.test.ts (24), password.test.ts (17), auth.test.ts (22), actions/auth.test.ts (20), middleware.test.ts (18), components/pagination.test.tsx (23), actions/api-keys.test.ts (28)
 - **Encryption System** - AES-256-GCM encryption utilities (encrypt/decrypt with iv:authTag:ciphertext format)
 - **Password Utilities** - bcrypt hashing with cost factor 12
 - **LLM Suggestions** - /api/suggest-terms endpoint using Groq API (falls back to env var)
@@ -49,7 +49,6 @@ The application now has a complete authentication system:
 
 ### Missing Files Summary (Verified)
 The following files DO NOT exist and need to be created:
-- `webapp/app/actions/api-keys.ts` - API key management
 - `webapp/app/actions/reddit-connection.ts` - Reddit OAuth connection
 - `webapp/__tests__/hooks/*` - No hook tests exist
 - `webapp/__tests__/api/*` - No API route tests exist
@@ -77,6 +76,8 @@ The following files DO NOT exist and need to be created:
 - `webapp/app/settings/account/page.tsx` - Account settings with password change form (COMPLETE)
 - `webapp/app/settings/connected-accounts/page.tsx` - Placeholder for Phase 3 (COMPLETE)
 - `webapp/app/settings/api-keys/page.tsx` - Placeholder for Phase 4 (COMPLETE)
+- `webapp/app/actions/api-keys.ts` - API key server actions (saveGroqApiKey, hasGroqApiKey, getGroqApiKeyHint, getGroqApiKey, deleteGroqApiKey) (COMPLETE)
+- `webapp/__tests__/actions/api-keys.test.ts` - API key action tests (28 tests) (COMPLETE)
 
 ### Database Schema Status
 **Completed:**
@@ -447,58 +448,67 @@ Note: Currently the app uses app-level password grant authentication (REDDIT_USE
 
 ## Phase 4: User API Keys (BYOK)
 
-**Status: NOT STARTED**
+**Status: COMPLETE (3/3 tasks complete)**
 **Priority: MEDIUM** - Required for user-owned LLM access
 **Dependencies: Phase 1 (Authentication)**
 
+**Files Created:**
+- `webapp/app/actions/api-keys.ts` - API key server actions (saveGroqApiKey, hasGroqApiKey, getGroqApiKeyHint, getGroqApiKey, deleteGroqApiKey)
+- `webapp/__tests__/actions/api-keys.test.ts` - 28 unit tests for API key actions
+
+**Files Modified:**
+- `webapp/app/settings/api-keys/page.tsx` - Updated with functional UI for managing Groq API key
+- `webapp/app/api/suggest-terms/route.ts` - Updated to use user's key with fallback to env var
+
 ### 4.1 API Key Storage
-- [ ] **Implement Groq API key storage**
+- [x] **Implement Groq API key storage** - COMPLETE
   - Description: Server actions to save and retrieve encrypted Groq API key
   - Dependencies: Phase 1 (Auth), 1.3 (Encryption), 1.2 (groq_api_key column)
-  - Files to create: `webapp/app/actions/api-keys.ts`
+  - Files created: `webapp/app/actions/api-keys.ts`
+  - Tests: `webapp/__tests__/actions/api-keys.test.ts` (28 tests)
   - Acceptance Criteria:
-    - [ ] `saveGroqApiKey(key: string)` server action
-    - [ ] Validates API key format (basic validation)
-    - [ ] Encrypts key before storing in database
-    - [ ] `getGroqApiKey()` server action returns decrypted key (for internal use only)
-    - [ ] `hasGroqApiKey()` server action returns boolean (for UI)
-    - [ ] `deleteGroqApiKey()` server action removes key
-    - [ ] Only accessible to authenticated user for their own key
+    - [x] `saveGroqApiKey(key: string)` server action
+    - [x] Validates API key format (basic validation)
+    - [x] Encrypts key before storing in database
+    - [x] `getGroqApiKey()` server action returns decrypted key (for internal use only)
+    - [x] `hasGroqApiKey()` server action returns boolean (for UI)
+    - [x] `getGroqApiKeyHint()` server action returns masked key hint (for UI display)
+    - [x] `deleteGroqApiKey()` server action removes key
+    - [x] Only accessible to authenticated user for their own key
   - **Test Requirements**:
-    - Unit test: saveGroqApiKey encrypts before storage
-    - Unit test: getGroqApiKey decrypts correctly
-    - Unit test: deleteGroqApiKey removes key from database
-    - Unit test: Actions require authentication
+    - [x] Unit test: saveGroqApiKey encrypts before storage
+    - [x] Unit test: getGroqApiKey decrypts correctly
+    - [x] Unit test: deleteGroqApiKey removes key from database
+    - [x] Unit test: Actions require authentication
 
 ### 4.2 API Keys UI
-- [ ] **Create API Keys settings section**
+- [x] **Create API Keys settings section** - COMPLETE
   - Description: UI to manage user's Groq API key
   - Dependencies: 4.1 (API key storage), 2.1 (Settings page)
-  - Files to create: `webapp/app/settings/api-keys/page.tsx`
+  - Files modified: `webapp/app/settings/api-keys/page.tsx`
   - Acceptance Criteria:
-    - [ ] Shows if Groq API key is configured (without revealing the key)
-    - [ ] Input field to add/update API key (password type, masked)
-    - [ ] "Save" button to store key
-    - [ ] "Remove" button to delete key (shown only if key exists)
-    - [ ] Confirmation dialog before removal
-    - [ ] Success/error toast notifications
-    - [ ] Help text explaining what the API key is used for
-    - [ ] Link to Groq API key generation page
+    - [x] Shows if Groq API key is configured (without revealing the key)
+    - [x] Input field to add/update API key (password type, masked)
+    - [x] "Save" button to store key
+    - [x] "Remove" button to delete key (shown only if key exists)
+    - [x] Confirmation dialog before removal
+    - [x] Success/error toast notifications
+    - [x] Help text explaining what the API key is used for
+    - [x] Link to Groq API key generation page
   - **Test Requirements**:
     - E2E test: Add and remove API key flows (Phase 7)
 
 ### 4.3 LLM Integration Update
-- [ ] **Update LLM suggestions to use per-user API key**
+- [x] **Update LLM suggestions to use per-user API key** - COMPLETE
   - Description: Modify tag suggestion feature to use user's Groq API key if available
   - Dependencies: 4.1 (API key storage)
-  - Files to modify: `webapp/app/api/suggest-terms/route.ts`
-  - Files to create (if needed): `webapp/lib/llm.ts`
+  - Files modified: `webapp/app/api/suggest-terms/route.ts`
   - Acceptance Criteria:
-    - [ ] Check for user's Groq API key first (decrypt and use)
-    - [ ] Fall back to env var GROQ_API_KEY if user has no key
-    - [ ] Clear error message if no API key available (neither user nor env)
-    - [ ] Tag suggestions work identically with user-provided key
-    - [ ] No key leakage in error messages or logs
+    - [x] Check for user's Groq API key first (decrypt and use)
+    - [x] Fall back to env var GROQ_API_KEY if user has no key
+    - [x] Clear error message if no API key available (neither user nor env)
+    - [x] Tag suggestions work identically with user-provided key
+    - [x] No key leakage in error messages or logs
   - **Test Requirements**:
     - Unit test: User key used when available
     - Unit test: Fallback to env var when no user key
@@ -669,13 +679,14 @@ Note: Playwright is configured but `webapp/e2e/` directory only contains `.gitke
 **Status: PARTIAL** (server action tests complete, encryption/password tests complete, auth tests complete, component tests started, other categories not started)
 **Priority: LOW** - Additional quality assurance
 
-Note: Current test coverage includes 299 tests across 11 files:
+Note: Current test coverage includes 327 tests across 12 files:
 - `webapp/__tests__/validations.test.ts` (72 tests)
 - `webapp/__tests__/reddit.test.ts` (16 tests)
 - `webapp/__tests__/actions/subreddits.test.ts` (21 tests)
 - `webapp/__tests__/actions/tags.test.ts` (34 tests)
 - `webapp/__tests__/actions/posts.test.ts` (32 tests)
 - `webapp/__tests__/actions/auth.test.ts` (20 tests)
+- `webapp/__tests__/actions/api-keys.test.ts` (28 tests)
 - `webapp/__tests__/encryption.test.ts` (24 tests)
 - `webapp/__tests__/password.test.ts` (17 tests)
 - `webapp/__tests__/auth.test.ts` (22 tests)
@@ -758,13 +769,13 @@ Missing test categories: hooks, API routes, utils.
 | 1 | Authentication Foundation | 8 | **COMPLETE (8/8)** | None | **CRITICAL** |
 | 2 | Settings Foundation | 2 | **COMPLETE (2/2)** | Phase 1 | HIGH |
 | 3 | Reddit OAuth Integration | 4 | NOT STARTED | Phase 1 | HIGH |
-| 4 | User API Keys (BYOK) | 3 | NOT STARTED | Phase 1 | MEDIUM |
+| 4 | User API Keys (BYOK) | 3 | **COMPLETE (3/3)** | Phase 1 | MEDIUM |
 | 5 | UI Completion (Pagination) | 1 | **COMPLETE (1/1)** | None | MEDIUM |
 | 6 | Minor Improvements | 2 | **COMPLETE (2/2)** | Various | LOW |
 | 7 | E2E Testing | 6 | NOT STARTED | All features | MEDIUM |
 | 8 | Test Coverage Gaps | 7 | PARTIAL (3/7) | None | LOW |
 
-**Total Remaining Tasks: 18** (was 20, completed Phase 2.1 and 2.2)
+**Total Remaining Tasks: 15** (was 18, completed Phase 4: 4.1, 4.2, 4.3)
 
 ### Acceptance Criteria Test Coverage (by spec)
 | Spec | Criteria | Tested | Gap |
@@ -784,7 +795,7 @@ Missing test categories: hooks, API routes, utils.
 - UI Components (25 components including user-menu, Label, and pagination)
 - React Query hooks (16 hooks)
 - Zod validations (5 schemas + getNextTagColor utility + password/email schemas)
-- Unit tests (11 test files, 299 tests total)
+- Unit tests (12 test files, 327 tests total)
 - Encryption system (AES-256-GCM)
 - Password utilities (bcrypt cost 12)
 - LLM suggestions endpoint
@@ -792,6 +803,7 @@ Missing test categories: hooks, API routes, utils.
 - Project configuration (including auth packages)
 - **Phase 1 Authentication** - Complete Auth.js implementation with login/signup pages, user menu, middleware, and real session-based auth
 - **Phase 2 Settings Foundation** - Settings pages with layout, sidebar navigation, account settings with password change, and placeholders for connected accounts and API keys
+- **Phase 4 User API Keys (BYOK)** - Complete API key management with server actions (save, get, delete, hint), functional UI in settings, and LLM integration with user key fallback
 - **Phase 5 Pagination** - Complete pagination UI with Previous/Next buttons, page indicator, and page size selector
 - **Phase 6 getNextTagColor** - Integrated color rotation in tag creation
 
@@ -807,7 +819,7 @@ Phase 1 (Authentication) - COMPLETE
     |         |
     |         +---> Phase 6.2 (Subreddit Verification - optional)
     |
-    +---> Phase 4 (User API Keys) - READY TO START
+    +---> Phase 4 (User API Keys) - COMPLETE
     |
     +---> Phase 7.2 (Auth E2E Tests) - READY TO START
 
@@ -833,8 +845,8 @@ These tasks can be completed immediately:
 2. ~~**Phase 5** - Pagination~~ - COMPLETE
 3. ~~**Phase 6.1** - getNextTagColor integration~~ - COMPLETE
 4. ~~**Phase 2** - Settings foundation~~ - COMPLETE
-5. **Phase 3** - Reddit OAuth (can parallel with Phase 4)
-6. **Phase 4** - User API Keys
+5. ~~**Phase 4** - User API Keys~~ - COMPLETE
+6. **Phase 3** - Reddit OAuth
 7. **Phase 8** - Additional unit/component/hook tests (can be done incrementally)
 8. **Phase 7** - E2E Testing (after all features)
 9. **Phase 6.2** - Subreddit verification (optional, after Phase 3)
@@ -865,7 +877,6 @@ webapp/
 │   └── llm.ts                            # Phase 4.3 (optional refactor)
 ├── app/
 │   ├── actions/
-│   │   ├── api-keys.ts                   # Phase 4.1
 │   │   └── reddit-connection.ts          # Phase 3.2
 │   └── api/
 │       └── auth/
@@ -914,9 +925,10 @@ webapp/
 │   │   ├── connected-accounts/
 │   │   │   └── page.tsx                  # Phase 3.2 - Placeholder COMPLETE
 │   │   └── api-keys/
-│   │       └── page.tsx                  # Phase 4.2 - Placeholder COMPLETE
+│   │       └── page.tsx                  # Phase 4.2 - COMPLETE (functional UI)
 │   ├── actions/
-│   │   └── auth.ts                       # Phase 1.7 - COMPLETE
+│   │   ├── auth.ts                       # Phase 1.7 - COMPLETE
+│   │   └── api-keys.ts                   # Phase 4.1 - COMPLETE
 │   └── api/
 │       └── auth/
 │           └── [...nextauth]/
@@ -931,7 +943,8 @@ webapp/
     ├── auth.test.ts                      # Phase 1.5 - COMPLETE (22 tests)
     ├── middleware.test.ts                # Phase 1.6 - COMPLETE (18 tests)
     ├── actions/
-    │   └── auth.test.ts                  # Phase 1.7 - COMPLETE (20 tests)
+    │   ├── auth.test.ts                  # Phase 1.7 - COMPLETE (20 tests)
+    │   └── api-keys.test.ts              # Phase 4.1 - COMPLETE (28 tests)
     └── components/
         └── pagination.test.tsx           # Phase 8.2 - COMPLETE (23 tests)
 ```
