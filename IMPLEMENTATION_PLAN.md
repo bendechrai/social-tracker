@@ -6,53 +6,6 @@ Complete implementation roadmap for the Social Media Tracker application. Tasks 
 
 ---
 
-## V1 vs V2 Scope
-
-This document describes **V1 (Current)** implementation scope. The specification documents describe features intended for future versions.
-
-### V1 Scope (Current Implementation)
-
-V1 is a **single-user application** with app-level credentials:
-
-- **Authentication:** Single hardcoded user (dev@example.com) - no login/signup required
-- **Reddit Integration:** App-level Reddit credentials via environment variables (REDDIT_CLIENT_ID, etc.)
-- **LLM Integration:** Groq API key via environment variable (GROQ_API_KEY)
-- **Database:** Simplified schema without password hashing or encrypted fields
-
-This approach is appropriate for:
-- Personal use / single developer
-- Development and testing
-- Proof of concept
-
-### V2 Scope (Future - Do Not Implement Now)
-
-V2 will add **multi-user support** with proper authentication and security:
-
-- **Authentication System** (specs/authentication.md):
-  - Auth.js v5 with credentials-based login
-  - Password hashing with bcrypt (cost factor 12)
-  - 7-day sessions with secure cookies
-  - Database tables: sessions, accounts, verification_tokens
-
-- **Per-User OAuth** (specs/reddit-integration.md):
-  - Users connect their own Reddit accounts in Settings
-  - OAuth tokens stored per-user
-  - No shared app-level credentials
-
-- **Encrypted API Keys** (specs/user-api-keys.md):
-  - user_api_keys table with AES-256-GCM encryption
-  - Users provide their own Groq API keys (BYOK)
-  - Keys encrypted at rest with per-user salt
-
-- **Extended Database Schema** (specs/database-schema.md):
-  - users.password_hash column
-  - Sessions, accounts, verification_tokens tables
-  - user_api_keys table with encrypted fields
-
-**Important:** The spec documents describe the V2 vision. V1 implementation intentionally omits these features to reduce complexity for initial release.
-
----
-
 ## Current Status Summary
 
 **Completed:** 41/46 tasks (Phases 1-7 core functionality complete)
