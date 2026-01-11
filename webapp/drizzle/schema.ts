@@ -11,10 +11,15 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
-// Users table
+// Users table - includes Auth.js required columns (name, emailVerified, image)
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: varchar("email", { length: 255 }).notNull().unique(),
+  // Auth.js required columns (nullable for credentials-only auth)
+  name: varchar("name", { length: 255 }),
+  emailVerified: timestamp("email_verified"),
+  image: text("image"),
+  // Password for credentials auth
   passwordHash: text("password_hash"),
   // Reddit OAuth tokens (encrypted with AES-256-GCM)
   redditAccessToken: text("reddit_access_token"),
@@ -39,9 +44,9 @@ export const usersRelations = relations(users, ({ many }) => ({
 }));
 
 // Auth.js Sessions table
+// sessionToken is the primary key per Auth.js adapter requirements
 export const sessions = pgTable("sessions", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  sessionToken: varchar("session_token", { length: 255 }).notNull().unique(),
+  sessionToken: varchar("session_token", { length: 255 }).notNull().primaryKey(),
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -56,6 +61,7 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 }));
 
 // Auth.js Accounts table (for OAuth providers)
+// Property names must match Auth.js adapter expectations (snake_case)
 export const accounts = pgTable(
   "accounts",
   {
@@ -66,13 +72,13 @@ export const accounts = pgTable(
     type: varchar("type", { length: 255 }).notNull(),
     provider: varchar("provider", { length: 255 }).notNull(),
     providerAccountId: varchar("provider_account_id", { length: 255 }).notNull(),
-    refreshToken: text("refresh_token"),
-    accessToken: text("access_token"),
-    expiresAt: integer("expires_at"),
-    tokenType: varchar("token_type", { length: 255 }),
+    refresh_token: text("refresh_token"),
+    access_token: text("access_token"),
+    expires_at: integer("expires_at"),
+    token_type: varchar("token_type", { length: 255 }),
     scope: text("scope"),
-    idToken: text("id_token"),
-    sessionState: text("session_state"),
+    id_token: text("id_token"),
+    session_state: text("session_state"),
   },
   (table) => [
     uniqueIndex("accounts_provider_account_id_idx").on(

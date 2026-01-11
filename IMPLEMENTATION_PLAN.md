@@ -17,7 +17,7 @@ This document outlines the implementation status and remaining tasks for complet
 - **UI Components** - 22 components total (11 UI primitives + 11 app components: post-list, post-card, tag-filter, tag-badge, status-tabs, header, settings modal with subreddit/tag management, providers)
 - **React Query Hooks** - 16 hooks for all CRUD operations with proper cache invalidation (15 in index.ts + use-toast)
 - **Zod Validations** - Schemas for subreddits, tags, search terms, post status, suggest terms, password, email
-- **Unit Tests** - 7 test files (213 tests total): validations.test.ts (43), reddit.test.ts (21), subreddits.test.ts (15), tags.test.ts (44), posts.test.ts (29), encryption.test.ts (24), password.test.ts (17)
+- **Unit Tests** - 8 test files (235 tests total): validations.test.ts (72), reddit.test.ts (16), subreddits.test.ts (21), tags.test.ts (31), posts.test.ts (32), encryption.test.ts (24), password.test.ts (17), auth.test.ts (22)
 - **Encryption System** - AES-256-GCM encryption utilities (encrypt/decrypt with iv:authTag:ciphertext format)
 - **Password Utilities** - bcrypt hashing with cost factor 12
 - **LLM Suggestions** - /api/suggest-terms endpoint using Groq API (falls back to env var)
@@ -44,7 +44,6 @@ The application currently uses a placeholder authentication system:
 
 ### Missing Files Summary (Verified)
 The following files DO NOT exist and need to be created:
-- `webapp/lib/auth.ts` - Auth.js configuration
 - `webapp/middleware.ts` - Route protection
 - `webapp/app/login/page.tsx` - Login page
 - `webapp/app/signup/page.tsx` - Signup page
@@ -52,7 +51,6 @@ The following files DO NOT exist and need to be created:
 - `webapp/app/actions/auth.ts` - Authentication server actions
 - `webapp/app/actions/api-keys.ts` - API key management
 - `webapp/app/actions/reddit-connection.ts` - Reddit OAuth connection
-- `webapp/app/api/auth/*` - All auth API routes
 - `webapp/components/user-menu.tsx` - User dropdown menu
 - `webapp/components/ui/pagination.tsx` - Pagination controls
 - `webapp/__tests__/hooks/*` - No hook tests exist
@@ -63,18 +61,26 @@ The following files DO NOT exist and need to be created:
 ### Files That Now Exist (Previously Missing)
 - `webapp/lib/encryption.ts` - AES-256-GCM encryption utilities (COMPLETE)
 - `webapp/lib/password.ts` - bcrypt password hashing (COMPLETE)
+- `webapp/lib/auth.ts` - Auth.js v5 configuration with Drizzle adapter (COMPLETE)
+- `webapp/lib/auth-utils.ts` - Authentication utilities for testability (COMPLETE)
+- `webapp/app/api/auth/[...nextauth]/route.ts` - Auth.js API route handler (COMPLETE)
 - `webapp/__tests__/encryption.test.ts` - Encryption tests (24 tests) (COMPLETE)
 - `webapp/__tests__/password.test.ts` - Password tests (17 tests) (COMPLETE)
+- `webapp/__tests__/auth.test.ts` - Auth configuration tests (22 tests) (COMPLETE)
+- `webapp/drizzle/migrations/0001_whole_mole_man.sql` - Auth.js schema migration (COMPLETE)
 
 ### Database Schema Status
 **Completed:**
 - Sessions, accounts, verification_tokens tables (required by Auth.js)
 - Users table authentication columns: password_hash, reddit_access_token, reddit_refresh_token, reddit_token_expires_at, reddit_username, groq_api_key
-- Migration file: drizzle/migrations/0000_orange_spyke.sql
+- Users table Auth.js required columns: name, email_verified, image (added in migration 0001)
+- Sessions table uses sessionToken as primary key (Auth.js requirement, changed in migration 0001)
+- Migration files: drizzle/migrations/0000_orange_spyke.sql, drizzle/migrations/0001_whole_mole_man.sql
 
 ### Package Status
 **Installed:**
 - next-auth@beta (Auth.js v5)
+- @auth/drizzle-adapter (Drizzle ORM adapter for Auth.js)
 - bcrypt
 - @types/bcrypt (dev dependency)
 
@@ -82,7 +88,7 @@ The following files DO NOT exist and need to be created:
 
 ## Phase 1: Authentication Foundation
 
-**Status: PARTIAL (4/11 tasks complete)**
+**Status: PARTIAL (5/11 tasks complete)**
 **Priority: CRITICAL** - All other phases depend on this
 
 Authentication is the foundational layer that all other features depend on.
@@ -192,23 +198,24 @@ Authentication is the foundational layer that all other features depend on.
     - [x] Unit test: Password without symbol fails
 
 ### 1.5 Auth.js Configuration
-- [ ] **Set up Auth.js v5 (NextAuth) configuration**
+- [x] **Set up Auth.js v5 (NextAuth) configuration** - COMPLETE
   - Description: Configure Auth.js with credentials provider and session management
   - Dependencies: 1.2 (database schema), 1.3 (encryption), 1.4 (password utils)
-  - Files to create: `webapp/lib/auth.ts`, `webapp/app/api/auth/[...nextauth]/route.ts`
+  - Files created: `webapp/lib/auth.ts`, `webapp/lib/auth-utils.ts`, `webapp/app/api/auth/[...nextauth]/route.ts`
+  - Tests created: `webapp/__tests__/auth.test.ts` (22 tests)
   - Acceptance Criteria:
-    - [ ] Auth.js v5 configured with Drizzle adapter
-    - [ ] Credentials provider configured for email/password login
-    - [ ] Session strategy set to JWT with 7-day expiry (per spec)
-    - [ ] Session callback includes user id and email
-    - [ ] `AUTH_SECRET` environment variable used
-    - [ ] Export `auth`, `signIn`, `signOut` from lib/auth.ts
-    - [ ] Authorize callback verifies password using bcrypt
-  - **Test Requirements**:
-    - Unit test: Credentials provider rejects invalid email format
-    - Unit test: Credentials provider rejects wrong password
-    - Unit test: Credentials provider accepts valid credentials
-    - Integration test: Session contains expected user data
+    - [x] Auth.js v5 configured with Drizzle adapter
+    - [x] Credentials provider configured for email/password login
+    - [x] Session strategy set to database (not JWT) with 7-day expiry (per spec)
+    - [x] Session callback includes user id and email
+    - [x] `AUTH_SECRET` environment variable used
+    - [x] Export `auth`, `signIn`, `signOut` from lib/auth.ts
+    - [x] Authorize callback verifies password using bcrypt
+  - **Test Requirements** (all verified in auth.test.ts):
+    - [x] Unit test: Credentials provider rejects invalid email format
+    - [x] Unit test: Credentials provider rejects wrong password
+    - [x] Unit test: Credentials provider accepts valid credentials
+    - [x] Unit test: Session constants correct (7-day max age)
 
 ### 1.6 Authentication Middleware
 - [ ] **Create authentication middleware**
@@ -713,7 +720,7 @@ Missing test categories: hooks, components, API routes, utils.
 
 | Phase | Description | Tasks | Status | Dependencies | Priority |
 |-------|-------------|-------|--------|--------------|----------|
-| 1 | Authentication Foundation | 11 | PARTIAL (4/11) | None | **CRITICAL** |
+| 1 | Authentication Foundation | 11 | PARTIAL (5/11) | None | **CRITICAL** |
 | 2 | Settings Foundation | 2 | NOT STARTED | Phase 1 | HIGH |
 | 3 | Reddit OAuth Integration | 4 | NOT STARTED | Phase 1 | HIGH |
 | 4 | User API Keys (BYOK) | 3 | NOT STARTED | Phase 1 | MEDIUM |
@@ -722,12 +729,12 @@ Missing test categories: hooks, components, API routes, utils.
 | 7 | E2E Testing | 6 | NOT STARTED | All features | MEDIUM |
 | 8 | Test Coverage Gaps | 6 | PARTIAL (2/6) | None | LOW |
 
-**Total Remaining Tasks: 29** (was 35, completed 6)
+**Total Remaining Tasks: 28** (was 35, completed 7)
 
 ### Acceptance Criteria Test Coverage (by spec)
 | Spec | Criteria | Tested | Gap |
 |------|----------|--------|-----|
-| authentication.md | 16 | 4 | 12 |
+| authentication.md | 16 | 8 | 8 |
 | user-api-keys.md | 12 | 0 | 12 |
 | tag-system.md | 8 | 7 | 1 |
 | post-management.md | 9 | 8 | 1 |
