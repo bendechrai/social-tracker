@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+out/
+
+# Environment files (contain secrets!)
+.env
+.env.local
+.env.*.local
+.env.devports
+
+# Generated from devports templates (keep templates, ignore generated)
+docker-compose.yml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+playwright-report/
+test-results/
+
+# Drizzle
+drizzle/meta/
+
+# Misc
+*.tgz

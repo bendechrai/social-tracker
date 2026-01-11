@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:17
+    container_name: {devports:project}-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: social_tracker
+    ports:
+      - "{devports:postgres:db}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ralph:
+    build:
+      context: .
+      dockerfile: Dockerfile.ralph
+    container_name: {devports:project}-ralph
+    stdin_open: true
+    tty: true
+    volumes:
+      # Mount the project (not your whole home directory!)
+      - .:/home/ralph/project
+      # Mount node_modules as named volume to avoid permission issues
+      - webapp_node_modules:/home/ralph/project/webapp/node_modules
+    environment:
+      # Database (uses docker network, not localhost)
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/social_tracker
+      # These must be set in your shell or .env file
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID}
+      - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET}
+      - REDDIT_USERNAME=${REDDIT_USERNAME}
+      - REDDIT_PASSWORD=${REDDIT_PASSWORD}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      # Git config for commits
+      - GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-Ralph}
+      - GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-ralph@localhost}
+      - GIT_COMMITTER_NAME=${GIT_COMMITTER_NAME:-Ralph}
+      - GIT_COMMITTER_EMAIL=${GIT_COMMITTER_EMAIL:-ralph@localhost}
+      # GitHub token for pushing (fine-grained PAT with repo scope only)
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+    depends_on:
+      db:
+        condition: service_healthy
+    working_dir: /home/ralph/project
+    networks:
+      - default
+
+volumes:
+  postgres_data:
+  webapp_node_modules:
