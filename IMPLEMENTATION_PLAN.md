@@ -41,10 +41,10 @@ The application currently uses a placeholder authentication system:
 - `webapp/lib/hooks/use-toast.ts` line 8: `TOAST_REMOVE_DELAY = 1000000` (~16.7 minutes) appears unusually high
 - `webapp/lib/reddit.ts`: Several hardcoded values (rate limits, retry delays) could be made configurable
 - `webapp/app/api/suggest-terms/route.ts` line 42: LLM model `llama-3.3-70b-versatile` is hardcoded
+- `webapp/middleware.ts`: Next.js 16 shows a deprecation warning about "middleware" file convention being renamed to "proxy" in future versions
 
 ### Missing Files Summary (Verified)
 The following files DO NOT exist and need to be created:
-- `webapp/middleware.ts` - Route protection
 - `webapp/app/login/page.tsx` - Login page
 - `webapp/app/signup/page.tsx` - Signup page
 - `webapp/app/settings/` - Entire directory (settings is modal only, no dedicated pages)
@@ -68,6 +68,8 @@ The following files DO NOT exist and need to be created:
 - `webapp/__tests__/password.test.ts` - Password tests (17 tests) (COMPLETE)
 - `webapp/__tests__/auth.test.ts` - Auth configuration tests (22 tests) (COMPLETE)
 - `webapp/drizzle/migrations/0001_whole_mole_man.sql` - Auth.js schema migration (COMPLETE)
+- `webapp/middleware.ts` - Authentication middleware (COMPLETE)
+- `webapp/__tests__/middleware.test.ts` - Middleware tests (18 tests) (COMPLETE)
 
 ### Database Schema Status
 **Completed:**
@@ -88,7 +90,7 @@ The following files DO NOT exist and need to be created:
 
 ## Phase 1: Authentication Foundation
 
-**Status: PARTIAL (5/11 tasks complete)**
+**Status: PARTIAL (6/11 tasks complete)**
 **Priority: CRITICAL** - All other phases depend on this
 
 Authentication is the foundational layer that all other features depend on.
@@ -218,21 +220,22 @@ Authentication is the foundational layer that all other features depend on.
     - [x] Unit test: Session constants correct (7-day max age)
 
 ### 1.6 Authentication Middleware
-- [ ] **Create authentication middleware**
+- [x] **Create authentication middleware** - COMPLETE
   - Description: Protect routes that require authentication
   - Dependencies: 1.5 (Auth.js configuration)
-  - Files to create: `webapp/middleware.ts`
+  - Files created: `webapp/middleware.ts`
+  - Tests: `webapp/__tests__/middleware.test.ts` (18 tests)
   - Acceptance Criteria:
-    - [ ] Middleware runs on protected routes (/, /settings/*, API routes except /api/auth/*)
-    - [ ] Unauthenticated users redirected to /login
-    - [ ] Public routes (/login, /signup, /api/auth/*) accessible without auth
-    - [ ] API routes return 401 JSON response for unauthenticated requests
-    - [ ] Middleware matcher configured correctly
+    - [x] Middleware runs on protected routes (/, /settings/*, API routes except /api/auth/*)
+    - [x] Unauthenticated users redirected to /login
+    - [x] Public routes (/login, /signup, /api/auth/*) accessible without auth
+    - [x] API routes return 401 JSON response for unauthenticated requests
+    - [x] Middleware matcher configured correctly
   - **Test Requirements**:
-    - Integration test: Unauthenticated request to / redirects to /login
-    - Integration test: Unauthenticated request to /api/posts returns 401
-    - Integration test: Request to /login succeeds without auth
-    - Integration test: Authenticated request to / succeeds
+    - [x] Integration test: Unauthenticated request to / redirects to /login
+    - [x] Integration test: Unauthenticated request to /api/posts returns 401
+    - [x] Integration test: Request to /login succeeds without auth
+    - [x] Integration test: Authenticated request to / succeeds
 
 ### 1.7 Authentication UI
 - [ ] **Create signup page**
@@ -720,7 +723,7 @@ Missing test categories: hooks, components, API routes, utils.
 
 | Phase | Description | Tasks | Status | Dependencies | Priority |
 |-------|-------------|-------|--------|--------------|----------|
-| 1 | Authentication Foundation | 11 | PARTIAL (5/11) | None | **CRITICAL** |
+| 1 | Authentication Foundation | 11 | PARTIAL (6/11) | None | **CRITICAL** |
 | 2 | Settings Foundation | 2 | NOT STARTED | Phase 1 | HIGH |
 | 3 | Reddit OAuth Integration | 4 | NOT STARTED | Phase 1 | HIGH |
 | 4 | User API Keys (BYOK) | 3 | NOT STARTED | Phase 1 | MEDIUM |
@@ -729,7 +732,7 @@ Missing test categories: hooks, components, API routes, utils.
 | 7 | E2E Testing | 6 | NOT STARTED | All features | MEDIUM |
 | 8 | Test Coverage Gaps | 6 | PARTIAL (2/6) | None | LOW |
 
-**Total Remaining Tasks: 28** (was 35, completed 7)
+**Total Remaining Tasks: 27** (was 35, completed 8)
 
 ### Acceptance Criteria Test Coverage (by spec)
 | Spec | Criteria | Tested | Gap |
