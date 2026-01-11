@@ -24,10 +24,16 @@ import {
 import type { PostStatus } from "@/lib/validations";
 
 // Post hooks
-export function usePosts(status: PostStatus, tagIds: string[] = []) {
+export function usePosts(
+  status: PostStatus,
+  tagIds: string[] = [],
+  page = 1,
+  limit = 20
+) {
   return useQuery({
-    queryKey: ["posts", status, tagIds],
-    queryFn: () => listPosts(status, tagIds.length > 0 ? tagIds : undefined),
+    queryKey: ["posts", status, tagIds, page, limit],
+    queryFn: () =>
+      listPosts(status, tagIds.length > 0 ? tagIds : undefined, page, limit),
   });
 }
 

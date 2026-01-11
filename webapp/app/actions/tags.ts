@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { tags, searchTerms } from "@/drizzle/schema";
 import { getCurrentUserId } from "./users";
-import { tagSchema, searchTermSchema, TAG_COLOR_PALETTE } from "@/lib/validations";
+import { tagSchema, searchTermSchema, getNextTagColor } from "@/lib/validations";
 import { eq, and, asc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -89,8 +89,16 @@ export async function createTag(
     return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid tag data" };
   }
 
-  // Use default color if not provided
-  const finalColor = parsed.data.color ?? TAG_COLOR_PALETTE[0];
+  // Get existing tag colors to determine next available color
+  let finalColor = parsed.data.color;
+  if (!color) {
+    const existingTags = await db.query.tags.findMany({
+      where: eq(tags.userId, userId),
+      columns: { color: true },
+    });
+    const existingColors = existingTags.map((t) => t.color);
+    finalColor = getNextTagColor(existingColors);
+  }
 
   // Check for duplicate name
   const existing = await db.query.tags.findFirst({

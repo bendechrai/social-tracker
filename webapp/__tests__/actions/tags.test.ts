@@ -253,6 +253,7 @@ describe("tag server actions", () => {
   describe("createTag", () => {
     describe("validation", () => {
       it("rejects empty tag name", async () => {
+        // Validation happens before database queries, so no mocks needed
         const result = await createTag("");
 
         expect(result.success).toBe(false);
@@ -263,6 +264,7 @@ describe("tag server actions", () => {
       });
 
       it("rejects name longer than 100 characters", async () => {
+        // Validation happens before database queries, so no mocks needed
         const result = await createTag("a".repeat(101));
 
         expect(result.success).toBe(false);
@@ -273,9 +275,7 @@ describe("tag server actions", () => {
       });
 
       it("rejects invalid color format", async () => {
-        // First mock checks for duplicate - should return null
-        mockFindFirst.mockResolvedValue(null);
-
+        // Validation happens before database queries when color is provided
         const result = await createTag("Test", "invalid-color");
 
         expect(result.success).toBe(false);
@@ -283,8 +283,10 @@ describe("tag server actions", () => {
       });
     });
 
-    describe("default color", () => {
-      it("uses first palette color when no color provided", async () => {
+    describe("default color with getNextTagColor", () => {
+      it("uses first palette color when no existing tags", async () => {
+        // No existing tags (empty array)
+        mockFindMany.mockResolvedValue([]);
         mockFindFirst.mockResolvedValue(null); // No duplicate
         mockReturning.mockResolvedValue([
           {
@@ -307,7 +309,88 @@ describe("tag server actions", () => {
         );
       });
 
-      it("uses provided custom color when valid", async () => {
+      it("uses next available palette color when some colors are in use", async () => {
+        // Simulate first color already in use
+        mockFindMany.mockResolvedValue([{ color: TAG_COLOR_PALETTE[0] }]);
+        mockFindFirst.mockResolvedValue(null); // No duplicate
+        mockReturning.mockResolvedValue([
+          {
+            id: "new-tag",
+            name: "Test",
+            color: TAG_COLOR_PALETTE[1], // Should be second color
+            userId: MOCK_USER_ID,
+            createdAt: new Date(),
+          },
+        ]);
+
+        const result = await createTag("Test");
+
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.tag.color).toBe(TAG_COLOR_PALETTE[1]);
+        }
+        expect(mockValues).toHaveBeenCalledWith(
+          expect.objectContaining({ color: TAG_COLOR_PALETTE[1] })
+        );
+      });
+
+      it("cycles through palette colors as tags are created", async () => {
+        // Simulate first three colors already in use
+        mockFindMany.mockResolvedValue([
+          { color: TAG_COLOR_PALETTE[0] },
+          { color: TAG_COLOR_PALETTE[1] },
+          { color: TAG_COLOR_PALETTE[2] },
+        ]);
+        mockFindFirst.mockResolvedValue(null);
+        mockReturning.mockResolvedValue([
+          {
+            id: "new-tag",
+            name: "Test",
+            color: TAG_COLOR_PALETTE[3], // Should be fourth color
+            userId: MOCK_USER_ID,
+            createdAt: new Date(),
+          },
+        ]);
+
+        const result = await createTag("Test");
+
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.tag.color).toBe(TAG_COLOR_PALETTE[3]);
+        }
+        expect(mockValues).toHaveBeenCalledWith(
+          expect.objectContaining({ color: TAG_COLOR_PALETTE[3] })
+        );
+      });
+
+      it("cycles back to first color when all palette colors are used", async () => {
+        // All 8 colors in use
+        mockFindMany.mockResolvedValue(
+          TAG_COLOR_PALETTE.map((color) => ({ color }))
+        );
+        mockFindFirst.mockResolvedValue(null);
+        mockReturning.mockResolvedValue([
+          {
+            id: "new-tag",
+            name: "Test",
+            color: TAG_COLOR_PALETTE[0], // Should cycle back to first
+            userId: MOCK_USER_ID,
+            createdAt: new Date(),
+          },
+        ]);
+
+        const result = await createTag("Test");
+
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.tag.color).toBe(TAG_COLOR_PALETTE[0]);
+        }
+        expect(mockValues).toHaveBeenCalledWith(
+          expect.objectContaining({ color: TAG_COLOR_PALETTE[0] })
+        );
+      });
+
+      it("uses provided custom color when valid (skips auto-color)", async () => {
         mockFindFirst.mockResolvedValue(null);
         mockReturning.mockResolvedValue([
           {
@@ -325,11 +408,15 @@ describe("tag server actions", () => {
         if (result.success) {
           expect(result.tag.color).toBe("#ff5733");
         }
+        // Should not query for existing tag colors when color is provided
+        expect(mockFindMany).not.toHaveBeenCalled();
       });
     });
 
     describe("duplicate detection", () => {
       it("rejects duplicate tag name for same user", async () => {
+        // Mock for getNextTagColor query (existing tags)
+        mockFindMany.mockResolvedValue([]);
         mockFindFirst.mockResolvedValue({
           id: "existing-tag",
           name: "Yugabyte",
@@ -350,6 +437,8 @@ describe("tag server actions", () => {
 
     describe("initial terms", () => {
       it("creates tag with initial search terms", async () => {
+        // Mock for getNextTagColor query (existing tags)
+        mockFindMany.mockResolvedValue([]);
         // First call: check for duplicate tag - should return null
         // Subsequent calls: check for duplicate terms - should return null
         mockFindFirst.mockImplementation(() => {
@@ -383,6 +472,8 @@ describe("tag server actions", () => {
       });
 
       it("normalizes initial terms to lowercase", async () => {
+        // Mock for getNextTagColor query (existing tags)
+        mockFindMany.mockResolvedValue([]);
         mockFindFirst.mockResolvedValue(null);
         mockReturning
           .mockResolvedValueOnce([

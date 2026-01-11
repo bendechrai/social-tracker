@@ -5,6 +5,7 @@ import { Header } from "@/components/header";
 import { StatusTabs } from "@/components/status-tabs";
 import { TagFilter } from "@/components/tag-filter";
 import { PostList } from "@/components/post-list";
+import { Pagination } from "@/components/ui/pagination";
 import { SettingsPanel } from "@/components/settings/settings-panel";
 import {
   usePosts,
@@ -29,11 +30,29 @@ export default function HomePage() {
   const [currentStatus, setCurrentStatus] = React.useState<PostStatus>("new");
   const [selectedTagIds, setSelectedTagIds] = React.useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(20);
 
   const { toast } = useToast();
 
+  // Reset to page 1 when filters change
+  const handleTabChange = React.useCallback((newStatus: PostStatus) => {
+    setCurrentStatus(newStatus);
+    setPage(1);
+  }, []);
+
+  const handleTagFilterChange = React.useCallback((newTagIds: string[]) => {
+    setSelectedTagIds(newTagIds);
+    setPage(1);
+  }, []);
+
   // Data queries
-  const { data: postsData, isLoading: postsLoading } = usePosts(currentStatus, selectedTagIds);
+  const { data: postsData, isLoading: postsLoading } = usePosts(
+    currentStatus,
+    selectedTagIds,
+    page,
+    pageSize
+  );
   const { data: counts } = usePostCounts();
   const { data: subreddits } = useSubreddits();
   const { data: tags } = useTags();
@@ -68,7 +87,7 @@ export default function HomePage() {
     return result;
   };
 
-  const handleStatusChange = async (
+  const handlePostStatusChange = async (
     postId: string,
     status: PostStatus,
     responseText?: string
@@ -132,6 +151,8 @@ export default function HomePage() {
 
   // Get posts with proper type handling
   const posts = postsData?.posts ?? [];
+  const totalPosts = postsData?.total ?? 0;
+  const totalPages = postsData?.totalPages ?? 0;
   const postCounts = counts ?? { new: 0, ignored: 0, done: 0 };
   const allTags = tags ?? [];
   const allSubreddits = subreddits ?? [];
@@ -149,12 +170,12 @@ export default function HomePage() {
           <StatusTabs
             currentStatus={currentStatus}
             counts={postCounts}
-            onChange={setCurrentStatus}
+            onChange={handleTabChange}
           />
           <TagFilter
             tags={allTags.map((t) => ({ id: t.id, name: t.name, color: t.color }))}
             selectedIds={selectedTagIds}
-            onChange={setSelectedTagIds}
+            onChange={handleTagFilterChange}
           />
         </div>
 
@@ -164,11 +185,24 @@ export default function HomePage() {
             redditCreatedAt: new Date(post.redditCreatedAt),
             respondedAt: post.respondedAt ? new Date(post.respondedAt) : null,
           }))}
-          onStatusChange={handleStatusChange}
+          onStatusChange={handlePostStatusChange}
           onResponseUpdate={handleResponseUpdate}
           isLoading={postsLoading}
           emptyMessage={`No ${currentStatus} posts${selectedTagIds.length > 0 ? " matching selected tags" : ""}`}
         />
+
+        {/* Pagination controls */}
+        {totalPages > 0 && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={totalPosts}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            disabled={postsLoading}
+          />
+        )}
       </main>
 
       <SettingsPanel
