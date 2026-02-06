@@ -4,120 +4,73 @@ Per-user API key storage with encryption for external service credentials.
 
 ## Overview
 
-Users bring their own API keys for external services (Groq, and Reddit OAuth tokens). Keys are encrypted at rest in the database. Each user's keys are isolated and only accessible to them.
+Users bring their own API keys for external services (Groq for LLM tag suggestions). Keys are encrypted at rest in the database. Each user's keys are isolated and only accessible to them.
+
+Note: Reddit data is fetched via the Arctic Shift API, which requires no authentication or API keys.
 
 ## Encryption
 
 - Algorithm: AES-256-GCM
-- Key derivation: Encryption key from `API_KEYS_SECRET` environment variable
+- Key derivation: Encryption key from `ENCRYPTION_KEY` environment variable
 - Each value encrypted with unique IV
 - Stored format: `iv:authTag:ciphertext` (base64 encoded)
 
-## Environment Variable
+## Database
 
-```
-API_KEYS_SECRET=<32-byte-hex-string>
-```
-
-Generate with: `openssl rand -hex 32`
-
-## Database Schema
-
-New `user_api_keys` table:
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| id | uuid | PK | Primary key |
-| user_id | uuid | FK users, unique per service | Owner |
-| service | varchar(50) | not null | Service name: 'groq', 'reddit' |
-| encrypted_data | text | not null | Encrypted JSON blob |
-| created_at | timestamp | not null | When created |
-| updated_at | timestamp | not null | Last updated |
-
-Unique constraint: (user_id, service)
-
-### Encrypted Data Structure
-
-**Groq:**
-```json
-{
-  "api_key": "gsk_..."
-}
-```
-
-**Reddit:**
-```json
-{
-  "access_token": "...",
-  "refresh_token": "...",
-  "expires_at": 1234567890
-}
-```
+The Groq API key is stored encrypted in the `users.groq_api_key` column. See `database-schema.md` for full schema.
 
 ## Operations
 
 ### Save API Key
 
-1. Validate service name
+1. Validate key format (basic validation)
 2. Encrypt data with AES-256-GCM
-3. Upsert into user_api_keys
+3. Store in `users.groq_api_key`
 4. Return success (never return the key back)
 
 ### Get API Key (internal)
 
-1. Fetch encrypted data for user + service
+1. Fetch encrypted value for user
 2. Decrypt with AES-256-GCM
-3. Return decrypted object
+3. Return decrypted value
 4. If not found, return null
 
 ### Delete API Key
 
-1. Delete record for user + service
+1. Set `users.groq_api_key` to null
 2. Return success
 
 ### Check API Key Exists
 
-1. Check if record exists for user + service
+1. Check if `users.groq_api_key` is non-null
 2. Return boolean (doesn't decrypt)
 
-## Utility Functions
+### Get Key Hint
 
-```typescript
-// lib/encryption.ts
-encrypt(plaintext: string): string  // Returns iv:authTag:ciphertext
-decrypt(encrypted: string): string  // Returns plaintext
-
-// lib/api-keys.ts
-saveApiKey(userId: string, service: string, data: object): Promise<void>
-getApiKey<T>(userId: string, service: string): Promise<T | null>
-deleteApiKey(userId: string, service: string): Promise<void>
-hasApiKey(userId: string, service: string): Promise<boolean>
-```
+1. Decrypt key
+2. Return masked version (e.g., last 4 chars visible)
+3. For UI display only
 
 ## UI - Settings Page
 
-Add "API Keys" section to settings:
+### API Keys Section
 
-### Groq API Key
+**Groq API Key:**
 - Input field (password type, masked)
 - "Save" button
-- Status indicator: "Not configured" / "Configured ✓"
+- Status indicator: "Not configured" / "Configured"
 - "Remove" button (when configured)
 - Link to Groq console to get key
-
-### Reddit Connection
-- "Connect Reddit Account" button (when not connected)
-- Status: "Connected as u/username" (when connected)
-- "Disconnect" button (when connected)
-- Note: Clicking connect initiates Reddit OAuth flow
+- Help text: "Required for AI-powered tag suggestions"
 
 ## Security Considerations
 
 - Keys encrypted at rest
 - Keys never logged
 - Keys never returned to client after saving
-- UI only shows "configured" status, not actual key
+- UI only shows "configured" status or masked hint, not actual key
 - Decryption only happens server-side when needed
-- API_KEYS_SECRET must be kept secure and consistent across deployments
+- ENCRYPTION_KEY must be kept secure and consistent across deployments
 
 ## Acceptance Criteria
 
@@ -127,9 +80,6 @@ Add "API Keys" section to settings:
 4. **Groq key status shows** - UI shows "Configured" when key saved
 5. **Groq key removes** - User can remove saved key
 6. **No key shows status** - UI shows "Not configured" when no key
-7. **Reddit connects** - OAuth flow completes and tokens stored
-8. **Reddit status shows** - UI shows connected username
-9. **Reddit disconnects** - User can disconnect Reddit account
-10. **Encryption works** - Decryption with correct secret returns original value
-11. **Wrong secret fails** - Decryption with wrong secret throws error
-12. **Keys isolated** - User A cannot access User B's keys
+7. **Encryption works** - Decryption with correct secret returns original value
+8. **Wrong secret fails** - Decryption with wrong secret throws error
+9. **Keys isolated** - User A cannot access User B's keys

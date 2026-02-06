@@ -42,11 +42,7 @@ Edit `.env` and add your API keys. See [Getting API Keys](#getting-api-keys) bel
 # Required for Ralph (autonomous building)
 CLAUDE_CODE_OAUTH_TOKEN=
 
-# Optional for the app (works without these)
-REDDIT_CLIENT_ID=
-REDDIT_CLIENT_SECRET=
-REDDIT_USERNAME=
-REDDIT_PASSWORD=
+# Optional for the app
 GROQ_API_KEY=
 
 # Required for Ralph to push commits

@@ -4,7 +4,7 @@ PostgreSQL database schema using Drizzle ORM for type-safe database operations.
 
 ## Overview
 
-The database stores users with authentication data, their configured subreddits, tags with search terms, and fetched posts. Drizzle ORM provides type-safe queries and migrations. Auth.js tables handle sessions and OAuth accounts.
+The database stores users with authentication data, their configured subreddits, tags with search terms, and fetched posts. Drizzle ORM provides type-safe queries and migrations. Auth.js tables handle sessions. Reddit data is fetched via the Arctic Shift API (no per-user Reddit credentials needed).
 
 ## Technology
 
@@ -24,10 +24,6 @@ User accounts with authentication and API credentials.
 | id | uuid | PK, default gen | Primary key |
 | email | varchar(255) | unique, not null | User email (login identifier) |
 | password_hash | varchar(255) | not null | bcrypt hashed password |
-| reddit_access_token | text | nullable | Encrypted Reddit OAuth access token |
-| reddit_refresh_token | text | nullable | Encrypted Reddit OAuth refresh token |
-| reddit_token_expires_at | timestamp | nullable | When Reddit access token expires |
-| reddit_username | varchar(100) | nullable | Connected Reddit username |
 | groq_api_key | text | nullable | Encrypted Groq API key (BYOK) |
 | created_at | timestamp | not null, default now | Record creation time |
 | updated_at | timestamp | not null, default now | Last update time |
@@ -62,6 +58,8 @@ Auth.js OAuth accounts (for future Google/GitHub login).
 | id_token | text | nullable | OIDC ID token |
 
 Unique constraint: (provider, provider_account_id)
+
+Note: This table is not used for Reddit. Reddit data is fetched via Arctic Shift (no OAuth). This table exists for future Google/GitHub login support.
 
 ### verification_tokens
 
@@ -157,8 +155,6 @@ Primary key: (post_id, tag_id)
 ## Encrypted Fields
 
 The following fields are encrypted using AES-256-GCM before storage:
-- `users.reddit_access_token`
-- `users.reddit_refresh_token`
 - `users.groq_api_key`
 
 See `authentication.md` for encryption implementation details.

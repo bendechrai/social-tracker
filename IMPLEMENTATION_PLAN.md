@@ -14,7 +14,7 @@ This document outlines the implementation status and remaining tasks for complet
 - **Authentication Schema** - Auth.js required tables (sessions, accounts, verification_tokens) and user authentication columns
 - **Authentication System** - Complete Auth.js v5 implementation with credentials provider, middleware, login/signup pages, user menu, and server actions
 - **Server Actions** - Full CRUD for posts, tags, subreddits, search terms with validation (4 action files + auth actions)
-- **Reddit API Client** - Using app-level credentials (password grant), rate limiting (60/min), exponential backoff, token caching, deduplication
+- **Reddit Data Fetching** - Via Arctic Shift API (public, no auth), rate limit awareness, exponential backoff, deduplication
 - **UI Components** - 24 components total (12 UI primitives including Label + 12 app components: post-list, post-card, tag-filter, tag-badge, status-tabs, header, user-menu, settings modal with subreddit/tag management, providers)
 - **React Query Hooks** - 16 hooks for all CRUD operations with proper cache invalidation (15 in index.ts + use-toast)
 - **Zod Validations** - Schemas for subreddits, tags, search terms, post status, suggest terms, password, email
@@ -28,7 +28,7 @@ This document outlines the implementation status and remaining tasks for complet
 ### Specification Requirements Reference
 - **Auth**: Auth.js v5, bcrypt cost 12, password 12+ chars with upper/lower/number/symbol, 7-day sessions
 - **Encryption**: AES-256-GCM with format iv:authTag:ciphertext (base64)
-- **Reddit OAuth**: Scopes read, identity; encrypted token storage (per-user, NOT app-level)
+- **Reddit Data**: Via Arctic Shift API (https://arctic-shift.photon-reddit.com) — public, no auth required, ~36h data delay
 - **LLM**: User's own Groq key (BYOK) with fallback to env var
 
 ### Current Authentication State
@@ -43,7 +43,7 @@ The application now has a complete authentication system:
 
 ### Known Issues (Minor)
 - `webapp/lib/hooks/use-toast.ts` line 8: `TOAST_REMOVE_DELAY = 1000000` (~16.7 minutes) appears unusually high
-- `webapp/lib/reddit.ts`: Several hardcoded values (rate limits, retry delays) could be made configurable
+- `webapp/lib/reddit.ts`: Needs rewrite — currently uses Reddit OAuth, should use Arctic Shift API
 - `webapp/app/api/suggest-terms/route.ts` line 42: LLM model `llama-3.3-70b-versatile` is hardcoded
 - `webapp/middleware.ts`: Next.js 16 shows a deprecation warning about "middleware" file convention being renamed to "proxy" in future versions
 
@@ -85,10 +85,14 @@ The following files DO NOT exist and need to be created:
 ### Database Schema Status
 **Completed:**
 - Sessions, accounts, verification_tokens tables (required by Auth.js)
-- Users table authentication columns: password_hash, reddit_access_token, reddit_refresh_token, reddit_token_expires_at, reddit_username, groq_api_key
+- Users table authentication columns: password_hash, groq_api_key
 - Users table Auth.js required columns: name, email_verified, image (added in migration 0001)
 - Sessions table uses sessionToken as primary key (Auth.js requirement, changed in migration 0001)
 - Migration files: drizzle/migrations/0000_orange_spyke.sql, drizzle/migrations/0001_whole_mole_man.sql
+
+**To Remove (Arctic Shift migration):**
+- Users table columns no longer needed: reddit_access_token, reddit_refresh_token, reddit_token_expires_at, reddit_username
+- These columns existed for per-user Reddit OAuth, which is replaced by Arctic Shift API (no auth required)
 
 ### Package Status
 **Installed:**
@@ -122,18 +126,15 @@ Authentication is the foundational layer that all other features depend on.
     - Verify imports work without errors
 
 ### 1.2 Database Schema for Authentication
-- [x] **Add authentication columns to users table** - COMPLETE
-  - Description: Extend the users table with password_hash column and OAuth token columns for Reddit integration
+- [x] **Add authentication columns to users table** - COMPLETE (needs migration to remove Reddit OAuth columns)
+  - Description: Extend the users table with password_hash column and API key columns
   - Dependencies: None
   - Files to modify: `webapp/drizzle/schema.ts`, create migration in `webapp/drizzle/`
   - Acceptance Criteria:
     - [x] users table has `password_hash` column (text, nullable for OAuth-only users)
-    - [x] users table has `reddit_access_token` column (text, nullable, for encrypted token)
-    - [x] users table has `reddit_refresh_token` column (text, nullable, for encrypted token)
-    - [x] users table has `reddit_token_expires_at` column (timestamp, nullable)
-    - [x] users table has `reddit_username` column (text, nullable)
     - [x] users table has `groq_api_key` column (text, nullable, for encrypted key)
     - [x] Migration runs successfully without data loss
+  - **Arctic Shift Migration Needed:** Remove `reddit_access_token`, `reddit_refresh_token`, `reddit_token_expires_at`, `reddit_username` columns (no longer needed — Reddit data fetched via Arctic Shift API)
   - **Test Requirements**:
     - Unit test: Verify schema exports include new columns
     - Integration test: Migration applies cleanly to test database
@@ -368,95 +369,66 @@ Note: Settings pages have been created with dedicated routes for Account, Connec
 
 ---
 
-## Phase 3: Reddit OAuth Integration
+## Phase 3: Arctic Shift Integration
 
-**Status: COMPLETE (4/4 tasks complete)**
-**Priority: HIGH** - Required for per-user Reddit access
+**Status: NEEDS REWORK** - Previously implemented Reddit OAuth, now switching to Arctic Shift API
+**Priority: HIGH** - Required for fetching Reddit data
 **Dependencies: Phase 1 (Authentication)**
 
-Note: The app now supports per-user OAuth as specified. App-level password grant authentication (REDDIT_USERNAME/REDDIT_PASSWORD env vars) can still be used as fallback for development.
+Note: This phase was previously "Reddit OAuth Integration" and was marked COMPLETE. The approach has changed to use the Arctic Shift API (https://arctic-shift.photon-reddit.com) instead of per-user Reddit OAuth. Arctic Shift is a free, public API that requires no authentication. The existing Reddit OAuth code needs to be replaced.
 
-**Files Created:**
-- `webapp/app/api/auth/reddit/route.ts` - OAuth initiation endpoint
-- `webapp/app/api/auth/reddit/callback/route.ts` - OAuth callback endpoint
-- `webapp/app/actions/reddit-connection.ts` - Server actions (getRedditConnectionStatus, hasRedditConnection, disconnectReddit, isRedditOAuthConfigured)
-- `webapp/__tests__/actions/reddit-connection.test.ts` - 15 unit tests
+**Files to Remove (from previous OAuth implementation):**
+- `webapp/app/api/auth/reddit/route.ts` - OAuth initiation (no longer needed)
+- `webapp/app/api/auth/reddit/callback/route.ts` - OAuth callback (no longer needed)
+- `webapp/app/actions/reddit-connection.ts` - Reddit connection actions (no longer needed)
+- `webapp/__tests__/actions/reddit-connection.test.ts` - Reddit connection tests (no longer needed)
+- `webapp/app/settings/connected-accounts/page.tsx` - Connected accounts UI (no longer needed)
 
-**Files Modified:**
-- `webapp/app/settings/connected-accounts/page.tsx` - Updated with functional UI for Reddit connection
-- `webapp/lib/reddit.ts` - Updated with per-user token support (fetchRedditPostsForUser, token refresh)
+**Files to Rewrite:**
+- `webapp/lib/reddit.ts` - Replace Reddit OAuth API client with Arctic Shift API client
 
-### 3.1 Reddit OAuth Flow
-- [x] **Implement Reddit OAuth initiation** - COMPLETE
-  - Description: Generate OAuth URL and redirect user to Reddit for authorization
-  - Dependencies: Phase 1 (Authentication)
-  - Files created: `webapp/app/api/auth/reddit/route.ts`
+### 3.1 Arctic Shift API Client
+- [ ] **Implement Arctic Shift API client**
+  - Description: Create a client that fetches Reddit posts from the Arctic Shift public API
+  - Dependencies: Phase 1 (Authentication — for user context only, not Reddit auth)
+  - Files to create/modify: `webapp/lib/reddit.ts` (rewrite)
   - Acceptance Criteria:
-    - [x] Generates proper Reddit OAuth URL with required scopes (read, identity)
-    - [x] Includes state parameter for CSRF protection (stored in session/cookie)
-    - [x] Uses REDDIT_CLIENT_ID env var
-    - [x] Redirect URI matches registered Reddit app callback URL
-    - [x] Returns redirect response to Reddit authorization page
+    - [ ] Fetches posts from `https://arctic-shift.photon-reddit.com/api/posts/search`
+    - [ ] Supports query parameters: subreddit, query, after, before, sort, limit
+    - [ ] No authentication headers required
+    - [ ] Monitors `X-RateLimit-Remaining` and `X-RateLimit-Reset` response headers
+    - [ ] Implements exponential backoff on 429 responses
+    - [ ] Extracts all required post fields (reddit_id, title, selftext, author, subreddit, permalink, url, created_utc, score, num_comments, is_self)
+    - [ ] Deduplicates posts across multiple search term queries (by reddit_id)
+    - [ ] Default time window: 48 hours (accounts for ~36h data delay)
+    - [ ] Supports incremental fetching (use latest stored post's created_utc as `after`)
   - **Test Requirements**:
-    - Unit test: Generated URL contains correct scopes
-    - Unit test: State parameter is cryptographically random
-    - Integration test: Redirect URL is properly formatted
+    - Unit test: Builds correct Arctic Shift API URL with parameters
+    - Unit test: Parses response and extracts all required fields
+    - Unit test: Deduplicates posts by reddit_id
+    - Unit test: Handles API errors gracefully (5xx, network errors)
+    - Unit test: Respects rate limit headers
 
-- [x] **Implement Reddit OAuth callback route** - COMPLETE
-  - Description: Handle OAuth callback from Reddit after user authorization
-  - Dependencies: 3.1 (OAuth initiation), 1.3 (Encryption)
-  - Files created: `webapp/app/api/auth/reddit/callback/route.ts`
+### 3.2 Remove Reddit OAuth Code
+- [ ] **Remove Reddit OAuth infrastructure**
+  - Description: Clean up all Reddit OAuth code that is no longer needed
+  - Dependencies: 3.1 (new client ready)
+  - Files to remove:
+    - `webapp/app/api/auth/reddit/route.ts`
+    - `webapp/app/api/auth/reddit/callback/route.ts`
+    - `webapp/app/actions/reddit-connection.ts`
+    - `webapp/__tests__/actions/reddit-connection.test.ts`
+  - Files to modify:
+    - `webapp/app/settings/connected-accounts/page.tsx` — Remove or repurpose (no Reddit connection UI needed)
+    - `webapp/drizzle/schema.ts` — Remove reddit_access_token, reddit_refresh_token, reddit_token_expires_at, reddit_username columns
+    - Create migration for column removal
   - Acceptance Criteria:
-    - [x] Validates state parameter matches (CSRF protection)
-    - [x] Receives authorization code from Reddit
-    - [x] Exchanges code for access and refresh tokens
-    - [x] Encrypts tokens using encryption module before storage
-    - [x] Stores encrypted tokens in users table
-    - [x] Stores token expiration time
-    - [x] Redirects to settings page on success with success message
-    - [x] Error handling for OAuth failures (user denied, invalid code, etc.)
-  - **Test Requirements**:
-    - Unit test: Invalid state parameter returns error
-    - Unit test: Token exchange failure handled gracefully
-    - Integration test: Tokens are encrypted before database storage
-    - Integration test: Successful flow updates user record
-
-- [x] **Refactor Reddit API client for per-user tokens** - COMPLETE
-  - Description: Update Reddit API calls to use user's OAuth tokens instead of app-level credentials
-  - Dependencies: 3.1 (OAuth flow complete), 1.3 (Encryption)
-  - Files modified: `webapp/lib/reddit.ts`
-  - Acceptance Criteria:
-    - [x] New function signature accepts userId to fetch user's tokens
-    - [x] Decrypt tokens before use
-    - [x] Implement automatic token refresh when access token expired
-    - [x] Update refresh token in database after refresh
-    - [x] Update all Reddit API call functions to use per-user auth
-    - [x] Graceful error handling when user has no connected Reddit account
-    - [x] Maintain backward compatibility during transition (optional fallback to env vars for development)
-  - **Test Requirements**:
-    - Unit test: Token refresh logic works correctly
-    - Unit test: Expired token triggers refresh
-    - Unit test: Missing user tokens throws descriptive error
-    - Integration test: API calls work with decrypted user tokens
-
-### 3.2 Reddit Connection UI
-- [x] **Create Connected Accounts settings section** - COMPLETE
-  - Description: UI to connect/disconnect Reddit account
-  - Dependencies: 3.1 (OAuth flow), 2.1 (Settings page)
-  - Files modified: `webapp/app/settings/connected-accounts/page.tsx`
-  - Files created: `webapp/app/actions/reddit-connection.ts`
-  - Tests: `webapp/__tests__/actions/reddit-connection.test.ts` (15 tests)
-  - Acceptance Criteria:
-    - [x] Shows Reddit connection status (connected/not connected)
-    - [x] If connected, shows Reddit username (fetched via identity scope)
-    - [x] Shows when token expires
-    - [x] "Connect Reddit" button initiates OAuth flow
-    - [x] "Disconnect" button removes stored tokens from database
-    - [x] Confirmation dialog before disconnect
-    - [x] Success/error toast notifications
-  - **Test Requirements**:
-    - [x] Unit test: Disconnect action removes tokens from database
-    - E2E test: Connect and disconnect flows (Phase 7)
+    - [ ] All Reddit OAuth routes removed
+    - [ ] Reddit connection actions and tests removed
+    - [ ] Connected Accounts settings page removed or simplified
+    - [ ] Reddit token columns removed from users table (with migration)
+    - [ ] No references to REDDIT_CLIENT_ID or REDDIT_CLIENT_SECRET in code
+    - [ ] App builds and all remaining tests pass
 
 ---
 
@@ -586,18 +558,17 @@ Note: The app now supports per-user OAuth as specified. App-level password grant
 
 ### 6.2 Optional Enhancements
 - [ ] **Subreddit existence verification**
-  - Description: Verify subreddit exists via Reddit API when adding new subreddit
-  - Dependencies: Phase 3 (Reddit OAuth) - requires authenticated Reddit API access
+  - Description: Verify subreddit exists via Arctic Shift API when adding new subreddit
+  - Dependencies: Phase 3 (Arctic Shift Integration)
   - Files to modify: `webapp/app/actions/subreddits.ts`, `webapp/lib/reddit.ts`
   - Acceptance Criteria:
-    - [ ] API call to Reddit to verify subreddit exists before adding
+    - [ ] API call to Arctic Shift `/api/subreddits/search` to verify subreddit exists before adding
     - [ ] User-friendly error message if subreddit doesn't exist
     - [ ] Graceful handling of rate limits (retry or skip verification)
-    - [ ] Works without Reddit connection (skip verification with warning)
   - **Test Requirements**:
     - Unit test: Valid subreddit passes verification
     - Unit test: Invalid subreddit returns appropriate error
-    - Unit test: Verification skipped gracefully when no Reddit connection
+    - Unit test: API failure skips verification gracefully
 
 ---
 
@@ -676,13 +647,11 @@ Note: Playwright is configured but `webapp/e2e/` directory only contains `.gitke
 
 ### 7.4 Settings E2E Tests
 - [ ] **Write E2E tests for settings pages**
-  - Description: Test account settings, connected accounts, API keys
+  - Description: Test account settings and API keys
   - Dependencies: 7.1 (Playwright setup), Phases 2-4 (Settings features)
   - Files to create: `webapp/e2e/settings.spec.ts`
   - Acceptance Criteria:
     - [ ] Test password change flow (success and error cases)
-    - [ ] Test Reddit connect button initiates OAuth (mock OAuth flow)
-    - [ ] Test Reddit disconnect with confirmation
     - [ ] Test Groq API key add with masked input
     - [ ] Test Groq API key remove with confirmation
 
@@ -783,30 +752,30 @@ Missing test categories: hooks, API routes, utils.
 |-------|-------------|-------|--------|--------------|----------|
 | 1 | Authentication Foundation | 8 | **COMPLETE (8/8)** | None | **CRITICAL** |
 | 2 | Settings Foundation | 2 | **COMPLETE (2/2)** | Phase 1 | HIGH |
-| 3 | Reddit OAuth Integration | 4 | **COMPLETE (4/4)** | Phase 1 | HIGH |
+| 3 | Arctic Shift Integration | 2 | **NEEDS REWORK (0/2)** | Phase 1 | HIGH |
 | 4 | User API Keys (BYOK) | 3 | **COMPLETE (3/3)** | Phase 1 | MEDIUM |
 | 5 | UI Completion (Pagination) | 1 | **COMPLETE (1/1)** | None | MEDIUM |
 | 6 | Minor Improvements | 2 | **COMPLETE (2/2)** | Various | LOW |
 | 7 | E2E Testing | 6 | NOT STARTED | All features | MEDIUM |
 | 8 | Test Coverage Gaps | 7 | PARTIAL (3/7) | None | LOW |
 
-**Total Remaining Tasks: 11** (was 15, completed Phase 3: 3.1, 3.2)
+**Total Remaining Tasks: 13** (Phase 3 reworked for Arctic Shift: 2 new tasks + 11 existing)
 
 ### Acceptance Criteria Test Coverage (by spec)
 | Spec | Criteria | Tested | Gap |
 |------|----------|--------|-----|
 | authentication.md | 16 | 8 | 8 |
-| user-api-keys.md | 12 | 0 | 12 |
+| user-api-keys.md | 9 | 0 | 9 |
 | tag-system.md | 8 | 7 | 1 |
 | post-management.md | 9 | 8 | 1 |
 | subreddit-configuration.md | 8 | 7 | 1 |
-| reddit-integration.md | 12 | 5 | 7 |
+| reddit-integration.md | 10 | 0 | 10 |
 | llm-tag-suggestions.md | 12 | 0 | 12 |
 | ui-components.md | 24 | 0 | 24 |
 
 **Completed Tasks (from analysis):**
 - Database schema (6 core tables + 3 Auth.js tables + auth columns)
-- Server actions (6 files: posts, tags, subreddits, users, auth, reddit-connection)
+- Server actions (5 files: posts, tags, subreddits, users, auth) — reddit-connection to be removed
 - UI Components (25 components including user-menu, Label, and pagination)
 - React Query hooks (16 hooks)
 - Zod validations (5 schemas + getNextTagColor utility + password/email schemas)
@@ -818,7 +787,7 @@ Missing test categories: hooks, API routes, utils.
 - Project configuration (including auth packages)
 - **Phase 1 Authentication** - Complete Auth.js implementation with login/signup pages, user menu, middleware, and real session-based auth
 - **Phase 2 Settings Foundation** - Settings pages with layout, sidebar navigation, account settings with password change, and placeholders for connected accounts and API keys
-- **Phase 3 Reddit OAuth Integration** - Complete per-user OAuth with initiation/callback routes, server actions for connection status/disconnect, functional UI, and updated Reddit API client with token refresh
+- **Phase 3 Arctic Shift Integration** - NEEDS REWORK: Previously implemented Reddit OAuth (now obsolete). Switching to Arctic Shift API — a free, public, no-auth Reddit data archive. Requires rewriting `webapp/lib/reddit.ts` and removing OAuth infrastructure
 - **Phase 4 User API Keys (BYOK)** - Complete API key management with server actions (save, get, delete, hint), functional UI in settings, and LLM integration with user key fallback
 - **Phase 5 Pagination** - Complete pagination UI with Previous/Next buttons, page indicator, and page size selector
 - **Phase 6 getNextTagColor** - Integrated color rotation in tag creation
@@ -831,9 +800,10 @@ Phase 1 (Authentication) - COMPLETE
     |         |
     |         +---> Phase 7.4 (Settings E2E Tests) - READY TO START
     |
-    +---> Phase 3 (Reddit OAuth) - COMPLETE
+    +---> Phase 3 (Arctic Shift Integration) - NEEDS REWORK
     |         |
-    |         +---> Phase 6.2 (Subreddit Verification - optional) - READY TO START
+    |         +---> 3.1 Implement Arctic Shift API client
+    |         +---> 3.2 Remove Reddit OAuth code & migrate DB
     |
     +---> Phase 4 (User API Keys) - COMPLETE
     |
@@ -862,28 +832,25 @@ These tasks can be completed immediately:
 3. ~~**Phase 6.1** - getNextTagColor integration~~ - COMPLETE
 4. ~~**Phase 2** - Settings foundation~~ - COMPLETE
 5. ~~**Phase 4** - User API Keys~~ - COMPLETE
-6. ~~**Phase 3** - Reddit OAuth~~ - COMPLETE
-7. **Phase 8** - Additional unit/component/hook tests (can be done incrementally)
-8. **Phase 7** - E2E Testing (after all features)
-9. **Phase 6.2** - Subreddit verification (optional, after Phase 3)
+6. ~~**Phase 3** - Reddit OAuth~~ - REPLACED by Arctic Shift
+7. **Phase 3** - Arctic Shift Integration (rewrite reddit.ts, remove OAuth code, DB migration) — **NEXT PRIORITY**
+8. **Phase 8** - Additional unit/component/hook tests (can be done incrementally)
+9. **Phase 7** - E2E Testing (after all features)
 
 ### Environment Variables Required
 ```bash
-# Existing (already in use)
+# Core
 DATABASE_URL=                    # PostgreSQL connection string
-REDDIT_CLIENT_ID=                # Reddit app client ID
-REDDIT_CLIENT_SECRET=            # Reddit app client secret
 
-# New - Required for Phase 1
+# Auth
 AUTH_SECRET=                     # For Auth.js session signing (generate with: openssl rand -base64 32)
 ENCRYPTION_KEY=                  # 32-byte key for AES-256-GCM (generate with: openssl rand -base64 32)
 
-# Existing - Will remain as fallback
+# Optional
 GROQ_API_KEY=                    # Fallback API key for LLM (optional if users provide their own)
 
-# Currently used but to be deprecated after Phase 3
-REDDIT_USERNAME=                 # Remove after per-user OAuth implemented
-REDDIT_PASSWORD=                 # Remove after per-user OAuth implemented
+# No Reddit credentials needed — data fetched via Arctic Shift API (public, no auth)
+# Remove if still present: REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USERNAME, REDDIT_PASSWORD
 ```
 
 ### Files to Create (Summary)
@@ -936,15 +903,15 @@ webapp/
 │   ├── actions/
 │   │   ├── auth.ts                       # Phase 1.7 - COMPLETE
 │   │   ├── api-keys.ts                   # Phase 4.1 - COMPLETE
-│   │   └── reddit-connection.ts          # Phase 3.2 - COMPLETE
+│   │   └── reddit-connection.ts          # Phase 3.2 - TO BE REMOVED (Arctic Shift replaces OAuth)
 │   └── api/
 │       └── auth/
 │           ├── [...nextauth]/
 │           │   └── route.ts              # Phase 1.5 - COMPLETE
 │           └── reddit/
-│               ├── route.ts              # Phase 3.1 - COMPLETE
+│               ├── route.ts              # Phase 3.1 - TO BE REMOVED (Arctic Shift replaces OAuth)
 │               └── callback/
-│                   └── route.ts          # Phase 3.1 - COMPLETE
+│                   └── route.ts          # Phase 3.1 - TO BE REMOVED (Arctic Shift replaces OAuth)
 ├── components/
 │   ├── user-menu.tsx                     # Phase 1.7 - COMPLETE
 │   └── ui/
@@ -957,7 +924,7 @@ webapp/
     ├── actions/
     │   ├── auth.test.ts                  # Phase 1.7 - COMPLETE (20 tests)
     │   ├── api-keys.test.ts              # Phase 4.1 - COMPLETE (28 tests)
-    │   └── reddit-connection.test.ts     # Phase 3.2 - COMPLETE (15 tests)
+    │   └── reddit-connection.test.ts     # Phase 3.2 - TO BE REMOVED (Arctic Shift replaces OAuth)
     └── components/
         └── pagination.test.tsx           # Phase 8.2 - COMPLETE (23 tests)
 ```
@@ -970,7 +937,7 @@ webapp/
 │   └── schema.ts                         # Phase 1.2 - COMPLETE (auth columns + tables)
 ├── lib/
 │   ├── validations.ts                    # Phase 1.4 - COMPLETE (password/email schema)
-│   └── reddit.ts                         # Phase 3.1 - COMPLETE (per-user tokens, fetchRedditPostsForUser, token refresh)
+│   └── reddit.ts                         # Phase 3.1 - NEEDS REWRITE (replace Reddit OAuth client with Arctic Shift API client)
 ├── components/
 │   ├── header.tsx                        # Phase 1.7 - COMPLETE (user menu integrated)
 │   └── providers.tsx                     # Phase 1.7 - COMPLETE (SessionProvider added)

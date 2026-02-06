@@ -4,7 +4,7 @@ User authentication using Auth.js (NextAuth v5) with credentials-based login and
 
 ## Overview
 
-Users sign up and log in with email and password. Each user has their own isolated data (tags, subreddits, posts). Reddit OAuth connects their Reddit account for fetching posts. Groq API keys are user-provided (BYOK).
+Users sign up and log in with email and password. Each user has their own isolated data (tags, subreddits, posts). Reddit data is fetched via the Arctic Shift API (no per-user Reddit credentials needed). Groq API keys are user-provided (BYOK).
 
 ## Technology
 
@@ -55,10 +55,6 @@ No email verification required for v1.
 
 Add to `users` table:
 - `password_hash` - varchar(255), not null for credentials users
-- `reddit_access_token` - text, encrypted, nullable
-- `reddit_refresh_token` - text, encrypted, nullable  
-- `reddit_token_expires_at` - timestamp, nullable
-- `reddit_username` - varchar(100), nullable
 - `groq_api_key` - text, encrypted, nullable
 
 Add Auth.js required tables:
@@ -69,8 +65,6 @@ Add Auth.js required tables:
 ## Encryption
 
 Sensitive fields encrypted at rest using AES-256-GCM:
-- `reddit_access_token`
-- `reddit_refresh_token`
 - `groq_api_key`
 
 Encryption key from environment variable: `ENCRYPTION_KEY` (32-byte hex string)
@@ -102,55 +96,6 @@ export function decrypt(data: string): string {
 ```
 
 Generate encryption key: `openssl rand -hex 32`
-
-## Reddit OAuth Integration
-
-Users connect their Reddit account to enable post fetching.
-
-### Setup
-
-1. Create Reddit OAuth app at reddit.com/prefs/apps
-2. Type: "web app" (not "script")
-3. Redirect URI: `https://socialtracker.com/api/auth/reddit/callback`
-4. For local dev: `http://localhost:3000/api/auth/reddit/callback`
-
-### OAuth Flow
-
-1. User clicks "Connect Reddit" in settings
-2. Redirect to Reddit authorization URL:
-   ```
-   https://www.reddit.com/api/v1/authorize?
-     client_id={REDDIT_CLIENT_ID}&
-     response_type=code&
-     state={csrf_token}&
-     redirect_uri={callback_url}&
-     duration=permanent&
-     scope=read,identity
-   ```
-3. User authorizes on Reddit
-4. Reddit redirects to callback with code
-5. Exchange code for tokens:
-   ```
-   POST https://www.reddit.com/api/v1/access_token
-   grant_type=authorization_code&
-   code={code}&
-   redirect_uri={callback_url}
-   ```
-6. Store encrypted tokens in user record
-7. Fetch Reddit username via `/api/v1/me`, store in user record
-
-### Token Refresh
-
-Reddit tokens expire after 1 hour. Before fetching posts:
-1. Check if `reddit_token_expires_at` is in the past
-2. If expired, refresh using `reddit_refresh_token`
-3. Update stored tokens and expiry
-
-### Disconnect
-
-User can disconnect Reddit in settings:
-1. Clear `reddit_access_token`, `reddit_refresh_token`, `reddit_token_expires_at`, `reddit_username`
-2. Posts fetched previously remain in database
 
 ## BYOK - Groq API Key
 
@@ -197,7 +142,7 @@ Users provide their own Groq API key for LLM tag suggestions.
   - Change password (current password, new password, confirm)
   
 - **Connected Accounts section**
-  - Reddit: "Connect" button or "Connected as u/username" with "Disconnect" button
+  - Removed — Reddit data is fetched via Arctic Shift (no account connection needed)
   
 - **API Keys section**
   - Groq API Key: masked input showing last 4 chars, "Update" button
@@ -213,12 +158,7 @@ AUTH_URL=https://socialtracker.com  # Or http://localhost:3000 for dev
 # Encryption
 ENCRYPTION_KEY=        # Generate with: openssl rand -hex 32
 
-# Reddit OAuth (app-level, for OAuth flow)
-REDDIT_CLIENT_ID=      # From reddit.com/prefs/apps
-REDDIT_CLIENT_SECRET=  # From reddit.com/prefs/apps
-
-# Note: REDDIT_USERNAME and REDDIT_PASSWORD no longer needed
-# Each user connects their own Reddit account via OAuth
+# Note: No Reddit credentials needed — data fetched via Arctic Shift API (public, no auth)
 ```
 
 ## Acceptance Criteria
@@ -231,11 +171,7 @@ REDDIT_CLIENT_SECRET=  # From reddit.com/prefs/apps
 6. **Logout works** - User can log out, session destroyed
 7. **Routes protected** - Unauthenticated access to protected routes redirects to login
 8. **Data isolated** - Users only see their own tags, subreddits, posts
-9. **Reddit OAuth connects** - User can authorize Reddit account
-10. **Reddit tokens stored encrypted** - Tokens not visible in plain text in DB
-11. **Reddit token refresh works** - Expired tokens automatically refreshed
-12. **Reddit disconnect works** - User can remove Reddit connection
-13. **BYOK Groq works** - User can add/update their Groq API key
-14. **Groq key encrypted** - Key not visible in plain text in DB
-15. **Missing Groq key handled** - Suggest Terms disabled without key
-16. **Change password works** - User can update password with valid current password
+9. **BYOK Groq works** - User can add/update their Groq API key
+10. **Groq key encrypted** - Key not visible in plain text in DB
+11. **Missing Groq key handled** - Suggest Terms disabled without key
+12. **Change password works** - User can update password with valid current password

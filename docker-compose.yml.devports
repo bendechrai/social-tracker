@@ -34,10 +34,6 @@ services:
       # Claude Code OAuth token (NOT the API key)
       # Create at: claude /settings or via CLI 'claude' first run
       - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
-      - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID}
-      - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET}
-      - REDDIT_USERNAME=${REDDIT_USERNAME}
-      - REDDIT_PASSWORD=${REDDIT_PASSWORD}
       - GROQ_API_KEY=${GROQ_API_KEY}
       # Git config for commits
       - GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-Ralph}

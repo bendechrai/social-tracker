@@ -1,114 +1,124 @@
 # Reddit Integration
 
-Connect to the Reddit API using per-user OAuth to fetch posts matching configured search criteria.
+Fetch Reddit posts via the Arctic Shift API — a free, public, no-auth-required archive of Reddit data.
 
 ## Overview
 
-Each user connects their own Reddit account via OAuth. Posts are fetched from configured subreddits matching search terms within a configurable time window. Users without a connected Reddit account cannot fetch posts.
+Posts are fetched from configured subreddits matching search terms within a configurable time window. No per-user Reddit account or OAuth is required. The Arctic Shift API provides historical Reddit data with approximately a 36-hour delay from when posts are created.
 
-## Authentication
+## Data Source
 
-### OAuth Flow (per-user)
+**Arctic Shift** — https://arctic-shift.photon-reddit.com
 
-Users connect their Reddit account in Settings. See `authentication.md` for full OAuth flow details.
+- Free, public API — no API key or authentication required
+- Archives all public Reddit posts and comments (since 2005)
+- Data delay: ~36 hours before posts appear (not real-time)
+- Rate limited — respect `X-RateLimit-Remaining` and `X-RateLimit-Reset` response headers
+- No uptime or performance guarantees (community service)
 
-Required scopes: `read`, `identity`
-
-### App-Level Credentials
-
-The application needs Reddit OAuth app credentials (not user credentials):
-
-- `REDDIT_CLIENT_ID` - From reddit.com/prefs/apps
-- `REDDIT_CLIENT_SECRET` - From reddit.com/prefs/apps
-
-These are used for the OAuth flow, not for API calls. API calls use the user's access token.
-
-### Token Management
-
-- Access tokens stored encrypted in `users.reddit_access_token`
-- Refresh tokens stored encrypted in `users.reddit_refresh_token`
-- Expiry tracked in `users.reddit_token_expires_at`
-- Auto-refresh when expired (before API call)
+Reference: https://github.com/ArcticisFox/arctic_shift
 
 ## Fetching Posts
 
-- Search configured subreddits for posts matching search terms
-- Default time window: posts from the last hour
-- Time window is configurable per-fetch
-- Use Reddit's search API: `GET /r/{subreddit}/search`
-- Query parameters:
-  - `q` - search query (the search term)
-  - `restrict_sr` - restrict to subreddit (true)
-  - `sort` - relevance or new (prefer "new")
-  - `t` - time filter (hour, day, week)
-  - `limit` - max results per request (max 100)
+Search configured subreddits for posts matching search terms.
 
-### Authorization Header
+### Endpoint
 
-All API calls include the user's access token:
+`GET https://arctic-shift.photon-reddit.com/api/posts/search`
+
+### Query Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `subreddit` | string | Subreddit name (without r/) |
+| `query` | string | Keyword search across title and selftext |
+| `after` | date | Only posts created after this date (ISO 8601 or Unix timestamp) |
+| `before` | date | Only posts created before this date |
+| `sort` | string | `asc` or `desc` by `created_utc` (default: desc) |
+| `limit` | number | 1–100 results (default 25), or `"auto"` for 100–1000 |
+
+### Example Request
+
 ```
-Authorization: Bearer {user_access_token}
-```
-
-### User-Agent
-
-Must follow Reddit API rules:
-```
-User-Agent: web:socialtracker:1.0.0 (by /u/{reddit_username})
+GET https://arctic-shift.photon-reddit.com/api/posts/search?subreddit=postgresql&query=yugabyte&after=2025-01-01&limit=100&sort=desc
 ```
 
-Use the connected user's Reddit username in the User-Agent.
+### Fetching Strategy
+
+For each configured subreddit + search term combination:
+
+1. Build the query URL with subreddit, search term, and time window
+2. Set `after` to the configured time window start (e.g., 48 hours ago, accounting for data delay)
+3. Set `limit` to 100 (max per request) or `"auto"` for larger result sets
+4. Send GET request (no auth headers needed)
+5. Parse response and extract post data
+6. Deduplicate across multiple search terms (by reddit_id)
+
+### Time Window
+
+- Default: posts from the last 48 hours (accounts for ~36h data delay)
+- Configurable per-fetch
+- Use `after` and `before` parameters for date range
+
+### Multiple Subreddits
+
+Arctic Shift's search endpoint takes a single subreddit at a time. To search across multiple subreddits:
+- Make one request per subreddit+term combination
+- Deduplicate results by `reddit_id`
+- Combine and sort by `created_utc`
 
 ## Rate Limiting
 
-- Reddit allows 60 requests per minute for OAuth clients
-- Implement rate limiting with exponential backoff
-- Track request count and reset window per user
-- Log warnings when approaching limits
+- Monitor `X-RateLimit-Remaining` response header
+- Back off when remaining requests are low
+- Check `X-RateLimit-Reset` for when the limit resets
+- Implement exponential backoff on 429 responses
+- Be considerate — this is a free community service
 
 ## Data Extraction
 
-For each post, extract:
-- `reddit_id` - Reddit's unique identifier (t3_xxxxx)
-- `title` - Post title
-- `selftext` - Post body (may be empty for link posts)
-- `author` - Reddit username
-- `subreddit` - Subreddit name (without r/)
-- `permalink` - Relative URL to post
-- `url` - Link URL (for link posts) or permalink (for self posts)
-- `created_utc` - Unix timestamp of post creation
-- `score` - Current score (upvotes - downvotes)
-- `num_comments` - Comment count
-- `is_self` - Whether it's a self/text post
+The Arctic Shift API returns Reddit post objects. For each post, extract:
+
+- `reddit_id` — Reddit's unique identifier (the `id` field, prefix with `t3_` for full name)
+- `title` — Post title
+- `selftext` — Post body (may be empty for link posts)
+- `author` — Reddit username
+- `subreddit` — Subreddit name (without r/)
+- `permalink` — Relative URL to post
+- `url` — Link URL (for link posts) or permalink (for self posts)
+- `created_utc` — Unix timestamp of post creation
+- `score` — Current score (upvotes - downvotes)
+- `num_comments` — Comment count
+- `is_self` — Whether it's a self/text post
+
+Note: Some fields like `score` and `num_comments` may reflect values from when the post was archived, not live values.
 
 ## Error Handling
 
-- Retry transient failures (5xx, network errors) with backoff
+- Retry transient failures (5xx, network errors) with exponential backoff
 - Log and skip permanently failed requests (4xx except 429)
-- Handle Reddit API being temporarily unavailable
-- If Reddit not connected, return helpful error message (don't crash)
-- If token refresh fails, mark Reddit as disconnected and notify user
+- Handle Arctic Shift API being temporarily unavailable gracefully
+- Return helpful error message if the API is down
+- No authentication errors to handle (no auth required)
 
-## Development Without Reddit Connection
+## Development Without Arctic Shift
 
-The app should be fully functional for development and testing without a connected Reddit account:
+The app should be fully functional for development and testing without calling the real API:
 
-- Use MSW (Mock Service Worker) to mock Reddit API responses in tests
+- Use MSW (Mock Service Worker) to mock Arctic Shift API responses in tests
 - Seed script provides fake posts for UI development
-- Fetch button shows helpful message if Reddit not connected: "Connect your Reddit account in Settings to fetch posts"
+- Fetch button works for all authenticated users (no Reddit account needed)
 - All other features (tags, subreddits config, post management, UI) work independently
 
 ## Acceptance Criteria
 
-1. **User OAuth flow works** - User can connect Reddit account via OAuth
-2. **Posts are fetched** - Given connected account and configured subreddits/terms, matching posts are returned
-3. **User isolation** - Each user's Reddit connection is independent
-4. **Time window respected** - Only posts within the specified time window are returned
-5. **Rate limits respected** - System does not exceed 60 requests/minute; backs off on 429 responses
-6. **All fields extracted** - Every field listed in Data Extraction is populated (or explicitly null/empty)
-7. **Errors don't crash** - Transient errors retry; permanent errors log and continue
-8. **Multiple subreddits** - Can search across multiple subreddits in a single fetch operation
-9. **Multiple search terms** - Can search for multiple terms, combining results without duplicates
-10. **Token refresh works** - Expired tokens automatically refreshed before API calls
-11. **Disconnect handled** - User without Reddit connection sees helpful message, not error
-12. **User-Agent correct** - Includes connected user's Reddit username
+1. **Posts are fetched** — Given configured subreddits and search terms, matching posts are returned from Arctic Shift
+2. **No auth required** — Fetching works for any authenticated app user without Reddit credentials
+3. **User isolation** — Each user's fetched posts are stored independently
+4. **Time window respected** — Only posts within the specified time window are returned
+5. **Rate limits respected** — System monitors rate limit headers and backs off appropriately
+6. **All fields extracted** — Every field listed in Data Extraction is populated (or explicitly null/empty)
+7. **Errors don't crash** — Transient errors retry; permanent errors log and continue
+8. **Multiple subreddits** — Can search across multiple subreddits in a single fetch operation
+9. **Multiple search terms** — Can search for multiple terms, combining results without duplicates
+10. **Data delay documented** — Users understand data has ~36h delay (not real-time)
