@@ -15,7 +15,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "@/mocks/server";
-import { fetchRedditPosts, resetRateLimitState } from "@/lib/reddit";
+import { fetchRedditPosts, resetRateLimitState, verifySubredditExists } from "@/lib/reddit";
 
 describe("fetchRedditPosts", () => {
   beforeEach(() => {
@@ -548,5 +548,116 @@ describe("fetchRedditPosts", () => {
       const expectedTs = Math.floor(Date.now() / 1000) - 24 * 60 * 60;
       expect(Math.abs(afterTs - expectedTs)).toBeLessThan(5);
     });
+  });
+});
+
+describe("verifySubredditExists", () => {
+  beforeEach(() => {
+    resetRateLimitState();
+  });
+
+  it("returns true when subreddit has posts", async () => {
+    server.use(
+      http.get(
+        "https://arctic-shift.photon-reddit.com/api/posts/search",
+        () => {
+          return HttpResponse.json({
+            data: [
+              {
+                id: "existing_post",
+                title: "A post",
+                selftext: null,
+                author: "user",
+                subreddit: "postgresql",
+                permalink: "/r/postgresql/comments/existing_post/",
+                url: null,
+                created_utc: Math.floor(Date.now() / 1000) - 3600,
+                score: 1,
+                num_comments: 0,
+                is_self: true,
+              },
+            ],
+          });
+        }
+      )
+    );
+
+    const result = await verifySubredditExists("postgresql");
+    expect(result).toBe(true);
+  });
+
+  it("returns false when subreddit has no posts (nonexistent)", async () => {
+    server.use(
+      http.get(
+        "https://arctic-shift.photon-reddit.com/api/posts/search",
+        () => {
+          return HttpResponse.json({ data: [] });
+        }
+      )
+    );
+
+    const result = await verifySubredditExists("nonexistent_sub");
+    expect(result).toBe(false);
+  });
+
+  it("returns true on API failure (skips verification gracefully)", async () => {
+    server.use(
+      http.get(
+        "https://arctic-shift.photon-reddit.com/api/posts/search",
+        () => {
+          return new HttpResponse(null, { status: 404 });
+        }
+      )
+    );
+
+    const result = await verifySubredditExists("any_sub");
+    expect(result).toBe(true);
+  }, 15000);
+
+  it("returns true on network error (skips verification gracefully)", async () => {
+    server.use(
+      http.get(
+        "https://arctic-shift.photon-reddit.com/api/posts/search",
+        () => {
+          return HttpResponse.error();
+        }
+      )
+    );
+
+    const result = await verifySubredditExists("any_sub");
+    expect(result).toBe(true);
+  }, 15000);
+
+  it("returns true when API returns unexpected format", async () => {
+    server.use(
+      http.get(
+        "https://arctic-shift.photon-reddit.com/api/posts/search",
+        () => {
+          return HttpResponse.json({ unexpected: "format" });
+        }
+      )
+    );
+
+    const result = await verifySubredditExists("any_sub");
+    expect(result).toBe(true);
+  });
+
+  it("sends correct query parameters", async () => {
+    let capturedUrl = "";
+    server.use(
+      http.get(
+        "https://arctic-shift.photon-reddit.com/api/posts/search",
+        ({ request }) => {
+          capturedUrl = request.url;
+          return HttpResponse.json({ data: [] });
+        }
+      )
+    );
+
+    await verifySubredditExists("testsubreddit");
+
+    const url = new URL(capturedUrl);
+    expect(url.searchParams.get("subreddit")).toBe("testsubreddit");
+    expect(url.searchParams.get("limit")).toBe("1");
   });
 });

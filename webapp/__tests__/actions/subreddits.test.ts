@@ -61,6 +61,12 @@ vi.mock("@/app/actions/users", () => ({
   getCurrentUserId: vi.fn().mockResolvedValue("test-user-uuid-1234"),
 }));
 
+// Mock reddit module for subreddit verification
+const mockVerifySubredditExists = vi.fn();
+vi.mock("@/lib/reddit", () => ({
+  verifySubredditExists: (...args: unknown[]) => mockVerifySubredditExists(...args),
+}));
+
 // User ID constant for use in tests
 const MOCK_USER_ID = "test-user-uuid-1234";
 
@@ -74,6 +80,8 @@ import {
 describe("subreddit server actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: subreddit exists (verification passes)
+    mockVerifySubredditExists.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -325,6 +333,65 @@ describe("subreddit server actions", () => {
         if (result.success) {
           expect(result.subreddit.name).toBe(maxName);
         }
+      });
+    });
+
+    describe("subreddit verification", () => {
+      it("rejects subreddit that does not exist on Reddit", async () => {
+        mockVerifySubredditExists.mockResolvedValue(false);
+
+        const result = await addSubreddit("nonexistent_sub");
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toBe("Subreddit not found on Reddit");
+        }
+        expect(mockInsert).not.toHaveBeenCalled();
+      });
+
+      it("allows subreddit when verification passes", async () => {
+        mockVerifySubredditExists.mockResolvedValue(true);
+        mockFindFirst.mockResolvedValue(null);
+        mockReturning.mockResolvedValue([
+          { id: "new-sub", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
+        ]);
+
+        const result = await addSubreddit("postgresql");
+
+        expect(result.success).toBe(true);
+        expect(mockVerifySubredditExists).toHaveBeenCalledWith("postgresql");
+      });
+
+      it("allows subreddit when API fails (graceful skip)", async () => {
+        // verifySubredditExists returns true on API failure
+        mockVerifySubredditExists.mockResolvedValue(true);
+        mockFindFirst.mockResolvedValue(null);
+        mockReturning.mockResolvedValue([
+          { id: "new-sub", name: "database", userId: MOCK_USER_ID, createdAt: new Date() },
+        ]);
+
+        const result = await addSubreddit("database");
+
+        expect(result.success).toBe(true);
+      });
+
+      it("verifies with normalized name", async () => {
+        mockVerifySubredditExists.mockResolvedValue(true);
+        mockFindFirst.mockResolvedValue(null);
+        mockReturning.mockResolvedValue([
+          { id: "new-sub", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
+        ]);
+
+        await addSubreddit("r/PostgreSQL");
+
+        // Should verify with normalized lowercase name
+        expect(mockVerifySubredditExists).toHaveBeenCalledWith("postgresql");
+      });
+
+      it("does not call verification for invalid names", async () => {
+        await addSubreddit("ab"); // Too short
+
+        expect(mockVerifySubredditExists).not.toHaveBeenCalled();
       });
     });
   });

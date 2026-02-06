@@ -2,7 +2,7 @@
 // Uses the free, public Arctic Shift API — no authentication required
 // https://arctic-shift.photon-reddit.com
 
-const ARCTIC_SHIFT_BASE_URL =
+const ARCTIC_SHIFT_POSTS_URL =
   "https://arctic-shift.photon-reddit.com/api/posts/search";
 
 // Default time window: 48 hours (accounts for ~36h data delay)
@@ -136,7 +136,7 @@ function buildSearchUrl(
   query: string,
   afterTimestamp: number
 ): string {
-  const url = new URL(ARCTIC_SHIFT_BASE_URL);
+  const url = new URL(ARCTIC_SHIFT_POSTS_URL);
   url.searchParams.set("subreddit", subreddit);
   url.searchParams.set("query", query);
   url.searchParams.set("after", afterTimestamp.toString());
@@ -228,4 +228,38 @@ export async function fetchRedditPosts(
   posts.sort((a, b) => b.redditCreatedAt.getTime() - a.redditCreatedAt.getTime());
 
   return posts;
+}
+
+/**
+ * Verify a subreddit exists by checking if Arctic Shift has any posts from it.
+ * Searches for at least one post in the subreddit to confirm its existence.
+ *
+ * Returns true if the subreddit exists, false if it doesn't.
+ * On API errors, returns true to skip verification gracefully
+ * (prevents blocking users due to API downtime).
+ */
+export async function verifySubredditExists(
+  subredditName: string
+): Promise<boolean> {
+  try {
+    const url = new URL(ARCTIC_SHIFT_POSTS_URL);
+    url.searchParams.set("subreddit", subredditName);
+    url.searchParams.set("limit", "1");
+
+    const response = await fetchWithRetry(url.toString());
+    const data = (await response.json()) as ArcticShiftResponse;
+
+    if (!data.data || !Array.isArray(data.data)) {
+      // API returned unexpected format — skip verification gracefully
+      return true;
+    }
+
+    return data.data.length > 0;
+  } catch {
+    // API failure — skip verification gracefully so users aren't blocked
+    console.error(
+      `Failed to verify subreddit "${subredditName}" via Arctic Shift, skipping verification`
+    );
+    return true;
+  }
 }

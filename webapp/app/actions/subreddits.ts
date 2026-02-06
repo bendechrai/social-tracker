@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { subreddits } from "@/drizzle/schema";
 import { getCurrentUserId } from "./users";
 import { subredditNameSchema } from "@/lib/validations";
+import { verifySubredditExists } from "@/lib/reddit";
 import { eq, and, asc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -42,6 +43,12 @@ export async function addSubreddit(
   }
 
   const normalizedName = parsed.data;
+
+  // Verify subreddit exists via Arctic Shift API
+  const exists = await verifySubredditExists(normalizedName);
+  if (!exists) {
+    return { success: false, error: "Subreddit not found on Reddit" };
+  }
 
   // Check for duplicate
   const existing = await db.query.subreddits.findFirst({
