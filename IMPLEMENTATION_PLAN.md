@@ -42,8 +42,6 @@ This document outlines the implementation status and remaining tasks for complet
 ### Missing Files Summary (Verified)
 The following files DO NOT exist and need to be created:
 - `webapp/__tests__/hooks/*` - No hook tests exist
-- `webapp/__tests__/api/*` - No API route tests exist
-- `webapp/__tests__/utils.test.ts` - No utils tests
 
 ### Files Removed (Intentional)
 These files were removed as part of Phase 3 (Arctic Shift migration — Reddit OAuth no longer needed):
@@ -251,10 +249,10 @@ Note: Playwright is configured but `webapp/e2e/` directory only contains `.gitke
 
 ## Phase 8: Test Coverage Gaps
 
-**Status: PARTIAL (3/7)**
+**Status: PARTIAL (5/7)**
 **Priority: LOW**
 
-Current test coverage: 331 tests across 12 files:
+Current test coverage: 362 tests across 14 files:
 - `webapp/__tests__/validations.test.ts` (72 tests)
 - `webapp/__tests__/reddit.test.ts` (21 tests)
 - `webapp/__tests__/actions/subreddits.test.ts` (21 tests)
@@ -267,12 +265,14 @@ Current test coverage: 331 tests across 12 files:
 - `webapp/__tests__/auth.test.ts` (22 tests)
 - `webapp/__tests__/middleware.test.ts` (18 tests)
 - `webapp/__tests__/components/pagination.test.tsx` (23 tests)
+- `webapp/__tests__/utils.test.ts` (12 tests)
+- `webapp/__tests__/api/suggest-terms.test.ts` (19 tests)
 
-Missing test categories: hooks, API routes, utils, additional components.
+Missing test categories: hooks, additional components.
 
 ### 8.1 Missing Unit Tests
-- [ ] **Add utils.ts unit tests** (`webapp/__tests__/utils.test.ts`)
-- [ ] **Add API route tests** (`webapp/__tests__/api/suggest-terms.test.ts`)
+- [x] **Add utils.ts unit tests** — COMPLETE (`webapp/__tests__/utils.test.ts`, 12 tests)
+- [x] **Add API route tests** — COMPLETE (`webapp/__tests__/api/suggest-terms.test.ts`, 19 tests)
 - [x] **Add encryption module tests** — COMPLETE (24 tests)
 - [x] **Add password module tests** — COMPLETE (17 tests)
 
@@ -296,9 +296,9 @@ Missing test categories: hooks, API routes, utils, additional components.
 | 5 | UI Completion (Pagination) | 1 | **COMPLETE (1/1)** | None | MEDIUM |
 | 6 | Minor Improvements | 2+1 | **COMPLETE (2/2)** + 1 optional | Various | LOW |
 | 7 | E2E Testing | 6 | NOT STARTED | All features | MEDIUM |
-| 8 | Test Coverage Gaps | 7 | PARTIAL (3/7) | None | LOW |
+| 8 | Test Coverage Gaps | 7 | PARTIAL (5/7) | None | LOW |
 
-**Total Remaining Tasks: 11** (Phase 6 optional: 1, Phase 7: 6, Phase 8: 4)
+**Total Remaining Tasks: 9** (Phase 6 optional: 1, Phase 7: 6, Phase 8: 2)
 
 ### Completed Tasks Summary
 - **Phase 1 Authentication** — Complete Auth.js implementation with login/signup pages, user menu, middleware, and real session-based auth
