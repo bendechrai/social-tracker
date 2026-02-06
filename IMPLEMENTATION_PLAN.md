@@ -249,10 +249,10 @@ Note: Playwright is configured but `webapp/e2e/` directory only contains `.gitke
 
 ## Phase 8: Test Coverage Gaps
 
-**Status: PARTIAL (5/7)**
+**Status: PARTIAL (6/7)**
 **Priority: LOW**
 
-Current test coverage: 362 tests across 14 files:
+Current test coverage: 419 tests across 18 files:
 - `webapp/__tests__/validations.test.ts` (72 tests)
 - `webapp/__tests__/reddit.test.ts` (21 tests)
 - `webapp/__tests__/actions/subreddits.test.ts` (21 tests)
@@ -265,20 +265,24 @@ Current test coverage: 362 tests across 14 files:
 - `webapp/__tests__/auth.test.ts` (22 tests)
 - `webapp/__tests__/middleware.test.ts` (18 tests)
 - `webapp/__tests__/components/pagination.test.tsx` (23 tests)
+- `webapp/__tests__/components/tag-badge.test.tsx` (10 tests)
+- `webapp/__tests__/components/status-tabs.test.tsx` (9 tests)
+- `webapp/__tests__/components/post-card.test.tsx` (27 tests)
+- `webapp/__tests__/components/post-list.test.tsx` (6 tests)
 - `webapp/__tests__/utils.test.ts` (12 tests)
 - `webapp/__tests__/api/suggest-terms.test.ts` (19 tests)
 
-Missing test categories: hooks, additional components.
+Missing test categories: hooks.
 
-### 8.1 Missing Unit Tests
+### 8.1 Missing Unit Tests — COMPLETE (4/4)
 - [x] **Add utils.ts unit tests** — COMPLETE (`webapp/__tests__/utils.test.ts`, 12 tests)
 - [x] **Add API route tests** — COMPLETE (`webapp/__tests__/api/suggest-terms.test.ts`, 19 tests)
 - [x] **Add encryption module tests** — COMPLETE (24 tests)
 - [x] **Add password module tests** — COMPLETE (17 tests)
 
-### 8.2 Component Tests
+### 8.2 Component Tests — COMPLETE (2/2)
 - [x] **Add pagination component tests** — COMPLETE (23 tests)
-- [ ] **Add remaining React component tests** (post-card, tag-filter, status-tabs, settings panels, toast)
+- [x] **Add remaining React component tests** — COMPLETE (tag-badge: 10 tests, status-tabs: 9 tests, post-card: 27 tests, post-list: 6 tests)
 
 ### 8.3 Hook Tests
 - [ ] **Add React Query hook tests** (`webapp/__tests__/hooks/`)
@@ -296,9 +300,9 @@ Missing test categories: hooks, additional components.
 | 5 | UI Completion (Pagination) | 1 | **COMPLETE (1/1)** | None | MEDIUM |
 | 6 | Minor Improvements | 2+1 | **COMPLETE (2/2)** + 1 optional | Various | LOW |
 | 7 | E2E Testing | 6 | NOT STARTED | All features | MEDIUM |
-| 8 | Test Coverage Gaps | 7 | PARTIAL (5/7) | None | LOW |
+| 8 | Test Coverage Gaps | 7 | PARTIAL (6/7) | None | LOW |
 
-**Total Remaining Tasks: 9** (Phase 6 optional: 1, Phase 7: 6, Phase 8: 2)
+**Total Remaining Tasks: 8** (Phase 6 optional: 1, Phase 7: 6, Phase 8: 1)
 
 ### Completed Tasks Summary
 - **Phase 1 Authentication** — Complete Auth.js implementation with login/signup pages, user menu, middleware, and real session-based auth
