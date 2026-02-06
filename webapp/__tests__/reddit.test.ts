@@ -1,91 +1,28 @@
 /**
- * Unit tests for Reddit API client.
+ * Unit tests for Arctic Shift API client.
  *
- * These tests verify that the Reddit client correctly:
- * - Returns empty results when credentials are not configured
- * - Parses Reddit API responses correctly
- * - Extracts all required fields from posts
- * - Handles API errors gracefully
+ * These tests verify that the Arctic Shift client correctly:
+ * - Builds correct API URLs with parameters
+ * - Parses response and extracts all required fields
+ * - Deduplicates posts by reddit_id
+ * - Handles API errors gracefully (5xx, network errors)
+ * - Respects rate limit headers
+ * - Returns empty results for empty inputs
+ * - Sorts results by creation time
  *
- * Uses MSW to mock Reddit API endpoints.
+ * Uses MSW to mock Arctic Shift API endpoints.
  */
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "@/mocks/server";
-import { fetchRedditPosts, isRedditConfigured, clearTokenCache } from "@/lib/reddit";
-
-// Store original env vars
-const originalEnv = { ...process.env };
-
-describe("isRedditConfigured", () => {
-  beforeEach(() => {
-    // Reset environment variables
-    delete process.env.REDDIT_CLIENT_ID;
-    delete process.env.REDDIT_CLIENT_SECRET;
-    delete process.env.REDDIT_USERNAME;
-    delete process.env.REDDIT_PASSWORD;
-  });
-
-  afterEach(() => {
-    // Restore environment variables
-    process.env = { ...originalEnv };
-  });
-
-  it("returns false when no credentials are configured", () => {
-    expect(isRedditConfigured()).toBe(false);
-  });
-
-  it("returns false when only some credentials are configured", () => {
-    process.env.REDDIT_CLIENT_ID = "test_id";
-    process.env.REDDIT_CLIENT_SECRET = "test_secret";
-    // Missing username and password
-    expect(isRedditConfigured()).toBe(false);
-  });
-
-  it("returns true when all credentials are configured", () => {
-    process.env.REDDIT_CLIENT_ID = "test_id";
-    process.env.REDDIT_CLIENT_SECRET = "test_secret";
-    process.env.REDDIT_USERNAME = "test_user";
-    process.env.REDDIT_PASSWORD = "test_pass";
-    expect(isRedditConfigured()).toBe(true);
-  });
-});
+import { fetchRedditPosts, resetRateLimitState } from "@/lib/reddit";
 
 describe("fetchRedditPosts", () => {
   beforeEach(() => {
-    // Reset environment variables
-    delete process.env.REDDIT_CLIENT_ID;
-    delete process.env.REDDIT_CLIENT_SECRET;
-    delete process.env.REDDIT_USERNAME;
-    delete process.env.REDDIT_PASSWORD;
+    resetRateLimitState();
   });
 
-  afterEach(() => {
-    // Restore environment variables
-    process.env = { ...originalEnv };
-  });
-
-  describe("when credentials are not configured", () => {
-    it("returns empty array gracefully", async () => {
-      const result = await fetchRedditPosts(["postgresql"], ["yugabyte"]);
-      expect(result).toEqual([]);
-    });
-
-    it("does not throw an error", async () => {
-      await expect(
-        fetchRedditPosts(["postgresql"], ["yugabyte"])
-      ).resolves.not.toThrow();
-    });
-  });
-
-  describe("when credentials are configured", () => {
-    beforeEach(() => {
-      process.env.REDDIT_CLIENT_ID = "test_id";
-      process.env.REDDIT_CLIENT_SECRET = "test_secret";
-      process.env.REDDIT_USERNAME = "test_user";
-      process.env.REDDIT_PASSWORD = "test_pass";
-    });
-
+  describe("input validation", () => {
     it("returns empty array when no subreddits provided", async () => {
       const result = await fetchRedditPosts([], ["yugabyte"]);
       expect(result).toEqual([]);
@@ -96,74 +33,246 @@ describe("fetchRedditPosts", () => {
       expect(result).toEqual([]);
     });
 
-    it("fetches posts from Reddit API", async () => {
-      const result = await fetchRedditPosts(["postgresql"], ["yugabyte"]);
-      expect(result.length).toBeGreaterThan(0);
+    it("returns empty array when both inputs are empty", async () => {
+      const result = await fetchRedditPosts([], []);
+      expect(result).toEqual([]);
     });
+  });
 
-    it("correctly parses post data", async () => {
-      const result = await fetchRedditPosts(["postgresql"], ["yugabyte"]);
-      expect(result.length).toBeGreaterThan(0);
-
-      const post = result[0]!;
-      expect(post).toHaveProperty("redditId");
-      expect(post).toHaveProperty("title");
-      expect(post).toHaveProperty("body");
-      expect(post).toHaveProperty("author");
-      expect(post).toHaveProperty("subreddit");
-      expect(post).toHaveProperty("permalink");
-      expect(post).toHaveProperty("url");
-      expect(post).toHaveProperty("redditCreatedAt");
-      expect(post).toHaveProperty("score");
-      expect(post).toHaveProperty("numComments");
-    });
-
-    it("extracts all required fields", async () => {
-      const result = await fetchRedditPosts(["testsubreddit"], ["test"]);
-      expect(result.length).toBeGreaterThan(0);
-
-      const post = result[0]!;
-      expect(typeof post.redditId).toBe("string");
-      expect(typeof post.title).toBe("string");
-      expect(post.body === null || typeof post.body === "string").toBe(true);
-      expect(typeof post.author).toBe("string");
-      expect(typeof post.subreddit).toBe("string");
-      expect(typeof post.permalink).toBe("string");
-      expect(post.url === null || typeof post.url === "string").toBe(true);
-      expect(post.redditCreatedAt instanceof Date).toBe(true);
-      expect(typeof post.score).toBe("number");
-      expect(typeof post.numComments).toBe("number");
-    });
-
-    it("fetches from multiple subreddits", async () => {
-      // Override the mock to return different posts for each subreddit
+  describe("API URL construction", () => {
+    it("builds correct Arctic Shift API URL with parameters", async () => {
+      let capturedUrl = "";
       server.use(
-        http.get("https://oauth.reddit.com/r/:subreddit/search", ({ params }) => {
-          const subreddit = params.subreddit as string;
-          return HttpResponse.json({
-            kind: "Listing",
-            data: {
-              after: null,
-              children: [
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          ({ request }) => {
+            capturedUrl = request.url;
+            return HttpResponse.json({ data: [] });
+          }
+        )
+      );
+
+      await fetchRedditPosts(["postgresql"], ["yugabyte"], 48);
+
+      const url = new URL(capturedUrl);
+      expect(url.searchParams.get("subreddit")).toBe("postgresql");
+      expect(url.searchParams.get("query")).toBe("yugabyte");
+      expect(url.searchParams.get("sort")).toBe("desc");
+      expect(url.searchParams.get("limit")).toBe("100");
+      // after should be a Unix timestamp roughly 48 hours ago
+      const afterTs = parseInt(url.searchParams.get("after")!);
+      const expectedTs = Math.floor(Date.now() / 1000) - 48 * 60 * 60;
+      expect(Math.abs(afterTs - expectedTs)).toBeLessThan(5); // within 5 seconds
+    });
+
+    it("makes one request per subreddit+term combination", async () => {
+      const requests: string[] = [];
+      server.use(
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          ({ request }) => {
+            const url = new URL(request.url);
+            requests.push(
+              `${url.searchParams.get("subreddit")}:${url.searchParams.get("query")}`
+            );
+            return HttpResponse.json({ data: [] });
+          }
+        )
+      );
+
+      await fetchRedditPosts(["sub1", "sub2"], ["term1", "term2"]);
+
+      expect(requests).toEqual([
+        "sub1:term1",
+        "sub1:term2",
+        "sub2:term1",
+        "sub2:term2",
+      ]);
+    });
+  });
+
+  describe("response parsing", () => {
+    it("fetches posts from Arctic Shift API", async () => {
+      const result = await fetchRedditPosts(["postgresql"], ["yugabyte"]);
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it("correctly parses and extracts all required post fields", async () => {
+      const now = Math.floor(Date.now() / 1000);
+      server.use(
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          () => {
+            return HttpResponse.json({
+              data: [
                 {
-                  kind: "t3",
-                  data: {
-                    id: `post_${subreddit}`,
-                    title: `Post from r/${subreddit}`,
-                    selftext: "Test body",
-                    author: "test_author",
-                    subreddit: subreddit,
-                    permalink: `/r/${subreddit}/comments/test/`,
-                    url: `https://reddit.com/r/${subreddit}/comments/test/`,
-                    created_utc: Math.floor(Date.now() / 1000) - 1800,
-                    score: 10,
-                    num_comments: 5,
-                  },
+                  id: "abc123",
+                  title: "Test Post Title",
+                  selftext: "Test body content",
+                  author: "test_author",
+                  subreddit: "postgresql",
+                  permalink: "/r/postgresql/comments/abc123/test_post/",
+                  url: "https://example.com",
+                  created_utc: now - 3600,
+                  score: 42,
+                  num_comments: 7,
+                  is_self: false,
                 },
               ],
-            },
-          });
-        })
+            });
+          }
+        )
+      );
+
+      const result = await fetchRedditPosts(["postgresql"], ["test"]);
+      expect(result.length).toBe(1);
+
+      const post = result[0]!;
+      expect(post.redditId).toBe("t3_abc123");
+      expect(post.title).toBe("Test Post Title");
+      expect(post.body).toBe("Test body content");
+      expect(post.author).toBe("test_author");
+      expect(post.subreddit).toBe("postgresql");
+      expect(post.permalink).toBe("/r/postgresql/comments/abc123/test_post/");
+      expect(post.url).toBe("https://example.com");
+      expect(post.redditCreatedAt).toBeInstanceOf(Date);
+      expect(post.score).toBe(42);
+      expect(post.numComments).toBe(7);
+      expect(post.isSelf).toBe(false);
+    });
+
+    it("prefixes reddit_id with t3_", async () => {
+      server.use(
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          () => {
+            return HttpResponse.json({
+              data: [
+                {
+                  id: "xyz789",
+                  title: "Post",
+                  selftext: null,
+                  author: "author",
+                  subreddit: "test",
+                  permalink: "/r/test/comments/xyz789/",
+                  url: null,
+                  created_utc: Math.floor(Date.now() / 1000) - 1800,
+                  score: 1,
+                  num_comments: 0,
+                  is_self: true,
+                },
+              ],
+            });
+          }
+        )
+      );
+
+      const result = await fetchRedditPosts(["test"], ["query"]);
+      expect(result[0]!.redditId).toBe("t3_xyz789");
+    });
+
+    it("handles null selftext as null body", async () => {
+      server.use(
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          () => {
+            return HttpResponse.json({
+              data: [
+                {
+                  id: "nullbody",
+                  title: "Link Post",
+                  selftext: null,
+                  author: "author",
+                  subreddit: "test",
+                  permalink: "/r/test/comments/nullbody/",
+                  url: "https://example.com",
+                  created_utc: Math.floor(Date.now() / 1000) - 1800,
+                  score: 5,
+                  num_comments: 2,
+                  is_self: false,
+                },
+              ],
+            });
+          }
+        )
+      );
+
+      const result = await fetchRedditPosts(["test"], ["query"]);
+      expect(result[0]!.body).toBeNull();
+    });
+
+    it("handles empty string selftext as null body", async () => {
+      server.use(
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          () => {
+            return HttpResponse.json({
+              data: [
+                {
+                  id: "emptybody",
+                  title: "Empty Body",
+                  selftext: "",
+                  author: "author",
+                  subreddit: "test",
+                  permalink: "/r/test/comments/emptybody/",
+                  url: null,
+                  created_utc: Math.floor(Date.now() / 1000) - 1800,
+                  score: 1,
+                  num_comments: 0,
+                  is_self: true,
+                },
+              ],
+            });
+          }
+        )
+      );
+
+      const result = await fetchRedditPosts(["test"], ["query"]);
+      expect(result[0]!.body).toBeNull();
+    });
+
+    it("handles missing data array gracefully", async () => {
+      server.use(
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          () => {
+            return HttpResponse.json({});
+          }
+        )
+      );
+
+      const result = await fetchRedditPosts(["test"], ["query"]);
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("multiple subreddits", () => {
+    it("fetches from multiple subreddits", async () => {
+      server.use(
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          ({ request }) => {
+            const url = new URL(request.url);
+            const subreddit = url.searchParams.get("subreddit")!;
+            return HttpResponse.json({
+              data: [
+                {
+                  id: `post_${subreddit}`,
+                  title: `Post from r/${subreddit}`,
+                  selftext: "Test body",
+                  author: "test_author",
+                  subreddit: subreddit,
+                  permalink: `/r/${subreddit}/comments/test/`,
+                  url: null,
+                  created_utc: Math.floor(Date.now() / 1000) - 1800,
+                  score: 10,
+                  num_comments: 5,
+                  is_self: true,
+                },
+              ],
+            });
+          }
+        )
       );
 
       const result = await fetchRedditPosts(
@@ -171,37 +280,38 @@ describe("fetchRedditPosts", () => {
         ["yugabyte"]
       );
       expect(result.length).toBe(2);
-      expect(result.map((p) => p.subreddit).sort()).toEqual(["database", "postgresql"]);
+      expect(result.map((p) => p.subreddit).sort()).toEqual([
+        "database",
+        "postgresql",
+      ]);
     });
+  });
 
-    it("deduplicates posts with the same ID", async () => {
-      // Override mock to return same post ID from different subreddits
+  describe("deduplication", () => {
+    it("deduplicates posts with the same ID across subreddits", async () => {
       server.use(
-        http.get("https://oauth.reddit.com/r/:subreddit/search", () => {
-          return HttpResponse.json({
-            kind: "Listing",
-            data: {
-              after: null,
-              children: [
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          () => {
+            return HttpResponse.json({
+              data: [
                 {
-                  kind: "t3",
-                  data: {
-                    id: "same_post_id",
-                    title: "Duplicate post",
-                    selftext: "Body",
-                    author: "author",
-                    subreddit: "test",
-                    permalink: "/r/test/comments/same_post_id/",
-                    url: null,
-                    created_utc: Math.floor(Date.now() / 1000) - 1800,
-                    score: 1,
-                    num_comments: 0,
-                  },
+                  id: "same_post_id",
+                  title: "Duplicate post",
+                  selftext: "Body",
+                  author: "author",
+                  subreddit: "test",
+                  permalink: "/r/test/comments/same_post_id/",
+                  url: null,
+                  created_utc: Math.floor(Date.now() / 1000) - 1800,
+                  score: 1,
+                  num_comments: 0,
+                  is_self: true,
                 },
               ],
-            },
-          });
-        })
+            });
+          }
+        )
       );
 
       const result = await fetchRedditPosts(
@@ -211,176 +321,232 @@ describe("fetchRedditPosts", () => {
       expect(result.length).toBe(1);
     });
 
-    it("filters posts by time window", async () => {
-      const now = Math.floor(Date.now() / 1000);
+    it("deduplicates posts across multiple search terms", async () => {
       server.use(
-        http.get("https://oauth.reddit.com/r/:subreddit/search", () => {
-          return HttpResponse.json({
-            kind: "Listing",
-            data: {
-              after: null,
-              children: [
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          () => {
+            return HttpResponse.json({
+              data: [
                 {
-                  kind: "t3",
-                  data: {
-                    id: "recent_post",
-                    title: "Recent post",
-                    selftext: null,
-                    author: "author",
-                    subreddit: "test",
-                    permalink: "/r/test/comments/recent/",
-                    url: null,
-                    created_utc: now - 1800, // 30 minutes ago
-                    score: 10,
-                    num_comments: 5,
-                  },
-                },
-                {
-                  kind: "t3",
-                  data: {
-                    id: "old_post",
-                    title: "Old post",
-                    selftext: null,
-                    author: "author",
-                    subreddit: "test",
-                    permalink: "/r/test/comments/old/",
-                    url: null,
-                    created_utc: now - 7200, // 2 hours ago
-                    score: 50,
-                    num_comments: 20,
-                  },
+                  id: "shared_post",
+                  title: "Matches multiple terms",
+                  selftext: "Body",
+                  author: "author",
+                  subreddit: "test",
+                  permalink: "/r/test/comments/shared_post/",
+                  url: null,
+                  created_utc: Math.floor(Date.now() / 1000) - 1800,
+                  score: 1,
+                  num_comments: 0,
+                  is_self: true,
                 },
               ],
-            },
-          });
-        })
+            });
+          }
+        )
       );
 
-      // Default window is 1 hour
-      const result = await fetchRedditPosts(["test"], ["query"], 1);
+      const result = await fetchRedditPosts(
+        ["test"],
+        ["term1", "term2", "term3"]
+      );
       expect(result.length).toBe(1);
-      expect(result[0]!.redditId).toBe("recent_post");
     });
+  });
 
+  describe("sorting", () => {
     it("sorts results by creation time descending", async () => {
       const now = Math.floor(Date.now() / 1000);
       server.use(
-        http.get("https://oauth.reddit.com/r/:subreddit/search", () => {
-          return HttpResponse.json({
-            kind: "Listing",
-            data: {
-              after: null,
-              children: [
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          () => {
+            return HttpResponse.json({
+              data: [
                 {
-                  kind: "t3",
-                  data: {
-                    id: "older",
-                    title: "Older post",
-                    selftext: null,
-                    author: "author",
-                    subreddit: "test",
-                    permalink: "/r/test/1/",
-                    url: null,
-                    created_utc: now - 1800,
-                    score: 1,
-                    num_comments: 0,
-                  },
+                  id: "older",
+                  title: "Older post",
+                  selftext: null,
+                  author: "author",
+                  subreddit: "test",
+                  permalink: "/r/test/1/",
+                  url: null,
+                  created_utc: now - 3600,
+                  score: 1,
+                  num_comments: 0,
+                  is_self: true,
                 },
                 {
-                  kind: "t3",
-                  data: {
-                    id: "newer",
-                    title: "Newer post",
-                    selftext: null,
-                    author: "author",
-                    subreddit: "test",
-                    permalink: "/r/test/2/",
-                    url: null,
-                    created_utc: now - 900, // 15 minutes ago
-                    score: 5,
-                    num_comments: 2,
-                  },
+                  id: "newer",
+                  title: "Newer post",
+                  selftext: null,
+                  author: "author",
+                  subreddit: "test",
+                  permalink: "/r/test/2/",
+                  url: null,
+                  created_utc: now - 900,
+                  score: 5,
+                  num_comments: 2,
+                  is_self: true,
                 },
               ],
-            },
-          });
-        })
+            });
+          }
+        )
       );
 
       const result = await fetchRedditPosts(["test"], ["query"]);
       expect(result.length).toBe(2);
-      expect(result[0]!.redditId).toBe("newer");
-      expect(result[1]!.redditId).toBe("older");
+      expect(result[0]!.redditId).toBe("t3_newer");
+      expect(result[1]!.redditId).toBe("t3_older");
     });
   });
 
   describe("error handling", () => {
-    beforeEach(() => {
-      process.env.REDDIT_CLIENT_ID = "test_id";
-      process.env.REDDIT_CLIENT_SECRET = "test_secret";
-      process.env.REDDIT_USERNAME = "test_user";
-      process.env.REDDIT_PASSWORD = "test_pass";
-    });
-
-    it("handles API errors gracefully and continues with other subreddits", async () => {
-      // Use 404 instead of 500 to avoid retry logic that causes timeout
+    it("handles API errors gracefully and continues with other combinations", async () => {
       server.use(
-        http.get("https://oauth.reddit.com/r/:subreddit/search", ({ params }) => {
-          const subreddit = params.subreddit as string;
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          ({ request }) => {
+            const url = new URL(request.url);
+            const subreddit = url.searchParams.get("subreddit");
 
-          // First subreddit fails with client error (no retries)
-          if (subreddit === "failing") {
-            return new HttpResponse(null, { status: 404 });
-          }
+            // First subreddit fails with client error (no retries)
+            if (subreddit === "failing") {
+              return new HttpResponse(null, { status: 404 });
+            }
 
-          // Second subreddit succeeds
-          return HttpResponse.json({
-            kind: "Listing",
-            data: {
-              after: null,
-              children: [
+            // Second subreddit succeeds
+            return HttpResponse.json({
+              data: [
                 {
-                  kind: "t3",
-                  data: {
-                    id: "success_post",
-                    title: "Success post",
-                    selftext: null,
-                    author: "author",
-                    subreddit: subreddit,
-                    permalink: "/r/test/",
-                    url: null,
-                    created_utc: Math.floor(Date.now() / 1000) - 1800,
-                    score: 1,
-                    num_comments: 0,
-                  },
+                  id: "success_post",
+                  title: "Success post",
+                  selftext: null,
+                  author: "author",
+                  subreddit: subreddit!,
+                  permalink: "/r/test/",
+                  url: null,
+                  created_utc: Math.floor(Date.now() / 1000) - 1800,
+                  score: 1,
+                  num_comments: 0,
+                  is_self: true,
                 },
               ],
-            },
-          });
-        })
+            });
+          }
+        )
       );
 
-      // Should not throw, and should return results from successful subreddit
       const result = await fetchRedditPosts(
         ["failing", "working"],
         ["query"]
       );
       expect(result.length).toBe(1);
       expect(result[0]!.subreddit).toBe("working");
-    }, 10000);
+    }, 15000);
 
-    it("handles auth failure gracefully", async () => {
-      // Clear the token cache to ensure we try to get a new token
-      clearTokenCache();
-
+    it("handles network errors gracefully", async () => {
       server.use(
-        http.post("https://www.reddit.com/api/v1/access_token", () => {
-          return new HttpResponse(null, { status: 401 });
-        })
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          () => {
+            return HttpResponse.error();
+          }
+        )
       );
 
+      // Should not throw
       const result = await fetchRedditPosts(["test"], ["query"]);
       expect(result).toEqual([]);
+    }, 15000);
+
+    it("does not require any authentication", async () => {
+      let requestHeaders: Headers | null = null;
+      server.use(
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          ({ request }) => {
+            requestHeaders = new Headers(request.headers);
+            return HttpResponse.json({ data: [] });
+          }
+        )
+      );
+
+      await fetchRedditPosts(["test"], ["query"]);
+
+      // No Authorization header should be sent
+      expect(requestHeaders!.get("Authorization")).toBeNull();
+    });
+  });
+
+  describe("rate limiting", () => {
+    it("reads rate limit headers from response", async () => {
+      server.use(
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          () => {
+            return HttpResponse.json(
+              { data: [] },
+              {
+                headers: {
+                  "X-RateLimit-Remaining": "50",
+                  "X-RateLimit-Reset": String(
+                    Math.floor(Date.now() / 1000) + 60
+                  ),
+                },
+              }
+            );
+          }
+        )
+      );
+
+      // Should succeed without issues
+      const result = await fetchRedditPosts(["test"], ["query"]);
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("time window", () => {
+    it("uses default 48-hour time window", async () => {
+      let capturedAfter = "";
+      server.use(
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          ({ request }) => {
+            const url = new URL(request.url);
+            capturedAfter = url.searchParams.get("after")!;
+            return HttpResponse.json({ data: [] });
+          }
+        )
+      );
+
+      await fetchRedditPosts(["test"], ["query"]);
+
+      const afterTs = parseInt(capturedAfter);
+      const expectedTs = Math.floor(Date.now() / 1000) - 48 * 60 * 60;
+      expect(Math.abs(afterTs - expectedTs)).toBeLessThan(5);
+    });
+
+    it("respects custom time window", async () => {
+      let capturedAfter = "";
+      server.use(
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          ({ request }) => {
+            const url = new URL(request.url);
+            capturedAfter = url.searchParams.get("after")!;
+            return HttpResponse.json({ data: [] });
+          }
+        )
+      );
+
+      await fetchRedditPosts(["test"], ["query"], 24);
+
+      const afterTs = parseInt(capturedAfter);
+      const expectedTs = Math.floor(Date.now() / 1000) - 24 * 60 * 60;
+      expect(Math.abs(afterTs - expectedTs)).toBeLessThan(5);
     });
   });
 });

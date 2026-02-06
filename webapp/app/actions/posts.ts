@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { posts, postTags, tags, subreddits } from "@/drizzle/schema";
 import { getCurrentUserId } from "./users";
 import { postStatusSchema, type PostStatus } from "@/lib/validations";
-import { fetchRedditPosts, isRedditConfigured } from "@/lib/reddit";
+import { fetchRedditPosts } from "@/lib/reddit";
 import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -353,15 +353,6 @@ export async function fetchNewPosts(): Promise<{
   error: string;
 }> {
   const userId = await getCurrentUserId();
-
-  // Check if Reddit is configured
-  if (!isRedditConfigured()) {
-    return {
-      success: true,
-      count: 0,
-      message: "Reddit API not configured. Using test data only.",
-    };
-  }
 
   // Get user's subreddits
   const userSubreddits = await db.query.subreddits.findMany({

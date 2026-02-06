@@ -21,11 +21,6 @@ export const users = pgTable("users", {
   image: text("image"),
   // Password for credentials auth
   passwordHash: text("password_hash"),
-  // Reddit OAuth tokens (encrypted with AES-256-GCM)
-  redditAccessToken: text("reddit_access_token"),
-  redditRefreshToken: text("reddit_refresh_token"),
-  redditTokenExpiresAt: timestamp("reddit_token_expires_at"),
-  redditUsername: varchar("reddit_username", { length: 100 }),
   // User's Groq API key (encrypted with AES-256-GCM)
   groqApiKey: text("groq_api_key"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

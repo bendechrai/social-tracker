@@ -2,27 +2,30 @@
 
 This document outlines the implementation status and remaining tasks for completing the social media tracker application. Tasks are organized by priority and dependency order.
 
-**Last Verified:** 2026-01-11
+**Last Verified:** 2026-02-06
 **Verification Method:** Automated codebase analysis against specs/*
 
 ---
 
 ## Current Status Overview
 
-### Completed Features ✓
+### Completed Features
 - **Database Schema** - 6 core tables (users, posts, tags, subreddits, searchTerms, postTags) with proper relationships, indexes, and cascade deletes
-- **Authentication Schema** - Auth.js required tables (sessions, accounts, verification_tokens) and user authentication columns
-- **Authentication System** - Complete Auth.js v5 implementation with credentials provider, middleware, login/signup pages, user menu, and server actions
-- **Server Actions** - Full CRUD for posts, tags, subreddits, search terms with validation (4 action files + auth actions)
-- **Reddit Data Fetching** - Via Arctic Shift API (public, no auth), rate limit awareness, exponential backoff, deduplication
+- **Authentication** - Auth.js v5 with credentials provider, middleware, login/signup pages, user menu, server actions, Drizzle adapter, 7-day sessions
+- **Server Actions** - Full CRUD for posts, tags, subreddits, search terms with validation (4 action files + auth actions + API key actions)
+- **Reddit Data Fetching** - Via Arctic Shift API (public, no auth), rate limit awareness, exponential backoff, deduplication, 48h default time window
 - **UI Components** - 24 components total (12 UI primitives including Label + 12 app components: post-list, post-card, tag-filter, tag-badge, status-tabs, header, user-menu, settings modal with subreddit/tag management, providers)
 - **React Query Hooks** - 16 hooks for all CRUD operations with proper cache invalidation (15 in index.ts + use-toast)
 - **Zod Validations** - Schemas for subreddits, tags, search terms, post status, suggest terms, password, email
-- **Unit Tests** - 13 test files (342 tests total): validations.test.ts (72), reddit.test.ts (16), subreddits.test.ts (21), tags.test.ts (34), posts.test.ts (32), encryption.test.ts (24), password.test.ts (17), auth.test.ts (22), actions/auth.test.ts (20), middleware.test.ts (18), components/pagination.test.tsx (23), actions/api-keys.test.ts (28), actions/reddit-connection.test.ts (15)
+- **Unit Tests** - 12 test files (331 tests total) — see Phase 8 for breakdown
 - **Encryption System** - AES-256-GCM encryption utilities (encrypt/decrypt with iv:authTag:ciphertext format)
 - **Password Utilities** - bcrypt hashing with cost factor 12
+- **User API Keys (BYOK)** - Groq API key management with encrypted storage, functional settings UI, LLM integration with user key fallback
 - **LLM Suggestions** - /api/suggest-terms endpoint using Groq API (falls back to env var)
 - **Toast System** - Complete notification system
+- **Pagination** - Complete pagination UI with Previous/Next buttons, page indicator, page size selector
+- **Tag Color Rotation** - getNextTagColor integrated in tag creation
+- **Settings Pages** - Account settings (password change), API Keys management
 - **Project Setup** - Vitest, Playwright, MSW configured; all dependencies including auth packages
 
 ### Specification Requirements Reference
@@ -31,19 +34,8 @@ This document outlines the implementation status and remaining tasks for complet
 - **Reddit Data**: Via Arctic Shift API (https://arctic-shift.photon-reddit.com) — public, no auth required, ~36h data delay
 - **LLM**: User's own Groq key (BYOK) with fallback to env var
 
-### Current Authentication State
-The application now has a complete authentication system:
-- Auth.js v5 configured with credentials provider and Drizzle adapter
-- Login and signup pages with form validation
-- User menu component with dropdown for settings and sign out
-- Authentication middleware protecting routes
-- `getCurrentUserId()` and `getCurrentUserIdOrNull()` use Auth.js session
-- `getOrCreateDefaultUser()` placeholder removed
-- SessionProvider added to providers.tsx for next-auth/react hooks
-
 ### Known Issues (Minor)
 - `webapp/lib/hooks/use-toast.ts` line 8: `TOAST_REMOVE_DELAY = 1000000` (~16.7 minutes) appears unusually high
-- `webapp/lib/reddit.ts`: Needs rewrite — currently uses Reddit OAuth, should use Arctic Shift API
 - `webapp/app/api/suggest-terms/route.ts` line 42: LLM model `llama-3.3-70b-versatile` is hardcoded
 - `webapp/middleware.ts`: Next.js 16 shows a deprecation warning about "middleware" file convention being renamed to "proxy" in future versions
 
@@ -53,34 +45,13 @@ The following files DO NOT exist and need to be created:
 - `webapp/__tests__/api/*` - No API route tests exist
 - `webapp/__tests__/utils.test.ts` - No utils tests
 
-### Files That Now Exist (Previously Missing)
-- `webapp/lib/encryption.ts` - AES-256-GCM encryption utilities (COMPLETE)
-- `webapp/lib/password.ts` - bcrypt password hashing (COMPLETE)
-- `webapp/lib/auth.ts` - Auth.js v5 configuration with Drizzle adapter (COMPLETE)
-- `webapp/lib/auth-utils.ts` - Authentication utilities for testability (COMPLETE)
-- `webapp/app/api/auth/[...nextauth]/route.ts` - Auth.js API route handler (COMPLETE)
-- `webapp/__tests__/encryption.test.ts` - Encryption tests (24 tests) (COMPLETE)
-- `webapp/__tests__/password.test.ts` - Password tests (17 tests) (COMPLETE)
-- `webapp/__tests__/auth.test.ts` - Auth configuration tests (22 tests) (COMPLETE)
-- `webapp/drizzle/migrations/0001_whole_mole_man.sql` - Auth.js schema migration (COMPLETE)
-- `webapp/middleware.ts` - Authentication middleware (COMPLETE)
-- `webapp/__tests__/middleware.test.ts` - Middleware tests (18 tests) (COMPLETE)
-- `webapp/app/login/page.tsx` - Login page with Suspense wrapper (COMPLETE)
-- `webapp/app/signup/page.tsx` - Signup page with form validation (COMPLETE)
-- `webapp/app/actions/auth.ts` - Auth server actions (signup, changePassword) (COMPLETE)
-- `webapp/components/user-menu.tsx` - User dropdown menu component (COMPLETE)
-- `webapp/__tests__/actions/auth.test.ts` - Auth action tests (20 tests) (COMPLETE)
-- `webapp/app/settings/layout.tsx` - Settings layout with sidebar navigation (COMPLETE)
-- `webapp/app/settings/page.tsx` - Redirects to account settings (COMPLETE)
-- `webapp/app/settings/account/page.tsx` - Account settings with password change form (COMPLETE)
-- `webapp/app/settings/connected-accounts/page.tsx` - Functional Reddit connection UI (COMPLETE)
-- `webapp/app/settings/api-keys/page.tsx` - Placeholder for Phase 4 (COMPLETE)
-- `webapp/app/api/auth/reddit/route.ts` - Reddit OAuth initiation endpoint (COMPLETE)
-- `webapp/app/api/auth/reddit/callback/route.ts` - Reddit OAuth callback endpoint (COMPLETE)
-- `webapp/app/actions/reddit-connection.ts` - Reddit connection server actions (COMPLETE)
-- `webapp/__tests__/actions/reddit-connection.test.ts` - Reddit connection tests (15 tests) (COMPLETE)
-- `webapp/app/actions/api-keys.ts` - API key server actions (saveGroqApiKey, hasGroqApiKey, getGroqApiKeyHint, getGroqApiKey, deleteGroqApiKey) (COMPLETE)
-- `webapp/__tests__/actions/api-keys.test.ts` - API key action tests (28 tests) (COMPLETE)
+### Files Removed (Intentional)
+These files were removed as part of Phase 3 (Arctic Shift migration — Reddit OAuth no longer needed):
+- `webapp/app/api/auth/reddit/route.ts` - Reddit OAuth initiation endpoint
+- `webapp/app/api/auth/reddit/callback/route.ts` - Reddit OAuth callback endpoint
+- `webapp/app/actions/reddit-connection.ts` - Reddit connection server actions
+- `webapp/__tests__/actions/reddit-connection.test.ts` - Reddit connection tests
+- `webapp/app/settings/connected-accounts/page.tsx` - Connected accounts settings page
 
 ### Database Schema Status
 **Completed:**
@@ -88,11 +59,8 @@ The following files DO NOT exist and need to be created:
 - Users table authentication columns: password_hash, groq_api_key
 - Users table Auth.js required columns: name, email_verified, image (added in migration 0001)
 - Sessions table uses sessionToken as primary key (Auth.js requirement, changed in migration 0001)
-- Migration files: drizzle/migrations/0000_orange_spyke.sql, drizzle/migrations/0001_whole_mole_man.sql
-
-**To Remove (Arctic Shift migration):**
-- Users table columns no longer needed: reddit_access_token, reddit_refresh_token, reddit_token_expires_at, reddit_username
-- These columns existed for per-user Reddit OAuth, which is replaced by Arctic Shift API (no auth required)
+- Reddit OAuth columns removed: reddit_access_token, reddit_refresh_token, reddit_token_expires_at, reddit_username (removed in migration 0002)
+- Migration files: `drizzle/migrations/0000_orange_spyke.sql`, `drizzle/migrations/0001_whole_mole_man.sql`, `drizzle/migrations/0002_light_falcon.sql`
 
 ### Package Status
 **Installed:**
@@ -104,462 +72,129 @@ The following files DO NOT exist and need to be created:
 
 ---
 
-## Phase 1: Authentication Foundation
+## Phase 1: Authentication Foundation — COMPLETE (8/8)
 
-**Status: COMPLETE (8/8 tasks complete)**
-**Priority: CRITICAL** - All other phases depend on this
+**Priority: CRITICAL** — All other phases depend on this
 
-Authentication is the foundational layer that all other features depend on.
+<details>
+<summary>Phase 1 details (completed)</summary>
 
-### 1.1 Install Authentication Dependencies
-- [x] **Add auth packages to package.json** - COMPLETE
-  - Description: Install next-auth (Auth.js v5) and bcrypt packages
-  - Dependencies: None
-  - Files to modify: `webapp/package.json`
-  - Commands: `npm install next-auth@beta bcrypt && npm install -D @types/bcrypt`
-  - Acceptance Criteria:
-    - [x] next-auth@beta installed
-    - [x] bcrypt installed
-    - [x] @types/bcrypt installed as dev dependency
-  - **Test Requirements**:
-    - Verify packages are in package.json
-    - Verify imports work without errors
+- 1.1 Install Authentication Dependencies — COMPLETE
+- 1.2 Database Schema for Authentication — COMPLETE
+- 1.3 Encryption System — COMPLETE (`webapp/lib/encryption.ts`, 24 tests)
+- 1.4 Password Utilities — COMPLETE (`webapp/lib/password.ts`, 17 tests; password/email Zod schemas)
+- 1.5 Auth.js Configuration — COMPLETE (`webapp/lib/auth.ts`, `webapp/lib/auth-utils.ts`, 22 tests)
+- 1.6 Authentication Middleware — COMPLETE (`webapp/middleware.ts`, 18 tests)
+- 1.7 Authentication UI — COMPLETE (login page, signup page, user menu, auth server actions, 20 tests)
+- 1.8 Update Existing Server Actions — COMPLETE (real Auth.js session-based auth replaces placeholder)
 
-### 1.2 Database Schema for Authentication
-- [x] **Add authentication columns to users table** - COMPLETE (needs migration to remove Reddit OAuth columns)
-  - Description: Extend the users table with password_hash column and API key columns
-  - Dependencies: None
-  - Files to modify: `webapp/drizzle/schema.ts`, create migration in `webapp/drizzle/`
-  - Acceptance Criteria:
-    - [x] users table has `password_hash` column (text, nullable for OAuth-only users)
-    - [x] users table has `groq_api_key` column (text, nullable, for encrypted key)
-    - [x] Migration runs successfully without data loss
-  - **Arctic Shift Migration Needed:** Remove `reddit_access_token`, `reddit_refresh_token`, `reddit_token_expires_at`, `reddit_username` columns (no longer needed — Reddit data fetched via Arctic Shift API)
-  - **Test Requirements**:
-    - Unit test: Verify schema exports include new columns
-    - Integration test: Migration applies cleanly to test database
-
-- [x] **Create Auth.js required tables** - COMPLETE
-  - Description: Add sessions, accounts, and verification_tokens tables required by Auth.js v5
-  - Dependencies: None
-  - Files to create/modify: `webapp/drizzle/schema.ts`, create migration
-  - Migration file: `drizzle/migrations/0000_orange_spyke.sql`
-  - Acceptance Criteria:
-    - [x] `sessions` table exists with: id, sessionToken, userId, expires
-    - [x] `accounts` table exists with: id, userId, type, provider, providerAccountId, refresh_token, access_token, expires_at, token_type, scope, id_token, session_state
-    - [x] `verification_tokens` table exists with: identifier, token, expires
-    - [x] Foreign key relationships properly defined with cascade deletes
-    - [x] Migration runs successfully
-  - **Test Requirements**:
-    - Unit test: Verify all Auth.js tables are exported from schema
-    - Integration test: Verify foreign key constraints work correctly
-
-### 1.3 Encryption System
-- [x] **Implement AES-256-GCM encryption utilities** - COMPLETE
-  - Description: Create encryption module for sensitive data (tokens, API keys)
-  - Dependencies: None
-  - Files created: `webapp/lib/encryption.ts`
-  - Tests: `webapp/__tests__/encryption.test.ts` (24 tests)
-  - Acceptance Criteria:
-    - [x] `encrypt(plaintext: string): string` function implemented
-    - [x] `decrypt(ciphertext: string): string` function implemented
-    - [x] Uses AES-256-GCM algorithm
-    - [x] Output format is `iv:authTag:ciphertext` (base64 encoded)
-    - [x] Uses `ENCRYPTION_KEY` environment variable (32 bytes for AES-256)
-    - [x] Throws meaningful errors for invalid input or missing key
-  - **Test Requirements**:
-    - [x] Unit test: encrypt/decrypt round-trip returns original plaintext
-    - [x] Unit test: Different plaintexts produce different ciphertexts (IV uniqueness)
-    - [x] Unit test: Tampered ciphertext throws authentication error
-    - [x] Unit test: Missing ENCRYPTION_KEY throws descriptive error
-    - [x] Unit test: Invalid ciphertext format throws descriptive error
-
-### 1.4 Password Utilities
-- [x] **Implement password hashing utilities** - COMPLETE
-  - Description: Create password hashing and verification functions using bcrypt
-  - Dependencies: 1.1 (bcrypt package)
-  - Files created: `webapp/lib/password.ts`
-  - Tests: `webapp/__tests__/password.test.ts` (17 tests)
-  - Acceptance Criteria:
-    - [x] `hashPassword(password: string): Promise<string>` function implemented
-    - [x] `verifyPassword(password: string, hash: string): Promise<boolean>` function implemented
-    - [x] Uses bcrypt with cost factor 12 (per spec)
-    - [x] Hash output is valid bcrypt format
-  - **Test Requirements**:
-    - [x] Unit test: hashPassword produces valid bcrypt hash
-    - [x] Unit test: verifyPassword returns true for correct password
-    - [x] Unit test: verifyPassword returns false for incorrect password
-    - [x] Unit test: Different passwords produce different hashes
-
-- [x] **Implement password validation schema** - COMPLETE
-  - Description: Create Zod schema for password requirements per specification
-  - Dependencies: None
-  - Files modified: `webapp/lib/validations.ts`
-  - Tests: Added to `webapp/__tests__/validations.test.ts`
-  - Acceptance Criteria:
-    - [x] Password schema requires minimum 12 characters
-    - [x] Password schema requires at least one uppercase letter
-    - [x] Password schema requires at least one lowercase letter
-    - [x] Password schema requires at least one number
-    - [x] Password schema requires at least one symbol
-    - [x] Validation error messages are user-friendly and specific
-    - [x] Email validation schema added
-  - **Test Requirements**:
-    - [x] Unit test: Valid password passes validation
-    - [x] Unit test: Password <12 chars fails with appropriate message
-    - [x] Unit test: Password without uppercase fails
-    - [x] Unit test: Password without lowercase fails
-    - [x] Unit test: Password without number fails
-    - [x] Unit test: Password without symbol fails
-
-### 1.5 Auth.js Configuration
-- [x] **Set up Auth.js v5 (NextAuth) configuration** - COMPLETE
-  - Description: Configure Auth.js with credentials provider and session management
-  - Dependencies: 1.2 (database schema), 1.3 (encryption), 1.4 (password utils)
-  - Files created: `webapp/lib/auth.ts`, `webapp/lib/auth-utils.ts`, `webapp/app/api/auth/[...nextauth]/route.ts`
-  - Tests created: `webapp/__tests__/auth.test.ts` (22 tests)
-  - Acceptance Criteria:
-    - [x] Auth.js v5 configured with Drizzle adapter
-    - [x] Credentials provider configured for email/password login
-    - [x] Session strategy set to database (not JWT) with 7-day expiry (per spec)
-    - [x] Session callback includes user id and email
-    - [x] `AUTH_SECRET` environment variable used
-    - [x] Export `auth`, `signIn`, `signOut` from lib/auth.ts
-    - [x] Authorize callback verifies password using bcrypt
-  - **Test Requirements** (all verified in auth.test.ts):
-    - [x] Unit test: Credentials provider rejects invalid email format
-    - [x] Unit test: Credentials provider rejects wrong password
-    - [x] Unit test: Credentials provider accepts valid credentials
-    - [x] Unit test: Session constants correct (7-day max age)
-
-### 1.6 Authentication Middleware
-- [x] **Create authentication middleware** - COMPLETE
-  - Description: Protect routes that require authentication
-  - Dependencies: 1.5 (Auth.js configuration)
-  - Files created: `webapp/middleware.ts`
-  - Tests: `webapp/__tests__/middleware.test.ts` (18 tests)
-  - Acceptance Criteria:
-    - [x] Middleware runs on protected routes (/, /settings/*, API routes except /api/auth/*)
-    - [x] Unauthenticated users redirected to /login
-    - [x] Public routes (/login, /signup, /api/auth/*) accessible without auth
-    - [x] API routes return 401 JSON response for unauthenticated requests
-    - [x] Middleware matcher configured correctly
-  - **Test Requirements**:
-    - [x] Integration test: Unauthenticated request to / redirects to /login
-    - [x] Integration test: Unauthenticated request to /api/posts returns 401
-    - [x] Integration test: Request to /login succeeds without auth
-    - [x] Integration test: Authenticated request to / succeeds
-
-### 1.7 Authentication UI
-- [x] **Create signup page** - COMPLETE
-  - Description: User registration page with email and password
-  - Dependencies: 1.5 (Auth.js), 1.4 (password validation)
-  - Files created: `webapp/app/signup/page.tsx`, `webapp/app/actions/auth.ts`
-  - Acceptance Criteria:
-    - [x] Form with email, password, and password confirmation fields
-    - [x] Client-side validation showing password requirements
-    - [x] Server action to create user with hashed password
-    - [x] Error handling for duplicate email (user-friendly message)
-    - [x] Success redirects to login page
-    - [x] Link to login page for existing users
-    - [x] Loading state during form submission
-  - **Test Requirements**:
-    - [x] Unit test: Server action rejects mismatched passwords
-    - [x] Unit test: Server action rejects duplicate email
-    - [x] Unit test: Server action creates user with hashed password
-    - E2E test: Full signup flow (Phase 7)
-
-- [x] **Create login page** - COMPLETE
-  - Description: User login page with email and password
-  - Dependencies: 1.5 (Auth.js)
-  - Files created: `webapp/app/login/page.tsx`
-  - Acceptance Criteria:
-    - [x] Form with email and password fields
-    - [x] Uses Auth.js signIn function
-    - [x] Error handling for invalid credentials (generic message for security)
-    - [x] Success redirects to dashboard (/)
-    - [x] Link to signup page for new users
-    - [x] Loading state during form submission
-    - [x] Proper Suspense wrapper for useSearchParams
-  - **Test Requirements**:
-    - Unit test: Form validates required fields
-    - E2E test: Full login flow (Phase 7)
-
-- [x] **Add user menu to header** - COMPLETE
-  - Description: Dropdown menu showing logged-in user info with sign out option
-  - Dependencies: 1.5 (Auth.js), 1.7 login/signup pages
-  - Files created: `webapp/components/user-menu.tsx`
-  - Files modified: `webapp/components/header.tsx`
-  - Acceptance Criteria:
-    - [x] Shows user email when logged in
-    - [x] Dropdown with "Settings" and "Sign out" options
-    - [x] Sign out clears session and redirects to login
-    - [x] Shows "Sign in" / "Sign up" links when not logged in
-    - [x] Accessible keyboard navigation
-  - **Test Requirements**:
-    - Unit test: Renders user email when session exists
-    - Unit test: Renders sign in link when no session
-    - E2E test: Sign out flow (Phase 7)
-
-### 1.8 Update Existing Server Actions
-- [x] **Replace placeholder user system with real authentication** - COMPLETE
-  - Description: Update all server actions to use authenticated user instead of default user
-  - Dependencies: 1.5 (Auth.js), 1.6 (Middleware)
-  - Files modified: `webapp/app/actions/users.ts`
-  - Acceptance Criteria:
-    - [x] Remove `getOrCreateDefaultUser()` function
-    - [x] Update `getCurrentUserId()` to get user from Auth.js session
-    - [x] Added `getCurrentUserIdOrNull()` for optional auth contexts
-    - [x] All server actions properly use authenticated user ID
-    - [x] Actions return appropriate error when not authenticated
-  - **Test Requirements**:
-    - Unit test: Server actions reject unauthenticated requests
-    - Unit test: Server actions use correct user ID from session
-    - Integration test: CRUD operations work with authenticated user
+</details>
 
 ---
 
-## Phase 2: Settings Foundation
+## Phase 2: Settings Foundation — COMPLETE (2/2)
 
-**Status: COMPLETE (2/2 tasks complete)**
-**Priority: HIGH** - Required for user-configurable features
-**Dependencies: Phase 1 (Authentication)**
+**Priority: HIGH** — Required for user-configurable features
+**Dependencies: Phase 1**
 
-Note: Settings pages have been created with dedicated routes for Account, Connected Accounts, and API Keys sections.
+<details>
+<summary>Phase 2 details (completed)</summary>
+
+- 2.1 Settings Page Structure — COMPLETE (`webapp/app/settings/layout.tsx`, `webapp/app/settings/page.tsx`)
+- 2.2 Account Settings — COMPLETE (`webapp/app/settings/account/page.tsx`, password change in `webapp/app/actions/auth.ts`)
 
 **Files Created:**
-- `webapp/app/settings/layout.tsx` - Settings layout with sidebar navigation
+- `webapp/app/settings/layout.tsx` - Settings layout with sidebar navigation (Account, API Keys)
 - `webapp/app/settings/page.tsx` - Redirects to account settings
 - `webapp/app/settings/account/page.tsx` - Account settings with password change form
-- `webapp/app/settings/connected-accounts/page.tsx` - Placeholder for Phase 3
-- `webapp/app/settings/api-keys/page.tsx` - Placeholder for Phase 4
+- `webapp/app/settings/api-keys/page.tsx` - Placeholder updated in Phase 4
 
-### 2.1 Settings Page Structure
-- [x] **Create settings page layout** - COMPLETE
-  - Description: Settings page with navigation for Account, Connected Accounts, API Keys sections
-  - Dependencies: Phase 1 (Authentication)
-  - Files created: `webapp/app/settings/page.tsx`, `webapp/app/settings/layout.tsx`
-  - Acceptance Criteria:
-    - [x] Settings page accessible at /settings
-    - [x] Protected route (requires authentication via middleware)
-    - [x] Sidebar or tab navigation for different sections
-    - [x] Responsive layout (sidebar collapses on mobile)
-    - [x] Breadcrumb navigation
-  - **Test Requirements**:
-    - E2E test: Navigation between settings sections (Phase 7)
-
-### 2.2 Account Settings
-- [x] **Implement password change functionality** - COMPLETE
-  - Description: Allow users to change their password
-  - Dependencies: 2.1 (Settings page), 1.4 (password utilities)
-  - Files created: `webapp/app/settings/account/page.tsx`
-  - Files modified: `webapp/app/actions/auth.ts`
-  - Acceptance Criteria:
-    - [x] Form with current password, new password, confirm new password
-    - [x] Validates current password before allowing change
-    - [x] New password must meet password requirements (shown to user)
-    - [x] Success toast notification on password change
-    - [x] Error handling for incorrect current password
-    - [x] Form clears after successful change
-  - **Test Requirements**:
-    - Unit test: Server action rejects incorrect current password
-    - Unit test: Server action rejects invalid new password
-    - Unit test: Server action updates password hash in database
-    - E2E test: Full password change flow (Phase 7)
+</details>
 
 ---
 
-## Phase 3: Arctic Shift Integration
+## Phase 3: Arctic Shift Integration — COMPLETE (2/2)
 
-**Status: NEEDS REWORK** - Previously implemented Reddit OAuth, now switching to Arctic Shift API
-**Priority: HIGH** - Required for fetching Reddit data
-**Dependencies: Phase 1 (Authentication)**
+**Priority: HIGH** — Required for fetching Reddit data
+**Dependencies: Phase 1**
 
-Note: This phase was previously "Reddit OAuth Integration" and was marked COMPLETE. The approach has changed to use the Arctic Shift API (https://arctic-shift.photon-reddit.com) instead of per-user Reddit OAuth. Arctic Shift is a free, public API that requires no authentication. The existing Reddit OAuth code needs to be replaced.
+### 3.1 Arctic Shift API Client — COMPLETE
+- [x] **Implement Arctic Shift API client**
+  - Rewrote `webapp/lib/reddit.ts` to use Arctic Shift API (`https://arctic-shift.photon-reddit.com/api/posts/search`)
+  - No authentication required — free, public API
+  - Supports query parameters: subreddit, query, after, sort, limit
+  - Monitors `X-RateLimit-Remaining` and `X-RateLimit-Reset` response headers
+  - Implements exponential backoff on 429 and 5xx responses
+  - Extracts all required fields: reddit_id (with t3_ prefix), title, selftext, author, subreddit, permalink, url, created_utc, score, num_comments, is_self
+  - Deduplicates posts across multiple search term queries (by reddit_id)
+  - Default time window: 48 hours (accounts for ~36h data delay)
+  - Makes one request per subreddit+term combination
+  - Tests: `webapp/__tests__/reddit.test.ts` — 21 tests covering URL construction, field parsing, deduplication, sorting, error handling, rate limiting, time window
 
-**Files to Remove (from previous OAuth implementation):**
-- `webapp/app/api/auth/reddit/route.ts` - OAuth initiation (no longer needed)
-- `webapp/app/api/auth/reddit/callback/route.ts` - OAuth callback (no longer needed)
-- `webapp/app/actions/reddit-connection.ts` - Reddit connection actions (no longer needed)
-- `webapp/__tests__/actions/reddit-connection.test.ts` - Reddit connection tests (no longer needed)
-- `webapp/app/settings/connected-accounts/page.tsx` - Connected accounts UI (no longer needed)
-
-**Files to Rewrite:**
-- `webapp/lib/reddit.ts` - Replace Reddit OAuth API client with Arctic Shift API client
-
-### 3.1 Arctic Shift API Client
-- [ ] **Implement Arctic Shift API client**
-  - Description: Create a client that fetches Reddit posts from the Arctic Shift public API
-  - Dependencies: Phase 1 (Authentication — for user context only, not Reddit auth)
-  - Files to create/modify: `webapp/lib/reddit.ts` (rewrite)
-  - Acceptance Criteria:
-    - [ ] Fetches posts from `https://arctic-shift.photon-reddit.com/api/posts/search`
-    - [ ] Supports query parameters: subreddit, query, after, before, sort, limit
-    - [ ] No authentication headers required
-    - [ ] Monitors `X-RateLimit-Remaining` and `X-RateLimit-Reset` response headers
-    - [ ] Implements exponential backoff on 429 responses
-    - [ ] Extracts all required post fields (reddit_id, title, selftext, author, subreddit, permalink, url, created_utc, score, num_comments, is_self)
-    - [ ] Deduplicates posts across multiple search term queries (by reddit_id)
-    - [ ] Default time window: 48 hours (accounts for ~36h data delay)
-    - [ ] Supports incremental fetching (use latest stored post's created_utc as `after`)
-  - **Test Requirements**:
-    - Unit test: Builds correct Arctic Shift API URL with parameters
-    - Unit test: Parses response and extracts all required fields
-    - Unit test: Deduplicates posts by reddit_id
-    - Unit test: Handles API errors gracefully (5xx, network errors)
-    - Unit test: Respects rate limit headers
-
-### 3.2 Remove Reddit OAuth Code
-- [ ] **Remove Reddit OAuth infrastructure**
-  - Description: Clean up all Reddit OAuth code that is no longer needed
-  - Dependencies: 3.1 (new client ready)
-  - Files to remove:
+### 3.2 Remove Reddit OAuth Code — COMPLETE
+- [x] **Remove Reddit OAuth infrastructure**
+  - Removed files:
     - `webapp/app/api/auth/reddit/route.ts`
     - `webapp/app/api/auth/reddit/callback/route.ts`
     - `webapp/app/actions/reddit-connection.ts`
     - `webapp/__tests__/actions/reddit-connection.test.ts`
-  - Files to modify:
-    - `webapp/app/settings/connected-accounts/page.tsx` — Remove or repurpose (no Reddit connection UI needed)
-    - `webapp/drizzle/schema.ts` — Remove reddit_access_token, reddit_refresh_token, reddit_token_expires_at, reddit_username columns
-    - Create migration for column removal
-  - Acceptance Criteria:
-    - [ ] All Reddit OAuth routes removed
-    - [ ] Reddit connection actions and tests removed
-    - [ ] Connected Accounts settings page removed or simplified
-    - [ ] Reddit token columns removed from users table (with migration)
-    - [ ] No references to REDDIT_CLIENT_ID or REDDIT_CLIENT_SECRET in code
-    - [ ] App builds and all remaining tests pass
+    - `webapp/app/settings/connected-accounts/page.tsx`
+  - Removed Reddit OAuth columns from schema:
+    - `reddit_access_token`, `reddit_refresh_token`, `reddit_token_expires_at`, `reddit_username`
+    - Migration: `drizzle/migrations/0002_light_falcon.sql`
+  - Updated `webapp/app/settings/layout.tsx` — removed Connected Accounts nav item
+  - Updated `webapp/app/actions/posts.ts` — removed `isRedditConfigured` check (not needed for Arctic Shift)
+  - Updated `webapp/__tests__/actions/posts.test.ts` — removed `mockIsRedditConfigured` references
+  - Updated `webapp/mocks/handlers.ts` — now mocks Arctic Shift API instead of Reddit OAuth
+  - No references to REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USERNAME, REDDIT_PASSWORD remain in active code
 
 ---
 
-## Phase 4: User API Keys (BYOK)
+## Phase 4: User API Keys (BYOK) — COMPLETE (3/3)
 
-**Status: COMPLETE (3/3 tasks complete)**
-**Priority: MEDIUM** - Required for user-owned LLM access
-**Dependencies: Phase 1 (Authentication)**
+**Priority: MEDIUM** — Required for user-owned LLM access
+**Dependencies: Phase 1**
 
-**Files Created:**
-- `webapp/app/actions/api-keys.ts` - API key server actions (saveGroqApiKey, hasGroqApiKey, getGroqApiKeyHint, getGroqApiKey, deleteGroqApiKey)
-- `webapp/__tests__/actions/api-keys.test.ts` - 28 unit tests for API key actions
+<details>
+<summary>Phase 4 details (completed)</summary>
 
-**Files Modified:**
-- `webapp/app/settings/api-keys/page.tsx` - Updated with functional UI for managing Groq API key
-- `webapp/app/api/suggest-terms/route.ts` - Updated to use user's key with fallback to env var
+- 4.1 API Key Storage — COMPLETE (`webapp/app/actions/api-keys.ts`, 28 tests)
+- 4.2 API Keys UI — COMPLETE (`webapp/app/settings/api-keys/page.tsx`)
+- 4.3 LLM Integration Update — COMPLETE (`webapp/app/api/suggest-terms/route.ts` uses user key with fallback)
 
-### 4.1 API Key Storage
-- [x] **Implement Groq API key storage** - COMPLETE
-  - Description: Server actions to save and retrieve encrypted Groq API key
-  - Dependencies: Phase 1 (Auth), 1.3 (Encryption), 1.2 (groq_api_key column)
-  - Files created: `webapp/app/actions/api-keys.ts`
-  - Tests: `webapp/__tests__/actions/api-keys.test.ts` (28 tests)
-  - Acceptance Criteria:
-    - [x] `saveGroqApiKey(key: string)` server action
-    - [x] Validates API key format (basic validation)
-    - [x] Encrypts key before storing in database
-    - [x] `getGroqApiKey()` server action returns decrypted key (for internal use only)
-    - [x] `hasGroqApiKey()` server action returns boolean (for UI)
-    - [x] `getGroqApiKeyHint()` server action returns masked key hint (for UI display)
-    - [x] `deleteGroqApiKey()` server action removes key
-    - [x] Only accessible to authenticated user for their own key
-  - **Test Requirements**:
-    - [x] Unit test: saveGroqApiKey encrypts before storage
-    - [x] Unit test: getGroqApiKey decrypts correctly
-    - [x] Unit test: deleteGroqApiKey removes key from database
-    - [x] Unit test: Actions require authentication
-
-### 4.2 API Keys UI
-- [x] **Create API Keys settings section** - COMPLETE
-  - Description: UI to manage user's Groq API key
-  - Dependencies: 4.1 (API key storage), 2.1 (Settings page)
-  - Files modified: `webapp/app/settings/api-keys/page.tsx`
-  - Acceptance Criteria:
-    - [x] Shows if Groq API key is configured (without revealing the key)
-    - [x] Input field to add/update API key (password type, masked)
-    - [x] "Save" button to store key
-    - [x] "Remove" button to delete key (shown only if key exists)
-    - [x] Confirmation dialog before removal
-    - [x] Success/error toast notifications
-    - [x] Help text explaining what the API key is used for
-    - [x] Link to Groq API key generation page
-  - **Test Requirements**:
-    - E2E test: Add and remove API key flows (Phase 7)
-
-### 4.3 LLM Integration Update
-- [x] **Update LLM suggestions to use per-user API key** - COMPLETE
-  - Description: Modify tag suggestion feature to use user's Groq API key if available
-  - Dependencies: 4.1 (API key storage)
-  - Files modified: `webapp/app/api/suggest-terms/route.ts`
-  - Acceptance Criteria:
-    - [x] Check for user's Groq API key first (decrypt and use)
-    - [x] Fall back to env var GROQ_API_KEY if user has no key
-    - [x] Clear error message if no API key available (neither user nor env)
-    - [x] Tag suggestions work identically with user-provided key
-    - [x] No key leakage in error messages or logs
-  - **Test Requirements**:
-    - Unit test: User key used when available
-    - Unit test: Fallback to env var when no user key
-    - Unit test: Appropriate error when no keys available
-    - Integration test: Suggestions work with user-provided key
+</details>
 
 ---
 
-## Phase 5: UI Completion
+## Phase 5: UI Completion — COMPLETE (1/1)
 
-**Status: COMPLETE (1/1 tasks complete)**
-**Priority: MEDIUM** - Improves user experience
-**Dependencies: None (backend already supports pagination)**
+**Priority: MEDIUM**
 
-### 5.1 Pagination UI
-- [x] **Implement pagination controls component** - COMPLETE
-  - Description: UI controls for paginating post lists (backend already supports pagination via page/limit params)
-  - Dependencies: None (backend ready)
-  - Files created: `webapp/components/ui/pagination.tsx`
-  - Files modified: `webapp/lib/hooks/index.ts`, `webapp/app/page.tsx`
-  - Tests: `webapp/__tests__/components/pagination.test.tsx` (23 tests)
-  - Acceptance Criteria:
-    - [x] Previous/Next page buttons
-    - [x] Current page indicator (e.g., "Page 2 of 10")
-    - [x] Total pages display (calculated from total count)
-    - [x] Page size selector dropdown (10, 25, 50 options)
-    - [x] Disabled state for first/last page buttons appropriately
-    - [x] Keyboard accessible (arrow keys, enter)
-    - [x] Updates URL query params for shareable/bookmarkable pagination state
-    - [x] React Query hooks pass pagination params to server actions
-  - **Test Requirements**:
-    - [x] Unit test: Pagination component renders correct page numbers (23 tests)
-    - [x] Unit test: Disabled states work correctly at boundaries
-    - [x] Unit test: Page size change resets to page 1
-    - E2E test: Pagination navigation works (Phase 7)
+<details>
+<summary>Phase 5 details (completed)</summary>
+
+- 5.1 Pagination UI — COMPLETE (`webapp/components/ui/pagination.tsx`, 23 tests)
+
+</details>
 
 ---
 
 ## Phase 6: Minor Improvements
 
-**Status: COMPLETE (2/2 tasks complete)**
-**Priority: LOW** - Quality of life improvements
+**Status: COMPLETE (2/2) + 1 optional task remaining**
+**Priority: LOW**
 
-### 6.1 Code Integration
-- [x] **getNextTagColor utility defined and tested**
-  - Note: Utility exists in `webapp/lib/validations.ts` line 70 and has unit tests in `webapp/__tests__/validations.test.ts`
-  - Status: COMPLETE
+<details>
+<summary>Completed tasks</summary>
 
-- [x] **Integrate getNextTagColor in tag creation** - COMPLETE
-  - Description: The getNextTagColor() utility is now used in tag creation when no color is provided
-  - Dependencies: None
-  - Files modified: `webapp/app/actions/tags.ts`
-  - Tests updated: `webapp/__tests__/actions/tags.test.ts` (now 34 tests, was 31)
-  - Acceptance Criteria:
-    - [x] getNextTagColor() called when creating new tags without explicit color
-    - [x] New tags automatically assigned next available color from palette
-    - [x] Color rotation works correctly (cycles through palette)
-  - **Test Requirements**:
-    - [x] Integration test: Created tag has auto-assigned color
-    - [x] Unit test: Sequential tag creation produces different colors
+- 6.1 getNextTagColor utility — COMPLETE (defined, tested, integrated in tag creation)
+
+</details>
 
 ### 6.2 Optional Enhancements
 - [ ] **Subreddit existence verification**
   - Description: Verify subreddit exists via Arctic Shift API when adding new subreddit
-  - Dependencies: Phase 3 (Arctic Shift Integration)
+  - Dependencies: Phase 3 (Arctic Shift Integration) — COMPLETE
   - Files to modify: `webapp/app/actions/subreddits.ts`, `webapp/lib/reddit.ts`
   - Acceptance Criteria:
     - [ ] API call to Arctic Shift `/api/subreddits/search` to verify subreddit exists before adding
@@ -575,7 +210,7 @@ Note: This phase was previously "Reddit OAuth Integration" and was marked COMPLE
 ## Phase 7: End-to-End Testing
 
 **Status: NOT STARTED**
-**Priority: MEDIUM** - Quality assurance
+**Priority: MEDIUM**
 **Dependencies: All features implemented**
 
 Note: Playwright is configured but `webapp/e2e/` directory only contains `.gitkeep` (empty)
@@ -583,22 +218,16 @@ Note: Playwright is configured but `webapp/e2e/` directory only contains `.gitke
 ### 7.1 Playwright Test Infrastructure
 - [ ] **Configure Playwright test helpers**
   - Description: Set up Playwright with proper configuration and test utilities
-  - Dependencies: All features implemented
   - Files to modify: `webapp/playwright.config.ts`
   - Files to create: `webapp/e2e/fixtures.ts`, `webapp/e2e/helpers/auth.ts`
   - Acceptance Criteria:
     - [ ] Playwright configured to run against dev/test server
-    - [ ] Test database seeding strategy implemented (separate test DB or transactions)
-    - [ ] Authentication helper utilities for tests (login as test user)
-    - [ ] Page object models for common pages (optional but recommended)
+    - [ ] Test database seeding strategy implemented
+    - [ ] Authentication helper utilities for tests
     - [ ] CI configuration for running E2E tests
-  - **Test Requirements**:
-    - Verify test setup works with `npx playwright test --project=setup`
 
 ### 7.2 Authentication E2E Tests
 - [ ] **Write E2E tests for authentication flows**
-  - Description: Test signup, login, logout, and protected routes
-  - Dependencies: 7.1 (Playwright setup), Phase 1 (Authentication)
   - Files to create: `webapp/e2e/auth.spec.ts`
   - Acceptance Criteria:
     - [ ] Test successful signup with valid credentials
@@ -610,139 +239,49 @@ Note: Playwright is configured but `webapp/e2e/` directory only contains `.gitke
     - [ ] Test session persistence across page reloads
 
 ### 7.3 Core Feature E2E Tests
-- [ ] **Write E2E tests for post management**
-  - Description: Test post listing, filtering, status changes, tagging
-  - Dependencies: 7.1 (Playwright setup)
-  - Files to create: `webapp/e2e/posts.spec.ts`
-  - Acceptance Criteria:
-    - [ ] Test post list displays correctly with data
-    - [ ] Test tag filtering shows only matching posts
-    - [ ] Test status tab filtering (new, ignored, done)
-    - [ ] Test status transitions (new -> ignored, new -> done)
-    - [ ] Test pagination navigation (if implemented)
-    - [ ] Test multi-tag assignment to a post
-    - [ ] Test removing tags from a post
-
-- [ ] **Write E2E tests for subreddit management**
-  - Description: Test adding, editing, removing subreddits
-  - Dependencies: 7.1 (Playwright setup)
-  - Files to create: `webapp/e2e/subreddits.spec.ts`
-  - Acceptance Criteria:
-    - [ ] Test adding new subreddit via settings
-    - [ ] Test subreddit name normalization (r/ prefix handling)
-    - [ ] Test duplicate subreddit prevention shows error
-    - [ ] Test removing subreddit with confirmation
-    - [ ] Test subreddit list updates after changes
-
-- [ ] **Write E2E tests for tag management**
-  - Description: Test tag CRUD operations
-  - Dependencies: 7.1 (Playwright setup)
-  - Files to create: `webapp/e2e/tags.spec.ts`
-  - Acceptance Criteria:
-    - [ ] Test creating new tag with name and color
-    - [ ] Test editing tag name
-    - [ ] Test editing tag color
-    - [ ] Test deleting tag with confirmation
-    - [ ] Test tag color picker interaction
+- [ ] **Write E2E tests for post management** (`webapp/e2e/posts.spec.ts`)
+- [ ] **Write E2E tests for subreddit management** (`webapp/e2e/subreddits.spec.ts`)
+- [ ] **Write E2E tests for tag management** (`webapp/e2e/tags.spec.ts`)
 
 ### 7.4 Settings E2E Tests
-- [ ] **Write E2E tests for settings pages**
-  - Description: Test account settings and API keys
-  - Dependencies: 7.1 (Playwright setup), Phases 2-4 (Settings features)
-  - Files to create: `webapp/e2e/settings.spec.ts`
-  - Acceptance Criteria:
-    - [ ] Test password change flow (success and error cases)
-    - [ ] Test Groq API key add with masked input
-    - [ ] Test Groq API key remove with confirmation
+- [ ] **Write E2E tests for settings pages** (`webapp/e2e/settings.spec.ts`)
+  - Test password change flow, Groq API key add/remove
 
 ---
 
 ## Phase 8: Test Coverage Gaps
 
-**Status: PARTIAL** (server action tests complete, encryption/password tests complete, auth tests complete, component tests started, other categories not started)
-**Priority: LOW** - Additional quality assurance
+**Status: PARTIAL (3/7)**
+**Priority: LOW**
 
-Note: Current test coverage includes 342 tests across 13 files:
+Current test coverage: 331 tests across 12 files:
 - `webapp/__tests__/validations.test.ts` (72 tests)
-- `webapp/__tests__/reddit.test.ts` (16 tests)
+- `webapp/__tests__/reddit.test.ts` (21 tests)
 - `webapp/__tests__/actions/subreddits.test.ts` (21 tests)
 - `webapp/__tests__/actions/tags.test.ts` (34 tests)
 - `webapp/__tests__/actions/posts.test.ts` (32 tests)
 - `webapp/__tests__/actions/auth.test.ts` (20 tests)
 - `webapp/__tests__/actions/api-keys.test.ts` (28 tests)
-- `webapp/__tests__/actions/reddit-connection.test.ts` (15 tests)
 - `webapp/__tests__/encryption.test.ts` (24 tests)
 - `webapp/__tests__/password.test.ts` (17 tests)
 - `webapp/__tests__/auth.test.ts` (22 tests)
 - `webapp/__tests__/middleware.test.ts` (18 tests)
 - `webapp/__tests__/components/pagination.test.tsx` (23 tests)
 
-**Verified Missing:** No hook tests exist.
-
-Missing test categories: hooks, API routes, utils.
+Missing test categories: hooks, API routes, utils, additional components.
 
 ### 8.1 Missing Unit Tests
-- [ ] **Add utils.ts unit tests**
-  - Description: Test utility functions in lib/utils.ts
-  - Files to create: `webapp/__tests__/utils.test.ts`
-  - Acceptance Criteria:
-    - [ ] Test all exported utility functions
-    - [ ] Test edge cases and error conditions
-
-- [ ] **Add API route tests**
-  - Description: Test /api/suggest-terms endpoint
-  - Files to create: `webapp/__tests__/api/suggest-terms.test.ts`
-  - Acceptance Criteria:
-    - [ ] Test successful suggestion generation
-    - [ ] Test validation errors
-    - [ ] Test missing API key handling
-    - [ ] Test rate limiting behavior
-
-- [x] **Add encryption module tests** - COMPLETE
-  - Description: Test encryption utilities
-  - Files created: `webapp/__tests__/encryption.test.ts` (24 tests)
-  - Acceptance Criteria:
-    - [x] Test encrypt/decrypt round-trip
-    - [x] Test IV uniqueness
-    - [x] Test tamper detection
-    - [x] Test error handling for missing key
-
-- [x] **Add password module tests** - COMPLETE
-  - Description: Test password utilities
-  - Files created: `webapp/__tests__/password.test.ts` (17 tests)
-  - Acceptance Criteria:
-    - [x] Test hash generation
-    - [x] Test password verification
-    - [x] Test bcrypt cost factor
+- [ ] **Add utils.ts unit tests** (`webapp/__tests__/utils.test.ts`)
+- [ ] **Add API route tests** (`webapp/__tests__/api/suggest-terms.test.ts`)
+- [x] **Add encryption module tests** — COMPLETE (24 tests)
+- [x] **Add password module tests** — COMPLETE (17 tests)
 
 ### 8.2 Component Tests
-- [x] **Add pagination component tests** - COMPLETE
-  - Description: Test pagination component with React Testing Library
-  - Files created: `webapp/__tests__/components/pagination.test.tsx` (23 tests)
-  - Acceptance Criteria:
-    - [x] Test pagination rendering
-    - [x] Test button disabled states
-    - [x] Test page navigation
-    - [x] Test page size selection
-
-- [ ] **Add remaining React component tests**
-  - Description: Test additional UI components with React Testing Library
-  - Files to create: `webapp/__tests__/components/` additional test files
-  - Acceptance Criteria:
-    - [ ] Test post-card rendering and interactions
-    - [ ] Test tag-filter selection behavior
-    - [ ] Test status-tabs switching
-    - [ ] Test settings panels CRUD operations
-    - [ ] Test toast notifications
+- [x] **Add pagination component tests** — COMPLETE (23 tests)
+- [ ] **Add remaining React component tests** (post-card, tag-filter, status-tabs, settings panels, toast)
 
 ### 8.3 Hook Tests
-- [ ] **Add React Query hook tests**
-  - Description: Test custom hooks with mock providers
-  - Files to create: `webapp/__tests__/hooks/` directory with test files
-  - Acceptance Criteria:
-    - [ ] Test query hooks return correct data
-    - [ ] Test mutation hooks trigger cache invalidation
-    - [ ] Test loading and error states
+- [ ] **Add React Query hook tests** (`webapp/__tests__/hooks/`)
 
 ---
 
@@ -750,92 +289,49 @@ Missing test categories: hooks, API routes, utils.
 
 | Phase | Description | Tasks | Status | Dependencies | Priority |
 |-------|-------------|-------|--------|--------------|----------|
-| 1 | Authentication Foundation | 8 | **COMPLETE (8/8)** | None | **CRITICAL** |
+| 1 | Authentication Foundation | 8 | **COMPLETE (8/8)** | None | CRITICAL |
 | 2 | Settings Foundation | 2 | **COMPLETE (2/2)** | Phase 1 | HIGH |
-| 3 | Arctic Shift Integration | 2 | **NEEDS REWORK (0/2)** | Phase 1 | HIGH |
+| 3 | Arctic Shift Integration | 2 | **COMPLETE (2/2)** | Phase 1 | HIGH |
 | 4 | User API Keys (BYOK) | 3 | **COMPLETE (3/3)** | Phase 1 | MEDIUM |
 | 5 | UI Completion (Pagination) | 1 | **COMPLETE (1/1)** | None | MEDIUM |
-| 6 | Minor Improvements | 2 | **COMPLETE (2/2)** | Various | LOW |
+| 6 | Minor Improvements | 2+1 | **COMPLETE (2/2)** + 1 optional | Various | LOW |
 | 7 | E2E Testing | 6 | NOT STARTED | All features | MEDIUM |
 | 8 | Test Coverage Gaps | 7 | PARTIAL (3/7) | None | LOW |
 
-**Total Remaining Tasks: 13** (Phase 3 reworked for Arctic Shift: 2 new tasks + 11 existing)
+**Total Remaining Tasks: 11** (Phase 6 optional: 1, Phase 7: 6, Phase 8: 4)
 
-### Acceptance Criteria Test Coverage (by spec)
-| Spec | Criteria | Tested | Gap |
-|------|----------|--------|-----|
-| authentication.md | 16 | 8 | 8 |
-| user-api-keys.md | 9 | 0 | 9 |
-| tag-system.md | 8 | 7 | 1 |
-| post-management.md | 9 | 8 | 1 |
-| subreddit-configuration.md | 8 | 7 | 1 |
-| reddit-integration.md | 10 | 0 | 10 |
-| llm-tag-suggestions.md | 12 | 0 | 12 |
-| ui-components.md | 24 | 0 | 24 |
-
-**Completed Tasks (from analysis):**
-- Database schema (6 core tables + 3 Auth.js tables + auth columns)
-- Server actions (5 files: posts, tags, subreddits, users, auth) — reddit-connection to be removed
-- UI Components (25 components including user-menu, Label, and pagination)
-- React Query hooks (16 hooks)
-- Zod validations (5 schemas + getNextTagColor utility + password/email schemas)
-- Unit tests (13 test files, 342 tests total)
-- Encryption system (AES-256-GCM)
-- Password utilities (bcrypt cost 12)
-- LLM suggestions endpoint
-- Toast system
-- Project configuration (including auth packages)
-- **Phase 1 Authentication** - Complete Auth.js implementation with login/signup pages, user menu, middleware, and real session-based auth
-- **Phase 2 Settings Foundation** - Settings pages with layout, sidebar navigation, account settings with password change, and placeholders for connected accounts and API keys
-- **Phase 3 Arctic Shift Integration** - NEEDS REWORK: Previously implemented Reddit OAuth (now obsolete). Switching to Arctic Shift API — a free, public, no-auth Reddit data archive. Requires rewriting `webapp/lib/reddit.ts` and removing OAuth infrastructure
-- **Phase 4 User API Keys (BYOK)** - Complete API key management with server actions (save, get, delete, hint), functional UI in settings, and LLM integration with user key fallback
-- **Phase 5 Pagination** - Complete pagination UI with Previous/Next buttons, page indicator, and page size selector
-- **Phase 6 getNextTagColor** - Integrated color rotation in tag creation
+### Completed Tasks Summary
+- **Phase 1 Authentication** — Complete Auth.js implementation with login/signup pages, user menu, middleware, and real session-based auth
+- **Phase 2 Settings Foundation** — Settings pages with layout, sidebar navigation, account settings with password change
+- **Phase 3 Arctic Shift Integration** — Arctic Shift API client replaces Reddit OAuth. Free, public, no-auth Reddit data archive. `webapp/lib/reddit.ts` rewritten, all OAuth infrastructure removed, DB migration complete
+- **Phase 4 User API Keys (BYOK)** — Complete API key management with server actions (save, get, delete, hint), functional UI in settings, and LLM integration with user key fallback
+- **Phase 5 Pagination** — Complete pagination UI with Previous/Next buttons, page indicator, and page size selector
+- **Phase 6 getNextTagColor** — Integrated color rotation in tag creation
 
 ### Critical Path
 ```
-Phase 1 (Authentication) - COMPLETE
-    |
-    +---> Phase 2 (Settings Foundation) - COMPLETE
-    |         |
-    |         +---> Phase 7.4 (Settings E2E Tests) - READY TO START
-    |
-    +---> Phase 3 (Arctic Shift Integration) - NEEDS REWORK
-    |         |
-    |         +---> 3.1 Implement Arctic Shift API client
-    |         +---> 3.2 Remove Reddit OAuth code & migrate DB
-    |
-    +---> Phase 4 (User API Keys) - COMPLETE
-    |
-    +---> Phase 7.2 (Auth E2E Tests) - READY TO START
+All core feature phases (1-6) are COMPLETE.
 
-Phase 5 (Pagination) ---> COMPLETE
-
-Phase 6.1 (getNextTagColor) ---> COMPLETE
-
-Phase 7.1 (Playwright Setup) ---> Prerequisite for all E2E tests
-Phase 7.3 (Core E2E Tests) ---> Can start after 7.1
-
-Phase 8 (Test Coverage Gaps) ---> Partial complete, remaining independent
+Remaining work:
+  Phase 6.2 (Optional: Subreddit verification) — can start anytime
+  Phase 7.1 (Playwright Setup) ---> Prerequisite for all E2E tests
+  Phase 7.2-7.4 (E2E Tests) ---> Depend on 7.1
+  Phase 8 (Test Coverage Gaps) ---> Independent, can be done incrementally
 ```
 
 ### Quick Wins (No Dependencies)
-These tasks can be completed immediately:
-1. ~~**Phase 6.1** - Integrate getNextTagColor in tag creation~~ - COMPLETE
-2. ~~**Phase 5.1** - Implement pagination controls~~ - COMPLETE
-3. **Phase 8.1** - Add utils.ts unit tests (~1 hour)
-4. **Phase 8.1** - Add API route tests for suggest-terms (~2 hours)
+1. **Phase 8.1** - Add utils.ts unit tests (~1 hour)
+2. **Phase 8.1** - Add API route tests for suggest-terms (~2 hours)
 
 ### Recommended Implementation Order
-1. ~~**Phase 1** - Authentication Foundation~~ - COMPLETE
-2. ~~**Phase 5** - Pagination~~ - COMPLETE
-3. ~~**Phase 6.1** - getNextTagColor integration~~ - COMPLETE
-4. ~~**Phase 2** - Settings foundation~~ - COMPLETE
-5. ~~**Phase 4** - User API Keys~~ - COMPLETE
-6. ~~**Phase 3** - Reddit OAuth~~ - REPLACED by Arctic Shift
-7. **Phase 3** - Arctic Shift Integration (rewrite reddit.ts, remove OAuth code, DB migration) — **NEXT PRIORITY**
-8. **Phase 8** - Additional unit/component/hook tests (can be done incrementally)
-9. **Phase 7** - E2E Testing (after all features)
+1. ~~**Phase 1** - Authentication Foundation~~ — COMPLETE
+2. ~~**Phase 5** - Pagination~~ — COMPLETE
+3. ~~**Phase 6.1** - getNextTagColor integration~~ — COMPLETE
+4. ~~**Phase 2** - Settings Foundation~~ — COMPLETE
+5. ~~**Phase 4** - User API Keys~~ — COMPLETE
+6. ~~**Phase 3** - Arctic Shift Integration~~ — COMPLETE
+7. **Phase 8** - Additional unit/component/hook tests (can be done incrementally)
+8. **Phase 7** - E2E Testing (after all features)
 
 ### Environment Variables Required
 ```bash
@@ -850,14 +346,11 @@ ENCRYPTION_KEY=                  # 32-byte key for AES-256-GCM (generate with: o
 GROQ_API_KEY=                    # Fallback API key for LLM (optional if users provide their own)
 
 # No Reddit credentials needed — data fetched via Arctic Shift API (public, no auth)
-# Remove if still present: REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USERNAME, REDDIT_PASSWORD
 ```
 
 ### Files to Create (Summary)
 ```
 webapp/
-├── lib/
-│   └── llm.ts                            # Phase 4.3 (optional refactor)
 ├── __tests__/
 │   ├── utils.test.ts                     # Phase 8.1
 │   ├── api/
@@ -875,82 +368,4 @@ webapp/
     ├── subreddits.spec.ts                # Phase 7.3
     ├── tags.spec.ts                      # Phase 7.3
     └── settings.spec.ts                  # Phase 7.4
-```
-
-### Files That Now Exist (Previously in "Files to Create")
-```
-webapp/
-├── lib/
-│   ├── encryption.ts                     # Phase 1.3 - COMPLETE
-│   ├── password.ts                       # Phase 1.4 - COMPLETE
-│   ├── auth.ts                           # Phase 1.5 - COMPLETE
-│   └── auth-utils.ts                     # Phase 1.5 - COMPLETE
-├── middleware.ts                         # Phase 1.6 - COMPLETE
-├── app/
-│   ├── login/
-│   │   └── page.tsx                      # Phase 1.7 - COMPLETE
-│   ├── signup/
-│   │   └── page.tsx                      # Phase 1.7 - COMPLETE
-│   ├── settings/
-│   │   ├── layout.tsx                    # Phase 2.1 - COMPLETE
-│   │   ├── page.tsx                      # Phase 2.1 - COMPLETE
-│   │   ├── account/
-│   │   │   └── page.tsx                  # Phase 2.2 - COMPLETE
-│   │   ├── connected-accounts/
-│   │   │   └── page.tsx                  # Phase 3.2 - COMPLETE (functional UI)
-│   │   └── api-keys/
-│   │       └── page.tsx                  # Phase 4.2 - COMPLETE (functional UI)
-│   ├── actions/
-│   │   ├── auth.ts                       # Phase 1.7 - COMPLETE
-│   │   ├── api-keys.ts                   # Phase 4.1 - COMPLETE
-│   │   └── reddit-connection.ts          # Phase 3.2 - TO BE REMOVED (Arctic Shift replaces OAuth)
-│   └── api/
-│       └── auth/
-│           ├── [...nextauth]/
-│           │   └── route.ts              # Phase 1.5 - COMPLETE
-│           └── reddit/
-│               ├── route.ts              # Phase 3.1 - TO BE REMOVED (Arctic Shift replaces OAuth)
-│               └── callback/
-│                   └── route.ts          # Phase 3.1 - TO BE REMOVED (Arctic Shift replaces OAuth)
-├── components/
-│   ├── user-menu.tsx                     # Phase 1.7 - COMPLETE
-│   └── ui/
-│       └── pagination.tsx                # Phase 5.1 - COMPLETE
-└── __tests__/
-    ├── encryption.test.ts                # Phase 8.1 - COMPLETE (24 tests)
-    ├── password.test.ts                  # Phase 8.1 - COMPLETE (17 tests)
-    ├── auth.test.ts                      # Phase 1.5 - COMPLETE (22 tests)
-    ├── middleware.test.ts                # Phase 1.6 - COMPLETE (18 tests)
-    ├── actions/
-    │   ├── auth.test.ts                  # Phase 1.7 - COMPLETE (20 tests)
-    │   ├── api-keys.test.ts              # Phase 4.1 - COMPLETE (28 tests)
-    │   └── reddit-connection.test.ts     # Phase 3.2 - TO BE REMOVED (Arctic Shift replaces OAuth)
-    └── components/
-        └── pagination.test.tsx           # Phase 8.2 - COMPLETE (23 tests)
-```
-
-### Files to Modify (Summary)
-```
-webapp/
-├── package.json                          # Phase 1.1 - COMPLETE (auth deps added)
-├── drizzle/
-│   └── schema.ts                         # Phase 1.2 - COMPLETE (auth columns + tables)
-├── lib/
-│   ├── validations.ts                    # Phase 1.4 - COMPLETE (password/email schema)
-│   └── reddit.ts                         # Phase 3.1 - NEEDS REWRITE (replace Reddit OAuth client with Arctic Shift API client)
-├── components/
-│   ├── header.tsx                        # Phase 1.7 - COMPLETE (user menu integrated)
-│   └── providers.tsx                     # Phase 1.7 - COMPLETE (SessionProvider added)
-├── lib/hooks/
-│   └── index.ts                          # Phase 5.1 - COMPLETE (pagination params)
-├── app/
-│   ├── page.tsx                          # Phase 5.1 - COMPLETE (pagination state)
-│   ├── actions/
-│   │   ├── users.ts                      # Phase 1.8 - COMPLETE (real auth via Auth.js session)
-│   │   ├── posts.ts                      # Uses getCurrentUserId() from users.ts
-│   │   ├── tags.ts                       # Phase 6.1 - COMPLETE (getNextTagColor integrated)
-│   │   └── subreddits.ts                 # Phase 6.2 (verification)
-│   └── api/
-│       └── suggest-terms/
-│           └── route.ts                  # Phase 4.3 (user API key)
 ```

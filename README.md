@@ -4,7 +4,7 @@ A developer relations tool for monitoring Reddit for mentions of topics you care
 
 ## Features
 
-- **Reddit Monitoring** - Search configured subreddits for posts matching your keywords
+- **Reddit Monitoring** - Search configured subreddits for posts matching your keywords (via Arctic Shift API — no Reddit account needed)
 - **Tag Organization** - Group related search terms (e.g., "Yugabyte" includes "yugabyte", "yugabytedb", "yb-master")
 - **Post Triage** - Move posts through New → Ignored or Done workflow
 - **Response Tracking** - Record your responses for later reference and metrics
@@ -71,52 +71,9 @@ Visit http://localhost:3000 (or your devports-assigned port).
 
 ## Getting API Keys
 
-### Reddit API Credentials
+### Reddit Data (No Setup Required)
 
-Reddit now requires API access approval for apps built outside their Devvit platform.
-
-#### Step 1: Request API Access
-
-1. Go to https://support.reddithelp.com/hc/en-us/requests/new
-2. Select **"API Access Request"**
-3. For "Which role best describes your reason for requesting API access?" select **"I'm a developer"**
-4. For "What is your inquiry?" select **"I'm a developer and want to build a Reddit App that does not work in the Devvit ecosystem"**
-5. Fill in the form:
-   - **Reddit account name**: Your Reddit username
-   - **What benefit/purpose will the bot/app have for Redditors?**: 
-     > Personal developer relations tool to monitor subreddits for mentions of specific topics. Read-only - searches and retrieves posts, does not post or comment.
-   - **Detailed description**:
-     > A personal social media monitoring tool that searches configured subreddits for posts matching specific keywords (e.g., product names, technical terms). Used for developer advocacy to track community discussions. The app only reads posts via the search API - it does not post, comment, vote, or moderate. All API calls are authenticated as my personal Reddit account.
-   - **What is missing from Devvit?**:
-     > This is a standalone web application that monitors multiple subreddits from outside Reddit. It needs to run on my own infrastructure and integrate with other tools. Devvit apps run within Reddit's platform which doesn't fit this use case.
-   - **Link to source code**: Your GitHub repo URL (e.g., `https://github.com/yourusername/social-tracker`)
-   - **What subreddits?**: List the subreddits you plan to monitor (e.g., `postgresql, database, node`)
-   - **Bot username**: Your Reddit username (since this is a personal "script" app)
-6. Submit and wait for approval (typically a few days)
-
-#### Step 2: Create the App (after approval)
-
-1. Go to https://www.reddit.com/prefs/apps
-2. Scroll down and click **"create another app..."**
-3. Fill in the form:
-   - **name**: `social-tracker` (or whatever you like)
-   - **App type**: Select **"script"** (important!)
-   - **description**: Optional
-   - **about url**: Leave blank
-   - **redirect uri**: `http://localhost:8080` (required field but not used for script apps)
-4. Click **"create app"**
-5. Note your credentials:
-   - **Client ID**: The string under your app name (looks like `aBcDeFgHiJkLmN`)
-   - **Client Secret**: The string next to "secret"
-6. Add to `.env`:
-   ```
-   REDDIT_CLIENT_ID=aBcDeFgHiJkLmN
-   REDDIT_CLIENT_SECRET=your_secret_here
-   REDDIT_USERNAME=your_reddit_username
-   REDDIT_PASSWORD=your_reddit_password
-   ```
-
-> **Note**: "Script" type apps authenticate as you personally. Your Reddit username and password are used to obtain OAuth tokens. This is the simplest auth flow for personal/single-user tools.
+Reddit data is fetched via the [Arctic Shift API](https://arctic-shift.photon-reddit.com) — a free, public archive of Reddit data. No Reddit account, API keys, or OAuth setup needed. Data has a ~36-hour delay from when posts are created on Reddit.
 
 ### Claude Code OAuth Token
 
@@ -277,7 +234,7 @@ social-tracker/
 - **Database**: PostgreSQL 17, Drizzle ORM
 - **Testing**: Vitest, Playwright, MSW
 - **LLM**: Groq (Llama 3.3 70B) for tag suggestions
-- **APIs**: Reddit OAuth2
+- **APIs**: Arctic Shift (Reddit data archive)
 
 ## Development Commands
 

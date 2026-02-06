@@ -100,12 +100,10 @@ vi.mock("@/app/actions/users", () => ({
 // User ID constant for use in tests
 const MOCK_USER_ID = "test-user-uuid-1234";
 
-// Mock Reddit client
+// Mock Reddit client (Arctic Shift — no configuration/auth required)
 const mockFetchRedditPosts = vi.fn();
-const mockIsRedditConfigured = vi.fn();
 vi.mock("@/lib/reddit", () => ({
   fetchRedditPosts: (...args: unknown[]) => mockFetchRedditPosts(...args),
-  isRedditConfigured: () => mockIsRedditConfigured(),
 }));
 
 // Import after mocks are set up
@@ -560,21 +558,7 @@ describe("post server actions", () => {
   });
 
   describe("fetchNewPosts", () => {
-    it("returns gracefully when Reddit not configured", async () => {
-      mockIsRedditConfigured.mockReturnValue(false);
-
-      const result = await fetchNewPosts();
-
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.count).toBe(0);
-        expect(result.message).toContain("not configured");
-      }
-      expect(mockFetchRedditPosts).not.toHaveBeenCalled();
-    });
-
     it("returns message when no subreddits configured", async () => {
-      mockIsRedditConfigured.mockReturnValue(true);
       mockSubredditsFindMany.mockResolvedValue([]);
 
       const result = await fetchNewPosts();
@@ -587,7 +571,6 @@ describe("post server actions", () => {
     });
 
     it("returns message when no search terms configured", async () => {
-      mockIsRedditConfigured.mockReturnValue(true);
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
@@ -603,7 +586,6 @@ describe("post server actions", () => {
     });
 
     it("fetches posts and stores them", async () => {
-      mockIsRedditConfigured.mockReturnValue(true);
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
@@ -654,7 +636,6 @@ describe("post server actions", () => {
     });
 
     it("skips duplicate posts (same reddit_id)", async () => {
-      mockIsRedditConfigured.mockReturnValue(true);
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
@@ -703,7 +684,6 @@ describe("post server actions", () => {
     });
 
     it("assigns tags based on matching search terms", async () => {
-      mockIsRedditConfigured.mockReturnValue(true);
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
@@ -756,7 +736,6 @@ describe("post server actions", () => {
     });
 
     it("creates posts with status 'new'", async () => {
-      mockIsRedditConfigured.mockReturnValue(true);
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
@@ -801,7 +780,6 @@ describe("post server actions", () => {
     });
 
     it("returns singular message for 1 new post", async () => {
-      mockIsRedditConfigured.mockReturnValue(true);
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
@@ -846,7 +824,6 @@ describe("post server actions", () => {
     });
 
     it("returns plural message for multiple new posts", async () => {
-      mockIsRedditConfigured.mockReturnValue(true);
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);

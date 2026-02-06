@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { User, Link2, Key, ChevronLeft } from "lucide-react";
+import { User, Key, ChevronLeft } from "lucide-react";
 
 const settingsNavItems = [
   {
@@ -13,12 +13,6 @@ const settingsNavItems = [
     label: "Account",
     icon: User,
     description: "Email and password settings",
-  },
-  {
-    href: "/settings/connected-accounts",
-    label: "Connected Accounts",
-    icon: Link2,
-    description: "Reddit and other integrations",
   },
   {
     href: "/settings/api-keys",
