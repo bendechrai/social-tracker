@@ -39,8 +39,9 @@ function LoginForm() {
       setError("Invalid email or password");
       setIsLoading(false);
     } else if (result?.ok) {
-      // Redirect to dashboard
-      router.push("/");
+      // Redirect to callbackUrl or dashboard
+      const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+      router.push(callbackUrl);
       router.refresh();
     } else {
       setError("Something went wrong. Please try again.");
@@ -51,7 +52,9 @@ function LoginForm() {
   const isFormValid = email && password;
 
   return (
-    <Card className="w-full max-w-md">
+    <div className="w-full max-w-md space-y-6">
+    <h1 className="text-3xl font-bold text-center">Social Tracker</h1>
+    <Card>
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
         <CardDescription>
@@ -141,12 +144,15 @@ function LoginForm() {
         </CardFooter>
       </form>
     </Card>
+    </div>
   );
 }
 
 function LoginFormFallback() {
   return (
-    <Card className="w-full max-w-md">
+    <div className="w-full max-w-md space-y-6">
+    <h1 className="text-3xl font-bold text-center">Social Tracker</h1>
+    <Card>
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
         <CardDescription>
@@ -184,6 +190,7 @@ function LoginFormFallback() {
         </p>
       </CardFooter>
     </Card>
+    </div>
   );
 }
 

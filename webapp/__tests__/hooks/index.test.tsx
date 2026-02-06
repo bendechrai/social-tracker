@@ -195,7 +195,7 @@ describe("React Query hooks", () => {
         });
       });
 
-      it("invalidates posts and postCounts queries on success", async () => {
+      it("invalidates posts and postCounts queries on settled", async () => {
         mockChangePostStatus.mockResolvedValue({ success: true });
         const { wrapper, queryClient } = createWrapper();
         const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
@@ -212,6 +212,80 @@ describe("React Query hooks", () => {
             queryKey: ["postCounts"],
           });
         });
+      });
+
+      it("optimistically removes post from current list", async () => {
+        mockChangePostStatus.mockResolvedValue({ success: true });
+        const { wrapper, queryClient } = createWrapper();
+
+        // Seed the cache with posts
+        queryClient.setQueryData(["posts", "new", [], 1, 20], {
+          posts: [
+            { id: "p1", title: "Post 1", status: "new" },
+            { id: "p2", title: "Post 2", status: "new" },
+          ],
+          total: 2,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        });
+        queryClient.setQueryData(["postCounts"], { new: 2, ignored: 0, done: 0 });
+
+        const { result } = renderHook(() => useChangePostStatus(), { wrapper });
+
+        await act(async () => {
+          result.current.mutate({ postId: "p1", status: "ignored" });
+        });
+
+        // Check optimistic update removed the post from the list
+        const postsData = queryClient.getQueryData(["posts", "new", [], 1, 20]) as
+          | { posts: Array<{ id: string }>; total: number }
+          | undefined;
+        expect(postsData?.posts.map((p) => p.id)).not.toContain("p1");
+        expect(postsData?.total).toBe(1);
+
+        // Check optimistic counts updated
+        const counts = queryClient.getQueryData(["postCounts"]) as
+          | { new: number; ignored: number; done: number }
+          | undefined;
+        expect(counts?.new).toBe(1);
+        expect(counts?.ignored).toBe(1);
+      });
+
+      it("reverts optimistic update on mutation error", async () => {
+        mockChangePostStatus.mockRejectedValue(new Error("Server error"));
+        const { wrapper, queryClient } = createWrapper();
+
+        // Seed the cache
+        queryClient.setQueryData(["posts", "new", [], 1, 20], {
+          posts: [
+            { id: "p1", title: "Post 1", status: "new" },
+            { id: "p2", title: "Post 2", status: "new" },
+          ],
+          total: 2,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        });
+        queryClient.setQueryData(["postCounts"], { new: 2, ignored: 0, done: 0 });
+
+        const { result } = renderHook(() => useChangePostStatus(), { wrapper });
+
+        await act(async () => {
+          result.current.mutate({ postId: "p1", status: "ignored" });
+        });
+
+        // Wait for error to be processed and rollback to occur
+        await waitFor(() => {
+          expect(result.current.isError).toBe(true);
+        });
+
+        // Counts should be reverted to original
+        const counts = queryClient.getQueryData(["postCounts"]) as
+          | { new: number; ignored: number }
+          | undefined;
+        expect(counts?.new).toBe(2);
+        expect(counts?.ignored).toBe(0);
       });
     });
 

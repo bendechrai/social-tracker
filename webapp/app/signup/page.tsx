@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,7 +47,20 @@ export default function SignupPage() {
     const result = await signup(email, password, confirmPassword);
 
     if (result.success) {
-      router.push("/login?registered=true");
+      // Auto-login after successful signup (per spec: create session, redirect to dashboard)
+      const signInResult = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (signInResult?.ok) {
+        router.push("/");
+        router.refresh();
+      } else {
+        // Signup succeeded but auto-login failed; redirect to login
+        router.push("/login?registered=true");
+      }
     } else {
       setError(result.error ?? "Failed to create account");
       setIsLoading(false);
@@ -57,7 +71,9 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+      <div className="w-full max-w-md space-y-6">
+      <h1 className="text-3xl font-bold text-center">Social Tracker</h1>
+      <Card>
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
           <CardDescription>
@@ -206,6 +222,7 @@ export default function SignupPage() {
           </CardFooter>
         </form>
       </Card>
+      </div>
     </div>
   );
 }

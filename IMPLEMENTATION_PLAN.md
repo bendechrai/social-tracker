@@ -11,17 +11,17 @@ This document outlines the implementation status and remaining tasks for complet
 
 ### Completed Features
 - **Database Schema** - 6 core tables (users, posts, tags, subreddits, searchTerms, postTags) with proper relationships, indexes, and cascade deletes
-- **Authentication** - Auth.js v5 with credentials provider, middleware, login/signup pages (with password visibility toggle), user menu, server actions, Drizzle adapter, 7-day sessions
+- **Authentication** - Auth.js v5 with credentials provider, middleware, login/signup pages (with password visibility toggle, auto-login after signup, callbackUrl redirect), user menu, server actions, Drizzle adapter, 7-day sessions
 - **Server Actions** - Full CRUD for posts, tags, subreddits, search terms with validation (4 action files + auth actions + API key actions)
 - **Reddit Data Fetching** - Via Arctic Shift API (public, no auth), rate limit awareness, exponential backoff, upsert deduplication, 48h default time window
-- **UI Components** - 23 components total (12 UI primitives including Label + 11 app components: post-list, post-card, tag-filter, tag-badge, status-tabs, header, user-menu, settings pages with subreddit/tag management, providers)
-- **React Query Hooks** - 20 hooks for all CRUD operations with proper cache invalidation (19 in index.ts + use-toast: added useGroqApiKeyHint, useSaveGroqApiKey, useDeleteGroqApiKey)
+- **UI Components** - 23 components total (12 UI primitives including Label + 11 app components: post-list, post-card, tag-filter, tag-badge, status-tabs, header with Settings button, user-menu, settings pages with subreddit/tag management, providers)
+- **React Query Hooks** - 20 hooks for all CRUD operations with proper cache invalidation and optimistic updates for status changes (19 in index.ts + use-toast)
 - **Zod Validations** - Schemas for subreddits, tags, search terms, post status, suggest terms, password, email
-- **Unit Tests** - 19 test files (467 tests total) — see Phase 8/9/10 for breakdown
+- **Unit Tests** - 19 test files (471 tests total) — see Phase 8/9/10/11 for breakdown
 - **Encryption System** - AES-256-GCM encryption utilities (encrypt/decrypt with iv:authTag:ciphertext format)
 - **Password Utilities** - bcrypt hashing with cost factor 12
 - **User API Keys (BYOK)** - Groq API key management with encrypted storage, functional settings UI, LLM integration with user key fallback
-- **LLM Suggestions** - /api/suggest-terms endpoint using Groq API (falls back to env var), server-side rate limiting (10 req/min/user)
+- **LLM Suggestions** - /api/suggest-terms endpoint using Groq API (falls back to env var), server-side rate limiting (10 req/min/user), MISSING_API_KEY/INVALID_API_KEY error codes
 - **Toast System** - Complete notification system
 - **Pagination** - Complete pagination UI with Previous/Next buttons, page indicator, page size selector
 - **Tag Color Rotation** - getNextTagColor integrated in tag creation
@@ -43,91 +43,64 @@ This document outlines the implementation status and remaining tasks for complet
 
 ---
 
-## Phases 1-8 — All COMPLETE
+## Phases 1-10 — All COMPLETE
 
-See git history for details. Phases covered: Authentication Foundation, Settings Foundation, Arctic Shift Integration, User API Keys (BYOK), UI Completion, Minor Improvements, E2E Testing, Test Coverage Gaps.
-
----
-
-## Phase 9: Spec Compliance Audit — COMPLETE (6/6)
-
-**Status: COMPLETE**
-**Priority: HIGH — Closes gaps between specs and implementation**
-
-### 9.1 Seed Script Password Hashing — COMPLETE
-- [x] **Fix seed script to hash password with bcrypt and use correct email**
-  - Seed script now uses `test@example.com` (per spec, was `dev@example.com`)
-  - Password `TestPassword123!` is hashed with bcrypt before storage
-  - Seeded user can now log in via credentials auth
-
-### 9.2 Password Visibility Toggle — COMPLETE
-- [x] **Add show/hide toggle to all password fields**
-  - Login page: password field with Eye/EyeOff toggle
-  - Signup page: password and confirm password fields with independent toggles
-  - Account settings: current, new, and confirm password fields with independent toggles
-  - Uses `tabIndex={-1}` to avoid disrupting form tab navigation
-  - Accessible with `aria-label` for screen readers
-
-### 9.3 Suggest Terms Button Disabled Without API Key — COMPLETE
-- [x] **Disable Suggest Terms button when no Groq API key is configured**
-  - Added `useHasGroqApiKey` hook (queries `hasGroqApiKey` server action)
-  - `SuggestTerms` component accepts `hasGroqKey` prop, disables button when false
-  - Shows tooltip: "Add your Groq API key in Settings to enable suggestions"
-  - Shows inline message directing to Settings → API Keys when no key configured
-  - Props threaded through `SettingsPanel` → `TagSettings` → `SuggestTerms`
-
-### 9.4 Server-Side Rate Limiting — COMPLETE
-- [x] **Add rate limiting to /api/suggest-terms (10 req/min per user)**
-  - In-memory rate limiter with sliding window (1-minute window, 10 requests max)
-  - Returns 429 with error message when exceeded
-  - Unauthenticated users bypass rate limiting (can only use env var key)
-  - Rate limiter state exported for test cleanup between test cases
-  - 3 new tests: within limit, exceeded limit, unauthenticated bypass
-
-### 9.5 Dashboard Configuration Banner — COMPLETE
-- [x] **Add banner for missing subreddits or search terms**
-  - Shows "No subreddits configured" banner with Settings link when no subreddits
-  - Shows "No tags or search terms configured" banner when subreddits exist but no tags
-  - Only shown after initial data load (not during loading skeleton)
-  - Settings button opens the settings modal for quick configuration
-
-### 9.6 Upsert Deduplication Pattern — COMPLETE
-- [x] **Switch post deduplication from query-then-insert to upsert**
-  - Uses `db.insert().values().onConflictDoNothing({ target: [posts.userId, posts.redditId] }).returning()`
-  - Returns empty array when post already exists (conflict), skips tag assignment
-  - Race-condition safe: no gap between check and insert
-  - Updated test mock to support `onConflictDoNothing` chain
-  - Updated deduplication test to verify upsert behavior (insert is called, returns empty)
+See git history for details. Phases covered: Authentication Foundation, Settings Foundation, Arctic Shift Integration, User API Keys (BYOK), UI Completion, Minor Improvements, E2E Testing, Test Coverage Gaps, Spec Compliance Audit, Settings Unification & API Key Cache Fix.
 
 ---
 
-## Phase 10: Settings Unification & API Key Cache Fix — COMPLETE (3/3)
+## Phase 11: Spec Compliance — UX Polish & Error Handling — COMPLETE (7/7)
 
 **Status: COMPLETE**
-**Priority: HIGH — Unifies settings interface and fixes cache invalidation bug**
+**Priority: HIGH — Closes 7 gaps between specs and implementation found by deep audit**
 
-### 10.1 Unified Settings Page — COMPLETE
-- [x] **Consolidate all settings into /settings with sidebar navigation**
-  - Created `/settings/subreddits` page using SubredditSettings component
-  - Created `/settings/tags` page using TagSettings component with Groq key integration
-  - Updated `layout.tsx` with 4 nav items: Account, API Keys, Subreddits, Tags
-  - Removed `SettingsPanel` modal component (was splitting settings across modal + pages)
-  - All 4 settings sections now accessible from single /settings page, matching spec requirement
+### 11.1 Signup Auto-Login — COMPLETE
+- [x] **Auto-login after signup and redirect to dashboard**
+  - Spec says: "Create session, redirect to dashboard" (authentication.md step 6)
+  - Was redirecting to `/login?registered=true` requiring manual login
+  - Now calls `signIn("credentials", ...)` on client side after successful signup
+  - Falls back to login page redirect if auto-login fails
+  - Redirects to `/` (dashboard) on success per ui-components.md
 
-### 10.2 React Query Hooks for API Keys — COMPLETE
-- [x] **Add React Query hooks with proper cache invalidation**
-  - Added `useSaveGroqApiKey` hook that invalidates `hasGroqApiKey` cache on success
-  - Added `useDeleteGroqApiKey` hook that invalidates `hasGroqApiKey` cache on success
-  - Added `useGroqApiKeyHint` hook for fetching encrypted key hint
-  - Refactored API keys page to use React Query hooks instead of direct server actions
-  - Fixes bug: saving/deleting keys on settings page now immediately updates dashboard Suggest Terms button state
+### 11.2 Login CallbackUrl — COMPLETE
+- [x] **Respect callbackUrl parameter on login page**
+  - Middleware sets `callbackUrl` when redirecting unauthenticated users to `/login`
+  - Login page now reads `callbackUrl` from search params and redirects there after login
+  - Defaults to `/` when no callbackUrl is present
 
-### 10.3 Dashboard Simplification — COMPLETE
-- [x] **Remove settings modal from dashboard**
-  - Dashboard config banners now link to `/settings/subreddits` and `/settings/tags`
-  - UserMenu Settings item navigates to `/settings` instead of opening modal
-  - Settings modal removed from dashboard component tree
-  - Added 6 new hook tests for Groq API key operations with cache invalidation verification
+### 11.3 Optimistic UI Updates — COMPLETE
+- [x] **Add optimistic updates for post status changes**
+  - Spec says: "Status changes reflect immediately - Optimistic UI updates on button click"
+  - `useChangePostStatus` hook now uses `onMutate` to optimistically remove post from current list
+  - Optimistically updates post counts (decrements old status, increments new status)
+  - `onError` reverts cache to previous values on server error
+  - `onSettled` always invalidates to ensure consistency with server
+  - 2 new tests: optimistic removal + count update, error rollback
+
+### 11.4 INVALID_API_KEY Error Code — COMPLETE
+- [x] **Return proper error codes from suggest-terms API**
+  - Missing key now returns `{ error: "...", code: "MISSING_API_KEY" }` per spec
+  - Invalid key (401/auth errors from Groq) returns `{ error: "...", code: "INVALID_API_KEY" }`
+  - SuggestTerms component handles error codes before checking suggestions
+  - 2 new tests: 401 Unauthorized, authentication error detection
+
+### 11.5 Settings Button in Header — COMPLETE
+- [x] **Add standalone Settings button to header**
+  - Spec wireframe shows: `[Fetch New] [Settings] [User]` — three elements
+  - Added Settings icon button (gear icon) between Fetch New and UserMenu
+  - Links to `/settings` using Next.js Link component
+  - Uses `sr-only` label for accessibility
+
+### 11.6 App Branding on Auth Pages — COMPLETE
+- [x] **Add "Social Tracker" title to login and signup pages**
+  - Both login and signup pages now display "Social Tracker" as h1 heading above the form card
+  - Login fallback (Suspense boundary) also shows the branding
+  - Matches spec wireframe layout
+
+### 11.7 SuggestTerms Error Code Handling — COMPLETE
+- [x] **Handle MISSING_API_KEY and INVALID_API_KEY codes in UI**
+  - SuggestTerms component checks for `code` field in response before processing suggestions
+  - Displays the error message from the API when error codes are present
 
 ---
 
@@ -135,20 +108,14 @@ See git history for details. Phases covered: Authentication Foundation, Settings
 
 | Phase | Description | Tasks | Status | Dependencies | Priority |
 |-------|-------------|-------|--------|--------------|----------|
-| 1 | Authentication Foundation | 8 | **COMPLETE (8/8)** | None | CRITICAL |
-| 2 | Settings Foundation | 2 | **COMPLETE (2/2)** | Phase 1 | HIGH |
-| 3 | Arctic Shift Integration | 2 | **COMPLETE (2/2)** | Phase 1 | HIGH |
-| 4 | User API Keys (BYOK) | 3 | **COMPLETE (3/3)** | Phase 1 | MEDIUM |
-| 5 | UI Completion (Pagination) | 1 | **COMPLETE (1/1)** | None | MEDIUM |
-| 6 | Minor Improvements | 3 | **COMPLETE (3/3)** | Various | LOW |
-| 7 | E2E Testing | 4 | **COMPLETE (4/4)** | All features | MEDIUM |
-| 8 | Test Coverage Gaps | 7 | **COMPLETE (7/7)** | None | LOW |
+| 1-8 | Core Features & Testing | 30 | **COMPLETE** | Various | Various |
 | 9 | Spec Compliance Audit | 6 | **COMPLETE (6/6)** | All phases | HIGH |
 | 10 | Settings Unification & API Key Cache Fix | 3 | **COMPLETE (3/3)** | Phase 4, 9 | HIGH |
+| 11 | Spec Compliance — UX Polish & Error Handling | 7 | **COMPLETE (7/7)** | Phase 10 | HIGH |
 
 **Total Remaining Tasks: 0**
 
-Current test coverage: 467 tests across 19 files:
+Current test coverage: 471 tests across 19 files:
 - `webapp/__tests__/validations.test.ts` (72 tests)
 - `webapp/__tests__/reddit.test.ts` (27 tests)
 - `webapp/__tests__/actions/subreddits.test.ts` (26 tests)
@@ -163,11 +130,11 @@ Current test coverage: 467 tests across 19 files:
 - `webapp/__tests__/components/pagination.test.tsx` (23 tests)
 - `webapp/__tests__/components/tag-badge.test.tsx` (10 tests)
 - `webapp/__tests__/components/status-tabs.test.tsx` (9 tests)
-- `webapp/__tests__/components/post-card.test.tsx` (32 tests - includes post-card post-card)
+- `webapp/__tests__/components/post-card.test.tsx` (32 tests)
 - `webapp/__tests__/components/post-list.test.tsx` (6 tests)
 - `webapp/__tests__/utils.test.ts` (12 tests)
-- `webapp/__tests__/api/suggest-terms.test.ts` (22 tests)
-- `webapp/__tests__/hooks/index.test.tsx` (34 tests - added useGroqApiKeyHint, useSaveGroqApiKey, useDeleteGroqApiKey with cache invalidation)
+- `webapp/__tests__/api/suggest-terms.test.ts` (24 tests — added INVALID_API_KEY tests)
+- `webapp/__tests__/hooks/index.test.tsx` (36 tests — added optimistic update + rollback tests)
 
 ### Environment Variables Required
 ```bash

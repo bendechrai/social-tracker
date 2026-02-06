@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { UserMenu } from "@/components/user-menu";
-import { RefreshCwIcon, Loader2Icon } from "lucide-react";
+import { RefreshCwIcon, Loader2Icon, SettingsIcon } from "lucide-react";
 
 interface HeaderProps {
   onFetch: () => Promise<{ success: boolean; count?: number; message?: string; error?: string }>;
@@ -54,6 +55,12 @@ export function Header({ onFetch, isFetching = false }: HeaderProps) {
                 Fetch New
               </>
             )}
+          </Button>
+          <Button variant="outline" size="icon" asChild>
+            <Link href="/settings">
+              <SettingsIcon className="h-4 w-4" />
+              <span className="sr-only">Settings</span>
+            </Link>
           </Button>
           <UserMenu />
         </div>

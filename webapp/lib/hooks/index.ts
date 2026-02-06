@@ -63,7 +63,69 @@ export function useChangePostStatus() {
       status: PostStatus;
       responseText?: string;
     }) => changePostStatus(postId, status, responseText),
-    onSuccess: () => {
+    onMutate: async ({ postId, status }) => {
+      // Cancel outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: ["posts"] });
+      await queryClient.cancelQueries({ queryKey: ["postCounts"] });
+
+      // Snapshot current values for rollback
+      const previousPosts = queryClient.getQueriesData({ queryKey: ["posts"] });
+      const previousCounts = queryClient.getQueryData(["postCounts"]);
+
+      // Find which status the post was in before the change
+      let previousPostStatus: PostStatus | undefined;
+      for (const [, data] of previousPosts) {
+        const d = data as { posts: Array<{ id: string; status: string }> } | undefined;
+        const found = d?.posts?.find((p) => p.id === postId);
+        if (found) {
+          previousPostStatus = found.status as PostStatus;
+          break;
+        }
+      }
+
+      // Optimistically remove the post from its current list
+      queryClient.setQueriesData(
+        { queryKey: ["posts"] },
+        (old: { posts: Array<{ id: string }>; total: number; page: number; limit: number; totalPages: number } | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            posts: old.posts.filter((p) => p.id !== postId),
+            total: Math.max(0, old.total - 1),
+          };
+        }
+      );
+
+      // Optimistically update counts
+      if (previousPostStatus) {
+        queryClient.setQueryData(
+          ["postCounts"],
+          (old: { new: number; ignored: number; done: number } | undefined) => {
+            if (!old) return old;
+            return {
+              ...old,
+              [previousPostStatus]: Math.max(0, old[previousPostStatus] - 1),
+              [status]: old[status] + 1,
+            };
+          }
+        );
+      }
+
+      return { previousPosts, previousCounts };
+    },
+    onError: (_err, _vars, context) => {
+      // Revert optimistic updates on error
+      if (context?.previousPosts) {
+        for (const [queryKey, data] of context.previousPosts) {
+          queryClient.setQueryData(queryKey, data);
+        }
+      }
+      if (context?.previousCounts) {
+        queryClient.setQueryData(["postCounts"], context.previousCounts);
+      }
+    },
+    onSettled: () => {
+      // Always refetch to ensure consistency with server
       queryClient.invalidateQueries({ queryKey: ["posts"] });
       queryClient.invalidateQueries({ queryKey: ["postCounts"] });
     },

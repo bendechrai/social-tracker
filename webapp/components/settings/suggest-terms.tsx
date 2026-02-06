@@ -41,7 +41,9 @@ export function SuggestTerms({ tagName, existingTerms, onAdd, hasGroqKey = true 
 
       const data = await response.json();
 
-      if (data.suggestions && Array.isArray(data.suggestions)) {
+      if (data.code === "MISSING_API_KEY" || data.code === "INVALID_API_KEY") {
+        setError(data.error);
+      } else if (data.suggestions && Array.isArray(data.suggestions)) {
         setSuggestions(data.suggestions);
         // Pre-select new terms
         const newSelected = new Set<string>();

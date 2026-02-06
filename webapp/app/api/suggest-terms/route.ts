@@ -96,8 +96,8 @@ export async function POST(request: NextRequest) {
     if (!apiKey) {
       console.warn("No Groq API key available (neither user key nor GROQ_API_KEY env var)");
       return NextResponse.json({
-        suggestions: [],
-        error: "No API key configured. Add your Groq API key in Settings to enable suggestions."
+        error: "Groq API key not configured",
+        code: "MISSING_API_KEY",
       });
     }
 
@@ -137,6 +137,15 @@ export async function POST(request: NextRequest) {
         // If we get here, JSON parsing failed, try again
         console.warn(`Attempt ${attempts}: Failed to parse JSON from LLM response`);
       } catch (parseError) {
+        // Detect invalid API key errors from the Groq SDK
+        const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
+        if (errorMessage.includes("401") || errorMessage.toLowerCase().includes("invalid") || errorMessage.toLowerCase().includes("unauthorized") || errorMessage.toLowerCase().includes("authentication")) {
+          console.error("Invalid Groq API key:", errorMessage);
+          return NextResponse.json({
+            error: "Invalid API key. Check your Groq API key in Settings.",
+            code: "INVALID_API_KEY",
+          });
+        }
         console.error(`Attempt ${attempts}: Error parsing LLM response:`, parseError);
       }
     }

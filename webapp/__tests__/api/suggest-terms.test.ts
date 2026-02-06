@@ -158,7 +158,7 @@ describe("POST /api/suggest-terms", () => {
       expect(mockCreateGroq).toHaveBeenCalledWith({ apiKey: "env-groq-key" });
     });
 
-    it("should return empty suggestions with error when no API key available", async () => {
+    it("should return MISSING_API_KEY error when no API key available", async () => {
       mockFindFirst.mockResolvedValue({ groqApiKey: null });
       // No env var set (cleared in beforeEach)
 
@@ -167,8 +167,8 @@ describe("POST /api/suggest-terms", () => {
       const data = await res.json();
 
       expect(res.status).toBe(200);
-      expect(data.suggestions).toEqual([]);
-      expect(data.error).toContain("No API key configured");
+      expect(data.code).toBe("MISSING_API_KEY");
+      expect(data.error).toContain("not configured");
     });
 
     it("should handle unauthenticated user by falling back to env var", async () => {
@@ -345,6 +345,36 @@ describe("POST /api/suggest-terms", () => {
         const res = await POST(req);
         expect(res.status).toBe(200);
       }
+    });
+  });
+
+  describe("invalid API key handling", () => {
+    beforeEach(() => {
+      process.env.GROQ_API_KEY = "invalid-key";
+    });
+
+    it("should return INVALID_API_KEY error on 401 response from Groq", async () => {
+      mockGenerateText.mockRejectedValue(new Error("401 Unauthorized"));
+
+      const req = makeRequest({ tagName: "React" });
+      const res = await POST(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.code).toBe("INVALID_API_KEY");
+      expect(data.error).toContain("Invalid API key");
+    });
+
+    it("should return INVALID_API_KEY error on authentication error from Groq", async () => {
+      mockGenerateText.mockRejectedValue(new Error("Authentication failed: invalid api key"));
+
+      const req = makeRequest({ tagName: "React" });
+      const res = await POST(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.code).toBe("INVALID_API_KEY");
+      expect(data.error).toContain("Invalid API key");
     });
   });
 
