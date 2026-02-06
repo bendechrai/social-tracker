@@ -13,6 +13,7 @@ import {
   addSubreddit,
   removeSubreddit,
 } from "@/app/actions/subreddits";
+import { hasGroqApiKey } from "@/app/actions/api-keys";
 import {
   listTags,
   createTag,
@@ -202,5 +203,13 @@ export function useRemoveSearchTerm() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tags"] });
     },
+  });
+}
+
+// API key hooks
+export function useHasGroqApiKey() {
+  return useQuery({
+    queryKey: ["hasGroqApiKey"],
+    queryFn: hasGroqApiKey,
   });
 }

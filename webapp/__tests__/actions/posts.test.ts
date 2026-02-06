@@ -50,6 +50,9 @@ vi.mock("@/lib/db", () => ({
           mockValues(...valArgs);
           return {
             returning: () => mockReturning(),
+            onConflictDoNothing: () => ({
+              returning: () => mockReturning(),
+            }),
           };
         },
       };
@@ -615,7 +618,6 @@ describe("post server actions", () => {
           numComments: 5,
         },
       ]);
-      mockPostsFindFirst.mockResolvedValue(null); // No duplicate
       mockReturning.mockResolvedValue([
         {
           id: "new-db-post-id",
@@ -635,7 +637,7 @@ describe("post server actions", () => {
       expect(mockFetchRedditPosts).toHaveBeenCalledWith(["postgresql"], ["yugabyte"]);
     });
 
-    it("skips duplicate posts (same reddit_id)", async () => {
+    it("skips duplicate posts (same reddit_id) via upsert", async () => {
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
@@ -665,12 +667,8 @@ describe("post server actions", () => {
           numComments: 5,
         },
       ]);
-      // Post already exists
-      mockPostsFindFirst.mockResolvedValue({
-        id: "db-post-id",
-        redditId: "existing-post-id",
-        userId: MOCK_USER_ID,
-      });
+      // Upsert returns empty array when post already exists (onConflictDoNothing)
+      mockReturning.mockResolvedValue([]);
 
       const result = await fetchNewPosts();
 
@@ -679,8 +677,8 @@ describe("post server actions", () => {
         expect(result.count).toBe(0);
         expect(result.message).toBe("Found 0 new posts.");
       }
-      // Insert should not be called for duplicates
-      expect(mockInsert).not.toHaveBeenCalled();
+      // Insert IS called (upsert) but the conflict is handled by the DB
+      expect(mockInsert).toHaveBeenCalledTimes(1);
     });
 
     it("assigns tags based on matching search terms", async () => {
@@ -723,7 +721,6 @@ describe("post server actions", () => {
           numComments: 50,
         },
       ]);
-      mockPostsFindFirst.mockResolvedValue(null);
       mockReturning.mockResolvedValue([
         { id: "new-db-post-id", redditId: "multi-tag-post", userId: MOCK_USER_ID },
       ]);
@@ -765,7 +762,6 @@ describe("post server actions", () => {
           numComments: 0,
         },
       ]);
-      mockPostsFindFirst.mockResolvedValue(null);
       mockReturning.mockResolvedValue([
         { id: "new-db-id", redditId: "new-post", userId: MOCK_USER_ID },
       ]);
@@ -809,7 +805,6 @@ describe("post server actions", () => {
           numComments: 0,
         },
       ]);
-      mockPostsFindFirst.mockResolvedValue(null);
       mockReturning.mockResolvedValue([
         { id: "db-id", redditId: "one-post", userId: MOCK_USER_ID },
       ]);
@@ -865,7 +860,6 @@ describe("post server actions", () => {
           numComments: 0,
         },
       ]);
-      mockPostsFindFirst.mockResolvedValue(null);
       let callCount = 0;
       mockReturning.mockImplementation(() => {
         callCount++;

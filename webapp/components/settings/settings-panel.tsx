@@ -33,6 +33,7 @@ interface SettingsPanelProps {
   onOpenChange: (open: boolean) => void;
   subreddits: Subreddit[];
   tags: Tag[];
+  hasGroqKey?: boolean;
   onAddSubreddit: (name: string) => Promise<{ success: boolean; error?: string }>;
   onRemoveSubreddit: (id: string) => Promise<{ success: boolean; error?: string }>;
   onCreateTag: (name: string, color: string, terms: string[]) => Promise<{ success: boolean; error?: string }>;
@@ -47,6 +48,7 @@ export function SettingsPanel({
   onOpenChange,
   subreddits,
   tags,
+  hasGroqKey,
   onAddSubreddit,
   onRemoveSubreddit,
   onCreateTag,
@@ -82,6 +84,7 @@ export function SettingsPanel({
           <div className="border-t pt-6">
             <TagSettings
               tags={tags}
+              hasGroqKey={hasGroqKey}
               onCreate={onCreateTag}
               onUpdate={onUpdateTag}
               onDelete={onDeleteTag}

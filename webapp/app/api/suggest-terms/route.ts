@@ -10,16 +10,41 @@ import { eq } from "drizzle-orm";
 
 const SYSTEM_PROMPT = `You are helping a developer relations professional track mentions of a technology topic on Reddit. Given a topic name, suggest search terms that would find relevant Reddit posts about this topic. Include: the exact topic name (lowercase), common variations and abbreviations, component names or features, related technical terms, common misspellings if applicable. Return ONLY a JSON array of strings, no explanation. Keep terms lowercase. Aim for 5-15 terms.`;
 
+// Simple in-memory rate limiter: 10 requests per minute per user
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+export const rateLimitMap = new Map<string, number[]>();
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  let timestamps = rateLimitMap.get(userId);
+
+  if (!timestamps) {
+    rateLimitMap.set(userId, [now]);
+    return true;
+  }
+
+  // Remove timestamps older than the window
+  timestamps = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  rateLimitMap.set(userId, timestamps);
+
+  if (timestamps.length >= RATE_LIMIT_MAX) {
+    return false;
+  }
+
+  timestamps.push(now);
+  return true;
+}
+
 /**
  * Gets the Groq API key to use for this request.
  * Priority: 1) User's stored key, 2) Environment variable
  */
-async function getApiKey(): Promise<string | null> {
+async function getApiKey(userId?: string): Promise<string | null> {
   // Try to get user's API key first
-  const session = await auth();
-  if (session?.user?.id) {
+  if (userId) {
     const user = await db.query.users.findFirst({
-      where: eq(users.id, session.user.id),
+      where: eq(users.id, userId),
       columns: { groqApiKey: true },
     });
 
@@ -52,8 +77,22 @@ export async function POST(request: NextRequest) {
 
     const { tagName } = parsed.data;
 
+    // Get session once for both rate limiting and API key resolution
+    const session = await auth();
+    const userId = session?.user?.id;
+
+    // Rate limit check
+    if (userId) {
+      if (!checkRateLimit(userId)) {
+        return NextResponse.json(
+          { error: "Rate limit exceeded. Please wait before making more requests.", suggestions: [] },
+          { status: 429 }
+        );
+      }
+    }
+
     // Get API key (user's key or env var fallback)
-    const apiKey = await getApiKey();
+    const apiKey = await getApiKey(userId);
     if (!apiKey) {
       console.warn("No Groq API key available (neither user key nor GROQ_API_KEY env var)");
       return NextResponse.json({

@@ -55,6 +55,12 @@ vi.mock("@/app/actions/tags", () => ({
   removeSearchTerm: (...args: unknown[]) => mockRemoveSearchTerm(...args),
 }));
 
+const mockHasGroqApiKey = vi.fn();
+
+vi.mock("@/app/actions/api-keys", () => ({
+  hasGroqApiKey: () => mockHasGroqApiKey(),
+}));
+
 import {
   usePosts,
   usePostCounts,
@@ -70,6 +76,7 @@ import {
   useDeleteTag,
   useAddSearchTerm,
   useRemoveSearchTerm,
+  useHasGroqApiKey,
 } from "@/lib/hooks";
 
 function createWrapper() {
@@ -547,6 +554,34 @@ describe("React Query hooks", () => {
 
         await waitFor(() => {
           expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["tags"] });
+        });
+      });
+    });
+  });
+
+  describe("API key hooks", () => {
+    describe("useHasGroqApiKey", () => {
+      it("returns true when user has a Groq API key", async () => {
+        mockHasGroqApiKey.mockResolvedValue(true);
+        const { wrapper } = createWrapper();
+
+        const { result } = renderHook(() => useHasGroqApiKey(), { wrapper });
+
+        await waitFor(() => {
+          expect(result.current.isSuccess).toBe(true);
+          expect(result.current.data).toBe(true);
+        });
+      });
+
+      it("returns false when user has no Groq API key", async () => {
+        mockHasGroqApiKey.mockResolvedValue(false);
+        const { wrapper } = createWrapper();
+
+        const { result } = renderHook(() => useHasGroqApiKey(), { wrapper });
+
+        await waitFor(() => {
+          expect(result.current.isSuccess).toBe(true);
+          expect(result.current.data).toBe(false);
         });
       });
     });

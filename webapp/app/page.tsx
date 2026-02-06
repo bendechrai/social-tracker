@@ -22,6 +22,7 @@ import {
   useDeleteTag,
   useAddSearchTerm,
   useRemoveSearchTerm,
+  useHasGroqApiKey,
 } from "@/lib/hooks";
 import { useToast } from "@/lib/hooks/use-toast";
 import type { PostStatus } from "@/lib/validations";
@@ -56,6 +57,7 @@ export default function HomePage() {
   const { data: counts } = usePostCounts();
   const { data: subreddits } = useSubreddits();
   const { data: tags } = useTags();
+  const { data: hasGroqKey } = useHasGroqApiKey();
 
   // Mutations
   const changeStatus = useChangePostStatus();
@@ -166,6 +168,32 @@ export default function HomePage() {
       />
 
       <main className="container mx-auto px-4 py-6 space-y-6">
+        {/* Banner for missing configuration */}
+        {!postsLoading && allSubreddits.length === 0 && (
+          <div className="p-4 bg-muted rounded-lg text-sm text-muted-foreground">
+            No subreddits configured. Open{" "}
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="text-primary hover:underline font-medium"
+            >
+              Settings
+            </button>{" "}
+            to add subreddits to monitor.
+          </div>
+        )}
+        {!postsLoading && allSubreddits.length > 0 && allTags.length === 0 && (
+          <div className="p-4 bg-muted rounded-lg text-sm text-muted-foreground">
+            No tags or search terms configured. Open{" "}
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="text-primary hover:underline font-medium"
+            >
+              Settings
+            </button>{" "}
+            to add tags with search terms.
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <StatusTabs
             currentStatus={currentStatus}
@@ -210,6 +238,7 @@ export default function HomePage() {
         onOpenChange={setSettingsOpen}
         subreddits={allSubreddits}
         tags={allTags}
+        hasGroqKey={hasGroqKey ?? false}
         onAddSubreddit={handleAddSubreddit}
         onRemoveSubreddit={handleRemoveSubreddit}
         onCreateTag={handleCreateTag}

@@ -63,7 +63,7 @@ vi.mock("drizzle-orm", async (importOriginal) => {
 });
 
 // Import after mocks
-import { POST } from "@/app/api/suggest-terms/route";
+import { POST, rateLimitMap } from "@/app/api/suggest-terms/route";
 
 function makeRequest(body: unknown): NextRequest {
   return new NextRequest("http://localhost:3000/api/suggest-terms", {
@@ -76,6 +76,8 @@ function makeRequest(body: unknown): NextRequest {
 describe("POST /api/suggest-terms", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Clear rate limiter between tests
+    rateLimitMap.clear();
     // Default: authenticated user without stored key, env var fallback
     mockAuth.mockResolvedValue({ user: { id: "user-1", email: "test@example.com" } });
     mockFindFirst.mockResolvedValue({ groqApiKey: null });
@@ -297,6 +299,52 @@ describe("POST /api/suggest-terms", () => {
       const callArgs = mockGenerateText.mock.calls[0]?.[0] as Record<string, unknown>;
       expect(callArgs.system).toContain("developer relations");
       expect(callArgs.prompt).toBe("Topic: Kubernetes");
+    });
+  });
+
+  describe("rate limiting", () => {
+    beforeEach(() => {
+      process.env.GROQ_API_KEY = "test-key";
+    });
+
+    it("should allow requests within rate limit", async () => {
+      mockGenerateText.mockResolvedValue({ text: '["term"]' });
+
+      const req = makeRequest({ tagName: "React" });
+      const res = await POST(req);
+
+      expect(res.status).toBe(200);
+    });
+
+    it("should return 429 when rate limit exceeded", async () => {
+      mockGenerateText.mockResolvedValue({ text: '["term"]' });
+
+      // Fill up the rate limit (10 requests)
+      for (let i = 0; i < 10; i++) {
+        const req = makeRequest({ tagName: "React" });
+        await POST(req);
+      }
+
+      // 11th request should be rate limited
+      const req = makeRequest({ tagName: "React" });
+      const res = await POST(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(429);
+      expect(data.error).toContain("Rate limit exceeded");
+      expect(data.suggestions).toEqual([]);
+    });
+
+    it("should not rate limit unauthenticated users", async () => {
+      mockAuth.mockResolvedValue(null);
+      mockGenerateText.mockResolvedValue({ text: '["term"]' });
+
+      // Even many requests should succeed for unauthenticated users
+      for (let i = 0; i < 15; i++) {
+        const req = makeRequest({ tagName: "React" });
+        const res = await POST(req);
+        expect(res.status).toBe(200);
+      }
     });
   });
 

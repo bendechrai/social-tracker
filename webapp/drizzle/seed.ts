@@ -8,13 +8,17 @@ import {
   postTags,
 } from "./schema";
 import { eq, and } from "drizzle-orm";
+import { hashPassword } from "@/lib/password";
+
+const SEED_EMAIL = "test@example.com";
+const SEED_PASSWORD = "TestPassword123!";
 
 async function seed() {
   console.log("Seeding database...");
 
   // Create or get default user
   const existingUser = await db.query.users.findFirst({
-    where: eq(users.email, "dev@example.com"),
+    where: eq(users.email, SEED_EMAIL),
   });
 
   let userId: string;
@@ -22,12 +26,14 @@ async function seed() {
     userId = existingUser.id;
     console.log("Using existing user:", userId);
   } else {
+    const passwordHash = await hashPassword(SEED_PASSWORD);
     const [newUser] = await db
       .insert(users)
-      .values({ email: "dev@example.com" })
+      .values({ email: SEED_EMAIL, passwordHash })
       .returning();
     userId = newUser!.id;
     console.log("Created new user:", userId);
+    console.log(`Seed user: ${SEED_EMAIL} / ${SEED_PASSWORD}`);
   }
 
   // Create sample subreddits (upsert pattern)

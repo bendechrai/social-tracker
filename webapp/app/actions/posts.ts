@@ -403,20 +403,8 @@ export async function fetchNewPosts(): Promise<{
   let newCount = 0;
 
   for (const fetchedPost of fetchedPosts) {
-    // Check if post already exists
-    const existing = await db.query.posts.findFirst({
-      where: and(
-        eq(posts.userId, userId),
-        eq(posts.redditId, fetchedPost.redditId)
-      ),
-    });
-
-    if (existing) {
-      continue; // Skip duplicates
-    }
-
-    // Create the post
-    const [newPost] = await db
+    // Upsert: insert on conflict do nothing (race-condition safe deduplication)
+    const result = await db
       .insert(posts)
       .values({
         userId,
@@ -432,7 +420,14 @@ export async function fetchNewPosts(): Promise<{
         numComments: fetchedPost.numComments,
         status: "new",
       })
+      .onConflictDoNothing({ target: [posts.userId, posts.redditId] })
       .returning();
+
+    // If no rows returned, the post already existed — skip tag assignment
+    const newPost = result[0];
+    if (!newPost) {
+      continue;
+    }
 
     // Determine which tags match this post
     const matchedTagIds = new Set<string>();
@@ -449,7 +444,7 @@ export async function fetchNewPosts(): Promise<{
     // Create post_tag associations
     for (const tagId of matchedTagIds) {
       await db.insert(postTags).values({
-        postId: newPost!.id,
+        postId: newPost.id,
         tagId,
       });
     }

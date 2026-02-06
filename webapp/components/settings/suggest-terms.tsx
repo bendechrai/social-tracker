@@ -8,9 +8,10 @@ interface SuggestTermsProps {
   tagName: string;
   existingTerms: string[];
   onAdd: (terms: string[]) => void;
+  hasGroqKey?: boolean;
 }
 
-export function SuggestTerms({ tagName, existingTerms, onAdd }: SuggestTermsProps) {
+export function SuggestTerms({ tagName, existingTerms, onAdd, hasGroqKey = true }: SuggestTermsProps) {
   const [suggestions, setSuggestions] = React.useState<string[]>([]);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = React.useState(false);
@@ -90,7 +91,8 @@ export function SuggestTerms({ tagName, existingTerms, onAdd }: SuggestTermsProp
         variant="outline"
         size="sm"
         onClick={handleSuggest}
-        disabled={isLoading || isDisabled || !tagName.trim()}
+        disabled={isLoading || isDisabled || !tagName.trim() || !hasGroqKey}
+        title={!hasGroqKey ? "Add your Groq API key in Settings to enable suggestions" : undefined}
       >
         {isLoading ? (
           <>
@@ -149,7 +151,9 @@ export function SuggestTerms({ tagName, existingTerms, onAdd }: SuggestTermsProp
 
       {suggestions.length === 0 && !isLoading && !error && (
         <p className="text-sm text-muted-foreground">
-          Click &quot;Suggest Terms&quot; to get AI-powered suggestions
+          {!hasGroqKey
+            ? "Add your Groq API key in Settings \u2192 API Keys to enable AI-powered suggestions"
+            : "Click \"Suggest Terms\" to get AI-powered suggestions"}
         </p>
       )}
     </div>

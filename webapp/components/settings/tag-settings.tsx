@@ -39,6 +39,7 @@ interface Tag {
 
 interface TagSettingsProps {
   tags: Tag[];
+  hasGroqKey?: boolean;
   onCreate: (name: string, color: string, terms: string[]) => Promise<{ success: boolean; error?: string }>;
   onUpdate: (id: string, name: string, color: string) => Promise<{ success: boolean; error?: string }>;
   onDelete: (id: string) => Promise<{ success: boolean; error?: string }>;
@@ -48,6 +49,7 @@ interface TagSettingsProps {
 
 export function TagSettings({
   tags,
+  hasGroqKey,
   onCreate,
   onUpdate,
   onDelete,
@@ -354,6 +356,7 @@ export function TagSettings({
                     tagName={tag.name}
                     existingTerms={tag.terms.map((t) => t.term)}
                     onAdd={(terms) => handleAddSuggestedTerms(tag.id, terms)}
+                    hasGroqKey={hasGroqKey}
                   />
                 </div>
               )}
