@@ -22,48 +22,30 @@ import {
 } from "@/components/ui/dialog";
 import { Key, ExternalLink, Loader2Icon, CheckCircle2, Trash2 } from "lucide-react";
 import {
-  saveGroqApiKey,
-  hasGroqApiKey,
-  getGroqApiKeyHint,
-  deleteGroqApiKey,
-} from "@/app/actions/api-keys";
+  useHasGroqApiKey,
+  useGroqApiKeyHint,
+  useSaveGroqApiKey,
+  useDeleteGroqApiKey,
+} from "@/lib/hooks";
 import { toast } from "@/lib/hooks/use-toast";
 
 export default function ApiKeysPage() {
-  const [isConfigured, setIsConfigured] = React.useState(false);
-  const [keyHint, setKeyHint] = React.useState<string | null>(null);
   const [apiKey, setApiKey] = React.useState("");
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [isSaving, setIsSaving] = React.useState(false);
-  const [isDeleting, setIsDeleting] = React.useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Load initial state
-  React.useEffect(() => {
-    async function loadApiKeyStatus() {
-      try {
-        const [configured, hint] = await Promise.all([
-          hasGroqApiKey(),
-          getGroqApiKeyHint(),
-        ]);
-        setIsConfigured(configured);
-        setKeyHint(hint);
-      } catch (err) {
-        console.error("Error loading API key status:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadApiKeyStatus();
-  }, []);
+  const { data: isConfigured, isLoading: isLoadingStatus } = useHasGroqApiKey();
+  const { data: keyHint, isLoading: isLoadingHint } = useGroqApiKeyHint();
+  const saveKey = useSaveGroqApiKey();
+  const deleteKey = useDeleteGroqApiKey();
+
+  const isLoading = isLoadingStatus || isLoadingHint;
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setIsSaving(true);
 
-    const result = await saveGroqApiKey(apiKey);
+    const result = await saveKey.mutateAsync(apiKey);
 
     if (result.success) {
       toast({
@@ -71,28 +53,19 @@ export default function ApiKeysPage() {
         description: "Your Groq API key has been securely stored.",
       });
       setApiKey("");
-      setIsConfigured(true);
-      // Refresh the hint
-      const hint = await getGroqApiKeyHint();
-      setKeyHint(hint);
     } else {
       setError(result.error ?? "Failed to save API key");
     }
-    setIsSaving(false);
   };
 
   const handleDelete = async () => {
-    setIsDeleting(true);
-
-    const result = await deleteGroqApiKey();
+    const result = await deleteKey.mutateAsync();
 
     if (result.success) {
       toast({
         title: "API key removed",
         description: "Your Groq API key has been deleted.",
       });
-      setIsConfigured(false);
-      setKeyHint(null);
     } else {
       toast({
         title: "Error",
@@ -100,7 +73,6 @@ export default function ApiKeysPage() {
         variant: "destructive",
       });
     }
-    setIsDeleting(false);
     setShowDeleteConfirm(false);
   };
 
@@ -188,11 +160,11 @@ export default function ApiKeysPage() {
                   placeholder="gsk_..."
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  disabled={isSaving}
+                  disabled={saveKey.isPending}
                   autoComplete="off"
                 />
-                <Button type="submit" disabled={isSaving || !apiKey.trim()}>
-                  {isSaving ? (
+                <Button type="submit" disabled={saveKey.isPending || !apiKey.trim()}>
+                  {saveKey.isPending ? (
                     <>
                       <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
                       Saving...
@@ -217,7 +189,7 @@ export default function ApiKeysPage() {
                 variant="outline"
                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
                 onClick={() => setShowDeleteConfirm(true)}
-                disabled={isDeleting}
+                disabled={deleteKey.isPending}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Remove API Key
@@ -241,16 +213,16 @@ export default function ApiKeysPage() {
             <Button
               variant="outline"
               onClick={() => setShowDeleteConfirm(false)}
-              disabled={isDeleting}
+              disabled={deleteKey.isPending}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
-              disabled={isDeleting}
+              disabled={deleteKey.isPending}
             >
-              {isDeleting ? (
+              {deleteKey.isPending ? (
                 <>
                   <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
                   Removing...

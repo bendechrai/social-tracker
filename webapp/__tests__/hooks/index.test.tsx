@@ -56,9 +56,15 @@ vi.mock("@/app/actions/tags", () => ({
 }));
 
 const mockHasGroqApiKey = vi.fn();
+const mockSaveGroqApiKey = vi.fn();
+const mockDeleteGroqApiKey = vi.fn();
+const mockGetGroqApiKeyHint = vi.fn();
 
 vi.mock("@/app/actions/api-keys", () => ({
   hasGroqApiKey: () => mockHasGroqApiKey(),
+  saveGroqApiKey: (...args: unknown[]) => mockSaveGroqApiKey(...args),
+  deleteGroqApiKey: () => mockDeleteGroqApiKey(),
+  getGroqApiKeyHint: () => mockGetGroqApiKeyHint(),
 }));
 
 import {
@@ -77,6 +83,9 @@ import {
   useAddSearchTerm,
   useRemoveSearchTerm,
   useHasGroqApiKey,
+  useGroqApiKeyHint,
+  useSaveGroqApiKey,
+  useDeleteGroqApiKey,
 } from "@/lib/hooks";
 
 function createWrapper() {
@@ -582,6 +591,108 @@ describe("React Query hooks", () => {
         await waitFor(() => {
           expect(result.current.isSuccess).toBe(true);
           expect(result.current.data).toBe(false);
+        });
+      });
+    });
+
+    describe("useGroqApiKeyHint", () => {
+      it("returns the key hint", async () => {
+        mockGetGroqApiKeyHint.mockResolvedValue("ab12");
+        const { wrapper } = createWrapper();
+
+        const { result } = renderHook(() => useGroqApiKeyHint(), { wrapper });
+
+        await waitFor(() => {
+          expect(result.current.isSuccess).toBe(true);
+          expect(result.current.data).toBe("ab12");
+        });
+      });
+
+      it("returns null when no key configured", async () => {
+        mockGetGroqApiKeyHint.mockResolvedValue(null);
+        const { wrapper } = createWrapper();
+
+        const { result } = renderHook(() => useGroqApiKeyHint(), { wrapper });
+
+        await waitFor(() => {
+          expect(result.current.isSuccess).toBe(true);
+          expect(result.current.data).toBeNull();
+        });
+      });
+    });
+
+    describe("useSaveGroqApiKey", () => {
+      it("calls saveGroqApiKey with the key", async () => {
+        mockSaveGroqApiKey.mockResolvedValue({ success: true });
+        const { wrapper } = createWrapper();
+
+        const { result } = renderHook(() => useSaveGroqApiKey(), { wrapper });
+
+        await act(async () => {
+          result.current.mutate("gsk_test_key_123");
+        });
+
+        await waitFor(() => {
+          expect(mockSaveGroqApiKey).toHaveBeenCalledWith("gsk_test_key_123");
+        });
+      });
+
+      it("invalidates hasGroqApiKey and groqApiKeyHint on success", async () => {
+        mockSaveGroqApiKey.mockResolvedValue({ success: true });
+        const { wrapper, queryClient } = createWrapper();
+        const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+        const { result } = renderHook(() => useSaveGroqApiKey(), { wrapper });
+
+        await act(async () => {
+          result.current.mutate("gsk_test_key_123");
+        });
+
+        await waitFor(() => {
+          expect(invalidateSpy).toHaveBeenCalledWith({
+            queryKey: ["hasGroqApiKey"],
+          });
+          expect(invalidateSpy).toHaveBeenCalledWith({
+            queryKey: ["groqApiKeyHint"],
+          });
+        });
+      });
+    });
+
+    describe("useDeleteGroqApiKey", () => {
+      it("calls deleteGroqApiKey", async () => {
+        mockDeleteGroqApiKey.mockResolvedValue({ success: true });
+        const { wrapper } = createWrapper();
+
+        const { result } = renderHook(() => useDeleteGroqApiKey(), { wrapper });
+
+        await act(async () => {
+          result.current.mutate();
+        });
+
+        await waitFor(() => {
+          expect(mockDeleteGroqApiKey).toHaveBeenCalled();
+        });
+      });
+
+      it("invalidates hasGroqApiKey and groqApiKeyHint on success", async () => {
+        mockDeleteGroqApiKey.mockResolvedValue({ success: true });
+        const { wrapper, queryClient } = createWrapper();
+        const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+        const { result } = renderHook(() => useDeleteGroqApiKey(), { wrapper });
+
+        await act(async () => {
+          result.current.mutate();
+        });
+
+        await waitFor(() => {
+          expect(invalidateSpy).toHaveBeenCalledWith({
+            queryKey: ["hasGroqApiKey"],
+          });
+          expect(invalidateSpy).toHaveBeenCalledWith({
+            queryKey: ["groqApiKeyHint"],
+          });
         });
       });
     });

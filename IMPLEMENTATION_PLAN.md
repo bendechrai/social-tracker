@@ -14,10 +14,10 @@ This document outlines the implementation status and remaining tasks for complet
 - **Authentication** - Auth.js v5 with credentials provider, middleware, login/signup pages (with password visibility toggle), user menu, server actions, Drizzle adapter, 7-day sessions
 - **Server Actions** - Full CRUD for posts, tags, subreddits, search terms with validation (4 action files + auth actions + API key actions)
 - **Reddit Data Fetching** - Via Arctic Shift API (public, no auth), rate limit awareness, exponential backoff, upsert deduplication, 48h default time window
-- **UI Components** - 24 components total (12 UI primitives including Label + 12 app components: post-list, post-card, tag-filter, tag-badge, status-tabs, header, user-menu, settings modal with subreddit/tag management, providers)
-- **React Query Hooks** - 17 hooks for all CRUD operations with proper cache invalidation (16 in index.ts + use-toast)
+- **UI Components** - 23 components total (12 UI primitives including Label + 11 app components: post-list, post-card, tag-filter, tag-badge, status-tabs, header, user-menu, settings pages with subreddit/tag management, providers)
+- **React Query Hooks** - 20 hooks for all CRUD operations with proper cache invalidation (19 in index.ts + use-toast: added useGroqApiKeyHint, useSaveGroqApiKey, useDeleteGroqApiKey)
 - **Zod Validations** - Schemas for subreddits, tags, search terms, post status, suggest terms, password, email
-- **Unit Tests** - 19 test files (461 tests total) — see Phase 8/9 for breakdown
+- **Unit Tests** - 19 test files (467 tests total) — see Phase 8/9/10 for breakdown
 - **Encryption System** - AES-256-GCM encryption utilities (encrypt/decrypt with iv:authTag:ciphertext format)
 - **Password Utilities** - bcrypt hashing with cost factor 12
 - **User API Keys (BYOK)** - Groq API key management with encrypted storage, functional settings UI, LLM integration with user key fallback
@@ -25,8 +25,8 @@ This document outlines the implementation status and remaining tasks for complet
 - **Toast System** - Complete notification system
 - **Pagination** - Complete pagination UI with Previous/Next buttons, page indicator, page size selector
 - **Tag Color Rotation** - getNextTagColor integrated in tag creation
-- **Settings Pages** - Account settings (password change with visibility toggle), API Keys management
-- **Dashboard UX** - Configuration banners for missing subreddits/search terms, Suggest Terms disabled without Groq key
+- **Settings Pages** - Unified /settings page with 4 sections (Account, API Keys, Subreddits, Tags) accessible via sidebar navigation
+- **Dashboard UX** - Configuration banners for missing subreddits/search terms with links to settings pages, Suggest Terms disabled without Groq key
 - **Project Setup** - Vitest, Playwright, MSW configured; all dependencies including auth packages
 - **Seed Script** - Creates test user (test@example.com / TestPassword123!) with bcrypt-hashed password
 
@@ -101,6 +101,36 @@ See git history for details. Phases covered: Authentication Foundation, Settings
 
 ---
 
+## Phase 10: Settings Unification & API Key Cache Fix — COMPLETE (3/3)
+
+**Status: COMPLETE**
+**Priority: HIGH — Unifies settings interface and fixes cache invalidation bug**
+
+### 10.1 Unified Settings Page — COMPLETE
+- [x] **Consolidate all settings into /settings with sidebar navigation**
+  - Created `/settings/subreddits` page using SubredditSettings component
+  - Created `/settings/tags` page using TagSettings component with Groq key integration
+  - Updated `layout.tsx` with 4 nav items: Account, API Keys, Subreddits, Tags
+  - Removed `SettingsPanel` modal component (was splitting settings across modal + pages)
+  - All 4 settings sections now accessible from single /settings page, matching spec requirement
+
+### 10.2 React Query Hooks for API Keys — COMPLETE
+- [x] **Add React Query hooks with proper cache invalidation**
+  - Added `useSaveGroqApiKey` hook that invalidates `hasGroqApiKey` cache on success
+  - Added `useDeleteGroqApiKey` hook that invalidates `hasGroqApiKey` cache on success
+  - Added `useGroqApiKeyHint` hook for fetching encrypted key hint
+  - Refactored API keys page to use React Query hooks instead of direct server actions
+  - Fixes bug: saving/deleting keys on settings page now immediately updates dashboard Suggest Terms button state
+
+### 10.3 Dashboard Simplification — COMPLETE
+- [x] **Remove settings modal from dashboard**
+  - Dashboard config banners now link to `/settings/subreddits` and `/settings/tags`
+  - UserMenu Settings item navigates to `/settings` instead of opening modal
+  - Settings modal removed from dashboard component tree
+  - Added 6 new hook tests for Groq API key operations with cache invalidation verification
+
+---
+
 ## Summary
 
 | Phase | Description | Tasks | Status | Dependencies | Priority |
@@ -114,10 +144,11 @@ See git history for details. Phases covered: Authentication Foundation, Settings
 | 7 | E2E Testing | 4 | **COMPLETE (4/4)** | All features | MEDIUM |
 | 8 | Test Coverage Gaps | 7 | **COMPLETE (7/7)** | None | LOW |
 | 9 | Spec Compliance Audit | 6 | **COMPLETE (6/6)** | All phases | HIGH |
+| 10 | Settings Unification & API Key Cache Fix | 3 | **COMPLETE (3/3)** | Phase 4, 9 | HIGH |
 
 **Total Remaining Tasks: 0**
 
-Current test coverage: 461 tests across 19 files:
+Current test coverage: 467 tests across 19 files:
 - `webapp/__tests__/validations.test.ts` (72 tests)
 - `webapp/__tests__/reddit.test.ts` (27 tests)
 - `webapp/__tests__/actions/subreddits.test.ts` (26 tests)
@@ -136,7 +167,7 @@ Current test coverage: 461 tests across 19 files:
 - `webapp/__tests__/components/post-list.test.tsx` (6 tests)
 - `webapp/__tests__/utils.test.ts` (12 tests)
 - `webapp/__tests__/api/suggest-terms.test.ts` (22 tests)
-- `webapp/__tests__/hooks/index.test.tsx` (28 tests)
+- `webapp/__tests__/hooks/index.test.tsx` (34 tests - added useGroqApiKeyHint, useSaveGroqApiKey, useDeleteGroqApiKey with cache invalidation)
 
 ### Environment Variables Required
 ```bash

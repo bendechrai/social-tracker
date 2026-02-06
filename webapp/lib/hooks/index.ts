@@ -13,7 +13,12 @@ import {
   addSubreddit,
   removeSubreddit,
 } from "@/app/actions/subreddits";
-import { hasGroqApiKey } from "@/app/actions/api-keys";
+import {
+  hasGroqApiKey,
+  saveGroqApiKey,
+  deleteGroqApiKey,
+  getGroqApiKeyHint,
+} from "@/app/actions/api-keys";
 import {
   listTags,
   createTag,
@@ -211,5 +216,36 @@ export function useHasGroqApiKey() {
   return useQuery({
     queryKey: ["hasGroqApiKey"],
     queryFn: hasGroqApiKey,
+  });
+}
+
+export function useGroqApiKeyHint() {
+  return useQuery({
+    queryKey: ["groqApiKeyHint"],
+    queryFn: getGroqApiKeyHint,
+  });
+}
+
+export function useSaveGroqApiKey() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (apiKey: string) => saveGroqApiKey(apiKey),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hasGroqApiKey"] });
+      queryClient.invalidateQueries({ queryKey: ["groqApiKeyHint"] });
+    },
+  });
+}
+
+export function useDeleteGroqApiKey() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteGroqApiKey,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hasGroqApiKey"] });
+      queryClient.invalidateQueries({ queryKey: ["groqApiKeyHint"] });
+    },
   });
 }

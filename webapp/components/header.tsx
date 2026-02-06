@@ -7,11 +7,10 @@ import { RefreshCwIcon, Loader2Icon } from "lucide-react";
 
 interface HeaderProps {
   onFetch: () => Promise<{ success: boolean; count?: number; message?: string; error?: string }>;
-  onSettingsClick: () => void;
   isFetching?: boolean;
 }
 
-export function Header({ onFetch, onSettingsClick, isFetching = false }: HeaderProps) {
+export function Header({ onFetch, isFetching = false }: HeaderProps) {
   const [isLoading, setIsLoading] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
 
@@ -56,7 +55,7 @@ export function Header({ onFetch, onSettingsClick, isFetching = false }: HeaderP
               </>
             )}
           </Button>
-          <UserMenu onSettingsClick={onSettingsClick} />
+          <UserMenu />
         </div>
       </div>
     </header>

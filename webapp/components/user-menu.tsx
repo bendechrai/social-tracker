@@ -14,11 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { UserIcon, SettingsIcon, LogOutIcon, Loader2Icon } from "lucide-react";
 
-interface UserMenuProps {
-  onSettingsClick?: () => void;
-}
-
-export function UserMenu({ onSettingsClick }: UserMenuProps) {
+export function UserMenu() {
   const { data: session, status } = useSession();
   const [isSigningOut, setIsSigningOut] = React.useState(false);
 
@@ -71,12 +67,12 @@ export function UserMenu({ onSettingsClick }: UserMenuProps) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {onSettingsClick && (
-          <DropdownMenuItem onClick={onSettingsClick}>
+        <DropdownMenuItem asChild>
+          <Link href="/settings">
             <SettingsIcon className="mr-2 h-4 w-4" />
             Settings
-          </DropdownMenuItem>
-        )}
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={handleSignOut}
           disabled={isSigningOut}

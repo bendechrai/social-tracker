@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { User, Key, ChevronLeft } from "lucide-react";
+import { User, Key, Radio, TagIcon, ChevronLeft } from "lucide-react";
 
 const settingsNavItems = [
   {
@@ -19,6 +19,18 @@ const settingsNavItems = [
     label: "API Keys",
     icon: Key,
     description: "Manage your API keys",
+  },
+  {
+    href: "/settings/subreddits",
+    label: "Subreddits",
+    icon: Radio,
+    description: "Subreddits to monitor",
+  },
+  {
+    href: "/settings/tags",
+    label: "Tags",
+    icon: TagIcon,
+    description: "Tags and search terms",
   },
 ];
 
