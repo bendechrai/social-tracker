@@ -39,10 +39,6 @@ This document outlines the implementation status and remaining tasks for complet
 - `webapp/app/api/suggest-terms/route.ts` line 42: LLM model `llama-3.3-70b-versatile` is hardcoded
 - `webapp/middleware.ts`: Next.js 16 shows a deprecation warning about "middleware" file convention being renamed to "proxy" in future versions
 
-### Missing Files Summary (Verified)
-The following files DO NOT exist and need to be created:
-- `webapp/__tests__/hooks/*` - No hook tests exist
-
 ### Files Removed (Intentional)
 These files were removed as part of Phase 3 (Arctic Shift migration — Reddit OAuth no longer needed):
 - `webapp/app/api/auth/reddit/route.ts` - Reddit OAuth initiation endpoint
@@ -249,10 +245,10 @@ Note: Playwright is configured but `webapp/e2e/` directory only contains `.gitke
 
 ## Phase 8: Test Coverage Gaps
 
-**Status: PARTIAL (6/7)**
+**Status: COMPLETE (7/7)**
 **Priority: LOW**
 
-Current test coverage: 419 tests across 18 files:
+Current test coverage: 445 tests across 19 files:
 - `webapp/__tests__/validations.test.ts` (72 tests)
 - `webapp/__tests__/reddit.test.ts` (21 tests)
 - `webapp/__tests__/actions/subreddits.test.ts` (21 tests)
@@ -271,8 +267,7 @@ Current test coverage: 419 tests across 18 files:
 - `webapp/__tests__/components/post-list.test.tsx` (6 tests)
 - `webapp/__tests__/utils.test.ts` (12 tests)
 - `webapp/__tests__/api/suggest-terms.test.ts` (19 tests)
-
-Missing test categories: hooks.
+- `webapp/__tests__/hooks/index.test.tsx` (26 tests)
 
 ### 8.1 Missing Unit Tests — COMPLETE (4/4)
 - [x] **Add utils.ts unit tests** — COMPLETE (`webapp/__tests__/utils.test.ts`, 12 tests)
@@ -284,8 +279,8 @@ Missing test categories: hooks.
 - [x] **Add pagination component tests** — COMPLETE (23 tests)
 - [x] **Add remaining React component tests** — COMPLETE (tag-badge: 10 tests, status-tabs: 9 tests, post-card: 27 tests, post-list: 6 tests)
 
-### 8.3 Hook Tests
-- [ ] **Add React Query hook tests** (`webapp/__tests__/hooks/`)
+### 8.3 Hook Tests — COMPLETE (1/1)
+- [x] **Add React Query hook tests** — COMPLETE (`webapp/__tests__/hooks/index.test.tsx`, 26 tests)
 
 ---
 
@@ -300,9 +295,9 @@ Missing test categories: hooks.
 | 5 | UI Completion (Pagination) | 1 | **COMPLETE (1/1)** | None | MEDIUM |
 | 6 | Minor Improvements | 2+1 | **COMPLETE (2/2)** + 1 optional | Various | LOW |
 | 7 | E2E Testing | 6 | NOT STARTED | All features | MEDIUM |
-| 8 | Test Coverage Gaps | 7 | PARTIAL (6/7) | None | LOW |
+| 8 | Test Coverage Gaps | 7 | **COMPLETE (7/7)** | None | LOW |
 
-**Total Remaining Tasks: 8** (Phase 6 optional: 1, Phase 7: 6, Phase 8: 1)
+**Total Remaining Tasks: 7** (Phase 6 optional: 1, Phase 7: 6)
 
 ### Completed Tasks Summary
 - **Phase 1 Authentication** — Complete Auth.js implementation with login/signup pages, user menu, middleware, and real session-based auth
@@ -314,18 +309,13 @@ Missing test categories: hooks.
 
 ### Critical Path
 ```
-All core feature phases (1-6) are COMPLETE.
+All core feature phases (1-6) and unit test coverage (Phase 8) are COMPLETE.
 
 Remaining work:
   Phase 6.2 (Optional: Subreddit verification) — can start anytime
   Phase 7.1 (Playwright Setup) ---> Prerequisite for all E2E tests
   Phase 7.2-7.4 (E2E Tests) ---> Depend on 7.1
-  Phase 8 (Test Coverage Gaps) ---> Independent, can be done incrementally
 ```
-
-### Quick Wins (No Dependencies)
-1. **Phase 8.1** - Add utils.ts unit tests (~1 hour)
-2. **Phase 8.1** - Add API route tests for suggest-terms (~2 hours)
 
 ### Recommended Implementation Order
 1. ~~**Phase 1** - Authentication Foundation~~ — COMPLETE
@@ -334,7 +324,7 @@ Remaining work:
 4. ~~**Phase 2** - Settings Foundation~~ — COMPLETE
 5. ~~**Phase 4** - User API Keys~~ — COMPLETE
 6. ~~**Phase 3** - Arctic Shift Integration~~ — COMPLETE
-7. **Phase 8** - Additional unit/component/hook tests (can be done incrementally)
+7. ~~**Phase 8** - Unit/component/hook tests~~ — COMPLETE
 8. **Phase 7** - E2E Testing (after all features)
 
 ### Environment Variables Required
@@ -355,14 +345,6 @@ GROQ_API_KEY=                    # Fallback API key for LLM (optional if users p
 ### Files to Create (Summary)
 ```
 webapp/
-├── __tests__/
-│   ├── utils.test.ts                     # Phase 8.1
-│   ├── api/
-│   │   └── suggest-terms.test.ts         # Phase 8.1
-│   ├── components/                       # Phase 8.2 (additional tests)
-│   │   └── *.test.tsx
-│   └── hooks/                            # Phase 8.3
-│       └── *.test.ts
 └── e2e/
     ├── fixtures.ts                       # Phase 7.1
     ├── helpers/
