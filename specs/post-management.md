@@ -34,7 +34,7 @@ Posts are stored globally (shared across users) and each user has their own rela
 
 ### Fetch New Posts
 
-Trigger: Manual via UI or scheduled (future)
+Trigger: Automatic via cron (see `specs/auto-fetch.md`) or on-demand when adding a new subreddit
 
 1. For each configured subreddit, fetch all recent posts from Arctic Shift (one API call per subreddit, no search term filtering at the API level)
 2. For each returned post:
