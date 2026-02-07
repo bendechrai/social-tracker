@@ -2,6 +2,10 @@
 0b. Study @IMPLEMENTATION_PLAN.md.
 0c. For reference, the application source code is in `webapp/*`.
 
+## UX Consistency (MANDATORY)
+
+When modifying existing components, preserve the current visual design, layout, spacing, and interaction patterns. Do not refactor CSS, rename CSS classes, change component structure, or "improve" styling unless the task specifically requires a visual change. New UI sections (e.g., landing page additions) must match the existing visual language — study adjacent sections and components for class naming patterns, spacing conventions, and design tokens before creating new markup. For backend-only changes (schema, server actions, hooks), component templates must remain visually identical — only update data access patterns and prop types, never layout or styling. The goal is feature addition and architectural correctness, not redesign.
+
 1. Your task is to implement functionality per the specifications using parallel subagents. Follow @IMPLEMENTATION_PLAN.md and choose the most important item to address. Before making changes, search the codebase (don't assume not implemented) using Sonnet subagents. You may use up to 500 parallel Sonnet subagents for searches/reads and only 1 Sonnet subagent for build/tests. Use Opus subagents when complex reasoning is needed (debugging, architectural decisions).
 
 Tasks include required tests - implement tests as part of task scope.

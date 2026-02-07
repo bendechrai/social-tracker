@@ -2,131 +2,269 @@
 
 This document outlines the implementation status and remaining tasks for completing the social media tracker application. Tasks are organized by priority and dependency order.
 
-**Last Verified:** 2026-02-07 (Phase 14)
-**Verification Method:** Automated codebase analysis against specs/* + full validation suite
+**Last Verified:** 2026-02-07 (Deep Audit against specs/*)
+**Verification Method:** Opus-level codebase analysis comparing every spec acceptance criterion against source code
 
 ---
 
 ## Current Status Overview
 
-### Completed Features
-- **Database Schema** - 6 core tables (users, posts, tags, subreddits, searchTerms, postTags) with proper relationships, indexes, and cascade deletes
-- **Authentication** - Auth.js v5 with credentials provider, middleware, login/signup pages (with password visibility toggle, auto-login after signup, callbackUrl redirect), user menu, server actions, Drizzle adapter, 7-day sessions
-- **Server Actions** - Full CRUD for posts, tags, subreddits, search terms with validation (4 action files + auth actions + API key actions)
-- **Reddit Data Fetching** - Via Arctic Shift API (public, no auth), rate limit awareness, exponential backoff, upsert deduplication, 48h default time window
-- **UI Components** - 23 components total (12 UI primitives including Label + 11 app components: post-list, post-card, tag-filter, tag-badge, status-tabs, header with Settings button, user-menu, settings pages with subreddit/tag management, providers)
-- **React Query Hooks** - 20 hooks for all CRUD operations with proper cache invalidation and optimistic updates for status changes (19 in index.ts + use-toast)
+### Completed Features (Verified Correct)
+- **Authentication** - Auth.js v5 with credentials provider, proxy-based middleware, login/signup pages (password visibility toggle, auto-login after signup, callbackUrl redirect), user menu, server actions, Drizzle adapter, 7-day JWT sessions
+- **Server Actions** - CRUD for posts, tags, subreddits, search terms with validation (4 action files + auth actions + API key actions)
+- **Reddit Data Fetching** - Via Arctic Shift API (public, no auth), rate limit awareness, exponential backoff, deduplication, 48h default time window, t3_ prefix
+- **UI Components** - 23 components total (12 UI primitives + 11 app components)
+- **React Query Hooks** - 20 hooks with cache invalidation and optimistic updates
 - **Zod Validations** - Schemas for subreddits, tags, search terms, post status, suggest terms, password, email
-- **Unit Tests** - 25 test files (582 tests total) — see Phase 13 for latest additions
-- **Encryption System** - AES-256-GCM encryption utilities (encrypt/decrypt with iv:authTag:ciphertext format)
+- **Encryption System** - AES-256-GCM encryption utilities
 - **Password Utilities** - bcrypt hashing with cost factor 12
-- **User API Keys (BYOK)** - Groq API key management with encrypted storage, functional settings UI, LLM integration with user key fallback
-- **LLM Suggestions** - /api/suggest-terms endpoint using Groq API (falls back to env var), server-side rate limiting (10 req/min/user), MISSING_API_KEY/INVALID_API_KEY error codes
+- **User API Keys (BYOK)** - Groq API key management with encrypted storage
+- **LLM Suggestions** - /api/suggest-terms endpoint with rate limiting, error codes
 - **Toast System** - Complete notification system
-- **Pagination** - Complete pagination UI with Previous/Next buttons, page indicator, page size selector
 - **Tag Color Rotation** - getNextTagColor integrated in tag creation
-- **Settings Pages** - Unified /settings page with 4 sections (Account, API Keys, Subreddits, Tags) accessible via sidebar navigation
-- **Dashboard UX** - Configuration banners for missing subreddits/search terms with links to settings pages, Suggest Terms disabled without Groq key
-- **Project Setup** - Vitest, Playwright, MSW configured; all dependencies including auth packages
-- **Seed Script** - Creates test user (test@example.com / TestPassword123!) with bcrypt-hashed password
+- **Settings Pages** - 4 sections (Account, API Keys, Subreddits, Tags) with sidebar navigation
+- **Dashboard UX** - Configuration banners, status tabs, tag filter, post cards
+- **Pagination** - Previous/Next buttons, page indicator, page size selector
+- **Unit Tests** - 25 test files (582 tests), no skipped or flaky tests
+- **E2E Tests** - 3 spec files (auth, posts, settings) with Playwright
+- **Seed Script** - Creates test user with sample data
 
-### Specification Requirements Reference
-- **Auth**: Auth.js v5, bcrypt cost 12, password 12+ chars with upper/lower/number/symbol, 7-day sessions
-- **Encryption**: AES-256-GCM with format iv:authTag:ciphertext (base64)
-- **Reddit Data**: Via Arctic Shift API (https://arctic-shift.photon-reddit.com) — public, no auth required, ~36h data delay
-- **LLM**: User's own Groq key (BYOK) with fallback to env var
-
-### Known Issues (Minor)
-- ~~`webapp/lib/hooks/use-toast.ts` line 8: `TOAST_REMOVE_DELAY = 1000000`~~ — NOT a bug. This is the standard shadcn/ui default. It controls DOM removal delay *after* dismissal, not visibility duration. Radix ToastProvider default 5s handles auto-dismiss.
-- `webapp/app/api/suggest-terms/route.ts`: LLM model `llama-3.3-70b-versatile` is hardcoded — matches spec requirement (llm-tag-suggestions.md line 13), not an issue
-- `webapp/middleware.ts`: Next.js 16 deprecation warning about "middleware" → "proxy" rename — future migration task for Next.js 17+, no current impact
-- shadcn/ui toast component is deprecated upstream in favor of Sonner — consider migrating in a future phase
+### Known Issues (Non-blocking, documented)
+- `TOAST_REMOVE_DELAY = 1000000` — standard shadcn/ui default, not a bug
+- `llama-3.3-70b-versatile` hardcoded — matches spec
+- Next.js 16 "middleware" → "proxy" deprecation — future migration
+- shadcn/ui toast deprecated upstream in favor of Sonner — future migration
+- No TODOs, FIXMEs, skipped tests, or placeholder code in production source
 
 ---
 
-## Phases 1-11 — All COMPLETE
+## Phases 1-14 — All COMPLETE
 
-See git history for details. Phases covered: Authentication Foundation, Settings Foundation, Arctic Shift Integration, User API Keys (BYOK), UI Completion, Minor Improvements, E2E Testing, Test Coverage Gaps, Spec Compliance Audit, Settings Unification & API Key Cache Fix, UX Polish & Error Handling.
-
----
-
-## Phase 12: Acceptance Criteria Test Coverage — COMPLETE (4/4)
-
-**Status: COMPLETE**
-**Priority: HIGH — Closes test coverage gaps for spec acceptance criteria**
-
-Deep audit of all 10 spec files against test files revealed multiple acceptance criteria without test coverage. This phase adds tests for every untested criterion that can be unit-tested.
-
-### 12.1 SuggestTerms Component Tests — COMPLETE (26 tests)
-- [x] **`webapp/__tests__/components/suggest-terms.test.tsx`**
-  - Covers llm-tag-suggestions.md acceptance criteria: UI shows suggestions, selection works, terms added, duplicates handled, loading state, disabled without Groq key, errors handled, empty input rejected
-  - Uses MSW `server.use()` to intercept `/api/suggest-terms` calls
-  - 26 tests: initial rendering (3), disabled states (5), loading state (2), suggestions display (3), selection interaction (2), adding terms (5), error handling (4), rate limiting (1), API call (1)
-
-### 12.2 UserMenu Component Tests — COMPLETE (9 tests)
-- [x] **`webapp/__tests__/components/user-menu.test.tsx`**
-  - Covers authentication.md: "Logout works — user can sign out, session destroyed"
-  - Covers ui-components.md: "Logout works — user can sign out from user menu"
-  - 9 tests: loading state (1), unauthenticated state (3), authenticated state with dropdown menu (5 including sign out call verification)
-
-### 12.3 Header Component Tests — COMPLETE (14 tests)
-- [x] **`webapp/__tests__/components/header.test.tsx`**
-  - Covers ui-components.md: "Fetch shows feedback — loading state during fetch, count of new posts after"
-  - 14 tests: rendering (4 - title, fetch button, settings link, user menu), loading state (3), success feedback (4 - count display, custom message, zero count, message auto-clear), error feedback (2), re-enable after fetch (1)
-
-### 12.4 Data Isolation Tests — COMPLETE (10 tests)
-- [x] **`webapp/__tests__/actions/data-isolation.test.ts`**
-  - Covers authentication.md: "Data isolated — users only see their own tags, subreddits, posts"
-  - Covers user-api-keys.md: "Keys isolated — User A cannot access User B's keys"
-  - 10 tests: subreddit isolation (3 - list scoping, insert userId, duplicate check scoping), tag isolation (2 - list scoping, insert userId), post isolation (3 - list scoping, counts scoping, multi-user scoping), API key isolation (2 - save scoping, query scoping)
-
-### 12.5 Password Test Timeout Fix — COMPLETE
-- [x] **Fixed flaky bcrypt test timeouts**
-  - `webapp/__tests__/password.test.ts`: Added 15s timeout to tests doing multiple bcrypt hashes (cost factor 12 can be slow under load)
+See git history for details. Covered: Authentication Foundation, Settings Foundation, Arctic Shift Integration, User API Keys (BYOK), UI Completion, Minor Improvements, E2E Testing, Test Coverage Gaps, Spec Compliance Audit, Settings Unification & API Key Cache Fix, UX Polish & Error Handling, Acceptance Criteria Test Coverage, Accessibility & Responsive Polish, Test Quality & Known Issues Audit.
 
 ---
 
-## Phase 13: Accessibility & Responsive Polish — COMPLETE (3/3)
+## Phase 15: Shared Posts Architecture (Database Schema Refactor) — NOT STARTED
 
-**Status: COMPLETE**
-**Priority: HIGH — Closes spec compliance gaps for responsive design and keyboard accessibility**
+**Status: NOT STARTED**
+**Priority: CRITICAL — Core architectural violation of specs/database-schema.md and specs/post-management.md**
+**Dependencies: None (foundational change)**
 
-### 13.1 Viewport Metadata — COMPLETE
-- [x] Added `export const viewport: Viewport` to `webapp/app/layout.tsx`
-- Required for proper mobile rendering (spec: ui-components.md "Mobile responsive")
+The spec requires a three-table architecture for shared posts:
+- `posts` — global, deduplicated by `reddit_id` (unique), contains only Reddit content
+- `user_posts` — per-user state (`userId`, `postId`, `status`, `responseText`, `respondedAt`)
+- `user_post_tags` — per-user tag associations (`userId`, `postId`, `tagId`)
 
-### 13.2 Tag Settings Accessibility — COMPLETE
-- [x] Changed clickable `<div>` tag header to proper `<button>` with `aria-expanded` attribute
-- [x] Separated expand/collapse button from edit/delete buttons to avoid nested `<button>` HTML violations
-- [x] Added `focus-visible:ring-2` styles to color picker buttons
-- [x] Added `focus-visible:ring-2` styles and `aria-label` to remove term buttons
-- [x] Added `aria-label` to color picker buttons (`Select color #hex`)
-- [x] Added `aria-label` to chevron expand/collapse button
-- Required for spec: ui-components.md "Keyboard accessible"
+The current implementation collapses `posts` and `user_posts` into a single `posts` table with `userId` on it. Posts are stored per-user instead of globally. The `postTags` table references `posts.id` directly rather than through `user_posts`.
 
-### 13.3 Settings Component Tests — COMPLETE (52 tests)
-- [x] `webapp/__tests__/components/subreddit-settings.test.tsx` (19 tests)
-  - Rendering (4), empty state (2), adding subreddits (8), removing subreddits (3), loading states (2)
-- [x] `webapp/__tests__/components/tag-settings.test.tsx` (33 tests)
-  - Rendering (4), empty state (1), expand/collapse (5), creating tags (7), editing tags (2), deleting tags (3), term management (7), color picker accessibility (2), error handling (3)
+### Spec References
+- database-schema.md acceptance criteria 4: "Posts are shared — Duplicate reddit_id for posts is rejected (global uniqueness, not per-user)"
+- database-schema.md acceptance criteria 5: "User posts are per-user — Same post can have different status/response for different users"
+- database-schema.md acceptance criteria 6: "Tag associations are per-user — user_post_tags references user_posts"
+- database-schema.md acceptance criteria 9: "Indexes created — (user_id, status) index on user_posts, (subreddit) index on posts"
+- post-management.md: "Posts are stored globally (shared across users)"
+- reddit-integration.md acceptance criteria 5: "Posts stored globally — Fetched posts are stored in a shared table (deduplicated by reddit_id), not per-user"
+
+### 15.1 Create new migration with three-table schema
+- [ ] Add `user_posts` table: composite PK `(user_id, post_id)`, columns: `user_id` (FK users, cascade), `post_id` (FK posts, cascade), `status` (varchar(20), default 'new'), `response_text` (text, nullable), `responded_at` (timestamp, nullable), `created_at` (default now), `updated_at` (default now). Index on `(user_id, status)`.
+- [ ] Add `user_post_tags` table: composite PK `(user_id, post_id, tag_id)`, columns: `user_id` (FK users, cascade), `post_id` (FK posts, cascade), `tag_id` (FK tags, cascade). FK `(user_id, post_id)` references `user_posts(user_id, post_id)` cascade.
+- [ ] Remove from `posts` table: `userId`, `status`, `responseText`, `respondedAt`, `updatedAt` columns
+- [ ] Change `posts.reddit_id` unique constraint from composite `(userId, redditId)` to global `(reddit_id)`
+- [ ] Change `posts` index from `(userId, status)` to `(subreddit)` per spec
+- [ ] Remove `post_tags` table (replaced by `user_post_tags`)
+- [ ] Update Drizzle relations for all affected tables
+- [ ] Export new TypeScript types: `UserPost`, `NewUserPost`, `UserPostTag`, `NewUserPostTag`
+
+**Tests (derived from acceptance criteria):**
+- Schema matches spec: all tables, columns, types, constraints verified
+- `posts.reddit_id` has global unique constraint (not per-user)
+- `user_posts` PK is `(user_id, post_id)`
+- `user_post_tags` PK is `(user_id, post_id, tag_id)` with FK to `user_posts`
+- Cascade delete: deleting user cascades to `user_posts` and `user_post_tags`
+- Cascade delete: deleting post cascades to `user_posts` and `user_post_tags`
+- Cascade delete: deleting tag cascades to `user_post_tags`
+- Index exists on `user_posts(user_id, status)`
+- Index exists on `posts(subreddit)`
+
+### 15.2 Update server actions for three-table model
+- [ ] `fetchNewPosts` (`webapp/app/actions/posts.ts`):
+  - Upsert into global `posts` table (conflict on `reddit_id` globally, not per-user)
+  - Store ALL fetched posts in `posts` table (not just matching ones — per spec: "All posts from monitored subreddits are stored in the shared posts table, regardless of whether they match any search terms")
+  - Create `user_posts` record only for posts matching search terms (conflict on `(user_id, post_id)` do nothing)
+  - Create `user_post_tags` entries for matching tags
+- [ ] `listPosts`: query `user_posts` joined to `posts`, filter by `user_posts.status`, join `user_post_tags` for tag data
+- [ ] `getPost`: fetch from `posts` + `user_posts` + `user_post_tags`
+- [ ] `changePostStatus`: update `user_posts.status`, handle `responded_at` logic on `user_posts`
+- [ ] `updateResponseText`: update `user_posts.response_text`
+- [ ] `getPostCounts`: count from `user_posts` grouped by status
+
+**Tests (derived from acceptance criteria):**
+- `fetchNewPosts` stores ALL subreddit posts in global `posts` table (not just matching)
+- `fetchNewPosts` creates `user_posts` only for matching posts
+- `fetchNewPosts` creates `user_post_tags` for each matched tag
+- Global deduplication: same `reddit_id` is not duplicated in `posts`
+- Per-user deduplication: `user_posts(user_id, post_id)` conflict handled
+- Two users monitoring same subreddit share the same `posts` row
+- Two users can have different statuses for the same post
+- `changePostStatus` updates `user_posts` not `posts`
+- `respondedAt` set on done, cleared on non-done (on `user_posts`)
+- `listPosts` filters by `user_posts.status` and joins `posts` for content
+- `getPostCounts` reads from `user_posts`
+
+### 15.3 Update React Query hooks and UI components
+- [ ] Update hook return types to match new `user_posts` + `posts` joined structure
+- [ ] Verify dashboard, post-card, post-list still work with updated data shapes
+- [ ] Update any components that reference `post.status` (now from `user_posts`)
+
+### 15.4 Update seed script
+- [ ] `webapp/drizzle/seed.ts`: update to create posts in `posts` (global), then `user_posts` and `user_post_tags` for the seed user
+
+### 15.5 Update existing tests
+- [ ] Update all post-related action tests to mock `user_posts` and `user_post_tags` tables
+- [ ] Update data isolation tests for new three-table model
+- [ ] Update hook tests if return types changed
+- [ ] Verify all 582+ existing tests still pass
 
 ---
 
-## Phase 14: Test Quality & Known Issues Audit — COMPLETE (2/2)
+## Phase 16: Untagged Filter — NOT STARTED
 
-**Status: COMPLETE**
-**Priority: MEDIUM — Resolves test warnings and clarifies known issues**
+**Status: NOT STARTED**
+**Priority: HIGH — Missing feature required by specs/post-management.md and specs/ui-components.md**
+**Dependencies: Phase 15 (uses user_post_tags table)**
 
-### 14.1 Fix act() Warnings in Component Tests — COMPLETE
-- [x] `webapp/__tests__/components/header.test.tsx`: Wrapped `vi.advanceTimersByTime()` calls in `act()` to flush pending 5-second message-clear timeouts after fetch operations (8 tests fixed)
-- [x] `webapp/__tests__/components/suggest-terms.test.tsx`: Wrapped timer advancement in `act()` for rate limiting test (1 test fixed)
-- Why: React state updates from `setTimeout` callbacks fired after test completion, causing spurious warnings that obscured real issues in test output
+The spec requires an "Untagged" filter option that shows posts with zero tag associations. This is completely missing from both backend and frontend.
 
-### 14.2 Known Issues Audit — COMPLETE
-- [x] Clarified `TOAST_REMOVE_DELAY = 1000000` is NOT a bug — standard shadcn/ui default for DOM removal after dismissal
-- [x] Confirmed `llama-3.3-70b-versatile` hardcoded model matches spec requirement
-- [x] Documented middleware deprecation as future Next.js 17+ migration task
-- [x] Noted shadcn/ui toast deprecation in favor of Sonner for future consideration
+### Spec References
+- post-management.md acceptance criteria 8: "Untagged filter works — Can show/hide posts with no tag associations"
+- post-management.md acceptance criteria 9: "Filtering works — Can filter by status, by tag (including Untagged), by both"
+- ui-components.md line 161: "Shows all user's tags plus an 'Untagged' option"
+- ui-components.md line 163: "'Untagged' option: shows posts with zero tag associations in user_post_tags for this user"
+- ui-components.md line 164: "'Untagged' is unchecked by default — only tagged posts shown unless user opts in"
+- ui-components.md acceptance criteria 9: "Tag filter works — Selecting tags filters to posts with those tags; 'Untagged' option shows posts with no tag associations"
+
+### 16.1 Backend: Add "Untagged" filter support to `listPosts`
+- [ ] Accept a special sentinel value (e.g., `"untagged"`) in the `tagIds` array parameter
+- [ ] When "untagged" is in `tagIds`: query for `user_posts` that have zero rows in `user_post_tags`
+- [ ] When both specific tags AND "untagged" are selected: return posts matching ANY selected tag OR posts with zero tags (union)
+- [ ] Default behavior (no tag filter): show all posts regardless of tag status
+
+**Tests:**
+- `listPosts` with `tagIds=["untagged"]` returns only posts with zero `user_post_tags` entries
+- `listPosts` with `tagIds=["tag1", "untagged"]` returns posts with tag1 OR posts with no tags
+- `listPosts` with `tagIds=["tag1"]` returns only posts with tag1 (no untagged)
+- `listPosts` with no `tagIds` returns all posts
+- Untagged filter combined with status filter works correctly
+- Pagination works correctly with untagged filter
+
+### 16.2 Frontend: Add "Untagged" option to TagFilter component
+- [ ] `webapp/components/tag-filter.tsx`: Add "Untagged" checkbox item after the separator, before user's tags
+- [ ] "Untagged" option is unchecked by default
+- [ ] Selecting "Untagged" passes the sentinel value through to the API
+- [ ] "Clear all filters" also clears the Untagged selection
+
+**Tests:**
+- TagFilter renders "Untagged" option
+- "Untagged" is unchecked by default
+- Selecting "Untagged" calls onChange with sentinel value
+- "Clear all" clears Untagged selection
+- "Untagged" can be combined with specific tag selections
+
+### 16.3 Update dashboard page
+- [ ] `webapp/app/dashboard/page.tsx`: Pass "untagged" sentinel through to `usePosts` hook when selected
+- [ ] Verify empty message reflects untagged filter state
+
+---
+
+## Phase 17: Landing Page — Roadmap, Pricing & Creator Sections — NOT STARTED
+
+**Status: NOT STARTED**
+**Priority: HIGH — Missing sections required by specs/landing-page.md**
+**Dependencies: None**
+
+The landing page is missing three sections required by the spec: Roadmap, Pricing, and Creator attribution.
+
+### Spec References
+- landing-page.md acceptance criteria 7: "Creator visible — Page includes creator name and photo"
+- landing-page.md acceptance criteria 8: "Roadmap visible — Upcoming platforms and features are mentioned"
+- landing-page.md acceptance criteria 9: "Pricing clear — Individual donation model and future team plans are communicated"
+
+### 17.1 Add Roadmap section
+- [ ] `webapp/app/(marketing)/page.tsx`: Add "What's Coming" section after features
+- [ ] Three roadmap items per spec: More platforms (HN, Twitter/X, Discord, SO), AI response research, Team accounts
+
+### 17.2 Add Pricing section
+- [ ] Add pricing section: Individuals (donation-based, $0+), Teams & Enterprise (coming soon)
+
+### 17.3 Update Hero with creator attribution
+- [ ] Add creator byline with name and photo per spec: "Creator byline with name and photo"
+- [ ] Personal origin story one-liner
+
+### 17.4 Update Footer
+- [ ] Personal attribution: "Made with care by [name]" (currently says "Made with care by a real human" — needs actual name)
+
+**Tests:**
+- Landing page renders Roadmap section with 3 items
+- Landing page renders Pricing section with donation model and team plans
+- Landing page shows creator name/photo in hero
+- Footer has personal attribution with name
+- All sections render on mobile viewport
+
+---
+
+## Phase 18: Pagination Page Size Fix — NOT STARTED
+
+**Status: NOT STARTED**
+**Priority: MODERATE — UI inconsistency between dashboard default and pagination options**
+**Dependencies: None**
+
+### Spec Reference
+- ui-components.md: dashboard defaults to 20 posts per page
+- Current pagination `pageSizeOptions` default is `[10, 25, 50]` but dashboard sets `pageSize=20`
+
+### 18.1 Fix page size options
+- [ ] Either: change `webapp/components/ui/pagination.tsx` default `pageSizeOptions` to `[10, 20, 25, 50]`
+- [ ] Or: change `webapp/app/dashboard/page.tsx` default `pageSize` to match one of the existing options (10 or 25)
+- [ ] Either approach is acceptable; adding 20 to the options is more aligned with the current behavior
+
+**Tests:**
+- Pagination dropdown includes the dashboard's default page size as a selectable option
+- Selected page size matches displayed option in dropdown
+
+---
+
+## Phase 19: Post Card Line Clamp — NOT STARTED
+
+**Status: NOT STARTED**
+**Priority: LOW — Minor spec deviation in post body truncation**
+**Dependencies: None**
+
+### Spec Reference
+- ui-components.md line 183: "Post body text, truncated to ~3 lines"
+
+### 19.1 Verify line clamp matches spec
+- [ ] `webapp/components/post-card.tsx` line 142: currently uses `line-clamp-3` — this actually MATCHES the spec ("~3 lines"). The earlier audit incorrectly flagged this.
+- [ ] **NO CHANGE NEEDED** — confirmed spec says "~3 lines" and implementation uses `line-clamp-3`
+
+**Status: VERIFIED CORRECT — No action required**
+
+---
+
+## Phase 20: Suggest-Terms HTTP Status Codes — NOT STARTED
+
+**Status: NOT STARTED**
+**Priority: LOW — Error responses return 200 OK instead of semantic HTTP status codes**
+**Dependencies: None**
+
+### 20.1 Return proper HTTP status for MISSING_API_KEY
+- [ ] `webapp/app/api/suggest-terms/route.ts`: When no API key is found, return 422 instead of 200
+- [ ] When API key is invalid, return 401 instead of 200
+
+**Tests:**
+- MISSING_API_KEY response has HTTP 422 status
+- INVALID_API_KEY response has HTTP 401 status
+- Successful response still returns HTTP 200
+- Frontend `suggest-terms` component handles non-200 responses correctly
 
 ---
 
@@ -134,42 +272,15 @@ Deep audit of all 10 spec files against test files revealed multiple acceptance 
 
 | Phase | Description | Tasks | Status | Dependencies | Priority |
 |-------|-------------|-------|--------|--------------|----------|
-| 1-8 | Core Features & Testing | 30 | **COMPLETE** | Various | Various |
-| 9 | Spec Compliance Audit | 6 | **COMPLETE (6/6)** | All phases | HIGH |
-| 10 | Settings Unification & API Key Cache Fix | 3 | **COMPLETE (3/3)** | Phase 4, 9 | HIGH |
-| 11 | Spec Compliance — UX Polish & Error Handling | 7 | **COMPLETE (7/7)** | Phase 10 | HIGH |
-| 12 | Acceptance Criteria Test Coverage | 4 | **COMPLETE (4/4)** | Phase 11 | HIGH |
-| 13 | Accessibility & Responsive Polish | 3 | **COMPLETE (3/3)** | Phase 12 | HIGH |
-| 14 | Test Quality & Known Issues Audit | 2 | **COMPLETE (2/2)** | Phase 13 | MEDIUM |
+| 1-14 | All Previous Phases | 55 | **COMPLETE** | Various | Various |
+| 15 | Shared Posts Architecture | 5 | **NOT STARTED** | None | CRITICAL |
+| 16 | Untagged Filter | 3 | **NOT STARTED** | Phase 15 | HIGH |
+| 17 | Landing Page Sections | 4 | **NOT STARTED** | None | HIGH |
+| 18 | Pagination Page Size Fix | 1 | **NOT STARTED** | None | MODERATE |
+| 19 | Post Card Line Clamp | 0 | **VERIFIED CORRECT** | — | — |
+| 20 | Suggest-Terms HTTP Status | 1 | **NOT STARTED** | None | LOW |
 
-**Total Remaining Tasks: 0**
-
-Current test coverage: 582 tests across 25 files:
-- `webapp/__tests__/validations.test.ts` (72 tests)
-- `webapp/__tests__/reddit.test.ts` (27 tests)
-- `webapp/__tests__/actions/subreddits.test.ts` (26 tests)
-- `webapp/__tests__/actions/tags.test.ts` (34 tests)
-- `webapp/__tests__/actions/posts.test.ts` (31 tests)
-- `webapp/__tests__/actions/auth.test.ts` (20 tests)
-- `webapp/__tests__/actions/api-keys.test.ts` (28 tests)
-- `webapp/__tests__/actions/data-isolation.test.ts` (10 tests — NEW)
-- `webapp/__tests__/encryption.test.ts` (24 tests)
-- `webapp/__tests__/password.test.ts` (17 tests)
-- `webapp/__tests__/auth.test.ts` (22 tests)
-- `webapp/__tests__/middleware.test.ts` (18 tests)
-- `webapp/__tests__/components/pagination.test.tsx` (23 tests)
-- `webapp/__tests__/components/tag-badge.test.tsx` (10 tests)
-- `webapp/__tests__/components/status-tabs.test.tsx` (9 tests)
-- `webapp/__tests__/components/post-card.test.tsx` (32 tests)
-- `webapp/__tests__/components/post-list.test.tsx` (6 tests)
-- `webapp/__tests__/components/suggest-terms.test.tsx` (26 tests)
-- `webapp/__tests__/components/user-menu.test.tsx` (9 tests)
-- `webapp/__tests__/components/header.test.tsx` (14 tests)
-- `webapp/__tests__/components/subreddit-settings.test.tsx` (19 tests — NEW)
-- `webapp/__tests__/components/tag-settings.test.tsx` (33 tests — NEW)
-- `webapp/__tests__/utils.test.ts` (12 tests)
-- `webapp/__tests__/api/suggest-terms.test.ts` (24 tests)
-- `webapp/__tests__/hooks/index.test.tsx` (36 tests)
+**Total Remaining Tasks: 14** (across phases 15-18, 20)
 
 ### Environment Variables Required
 ```bash
