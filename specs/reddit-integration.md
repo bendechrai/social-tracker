@@ -49,12 +49,14 @@ GET https://arctic-shift.photon-reddit.com/api/posts/search?subreddit=postgresql
 
 For each configured subreddit:
 
-1. Build the query URL with subreddit and time window (no `query` parameter)
-2. Set `after` to the configured time window start (e.g., 48 hours ago, accounting for data delay)
-3. Set `limit` to `"auto"` to retrieve all posts in the time window (100–1000 results)
-4. Send GET request (no auth headers needed)
-5. Parse response and extract post data
-6. Deduplicate across subreddits by `reddit_id`
+1. Look up the most recent `reddit_created_at` from the `posts` table for this subreddit
+2. If a recent post exists, set `after` to that timestamp (fetch only newer posts)
+3. If no posts exist for this subreddit, set `after` to 7 days ago (initial backfill)
+4. Build the query URL with subreddit and `after` timestamp (no `query` parameter)
+5. Set `limit` to `"auto"` to retrieve all posts in the time window (100–1000 results)
+6. Send GET request (no auth headers needed)
+7. Parse response and extract post data
+8. Deduplicate across subreddits by `reddit_id`
 
 ### Tag Matching
 
@@ -73,8 +75,8 @@ This approach:
 
 ### Time Window
 
-- Default: posts from the last 48 hours
-- Configurable per-fetch
+- Initial fetch (no existing posts for subreddit): 7 days
+- Subsequent fetches: since the most recent `reddit_created_at` for that subreddit in the `posts` table
 - Use `after` and `before` parameters for date range
 
 ### Multiple Subreddits
