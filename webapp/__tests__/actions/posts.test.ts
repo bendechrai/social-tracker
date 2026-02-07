@@ -746,6 +746,7 @@ describe("post server actions", () => {
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
       mockTagsFindMany.mockResolvedValue([]);
+      mockGroupByResult.mockResolvedValue([]); // no existing posts — 7-day backfill
       mockFetchRedditPosts.mockResolvedValue([]);
 
       const result = await fetchNewPosts();
@@ -761,6 +762,7 @@ describe("post server actions", () => {
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
+      mockGroupByResult.mockResolvedValue([]); // no existing posts — 7-day backfill
       mockTagsFindMany.mockResolvedValue([
         {
           id: "tag-1",
@@ -810,9 +812,9 @@ describe("post server actions", () => {
       const calledWith = mockFetchRedditPosts.mock.calls[0]![0] as Map<string, number>;
       expect(calledWith).toBeInstanceOf(Map);
       expect([...calledWith.keys()]).toEqual(["postgresql"]);
-      // Timestamp should be roughly 48 hours ago
+      // No existing posts — timestamp should be roughly 7 days ago (initial backfill)
       const ts = calledWith.get("postgresql")!;
-      const expectedTs = Math.floor(Date.now() / 1000) - 48 * 60 * 60;
+      const expectedTs = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
       expect(Math.abs(ts - expectedTs)).toBeLessThan(5);
     });
 
@@ -820,6 +822,7 @@ describe("post server actions", () => {
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
+      mockGroupByResult.mockResolvedValue([]); // no existing posts — 7-day backfill
       mockTagsFindMany.mockResolvedValue([
         {
           id: "tag-1",
@@ -864,6 +867,7 @@ describe("post server actions", () => {
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
+      mockGroupByResult.mockResolvedValue([]); // no existing posts — 7-day backfill
       mockTagsFindMany.mockResolvedValue([
         {
           id: "tag-1",
@@ -922,6 +926,7 @@ describe("post server actions", () => {
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
+      mockGroupByResult.mockResolvedValue([]); // no existing posts — 7-day backfill
       mockTagsFindMany.mockResolvedValue([
         {
           id: "tag-1",
@@ -976,6 +981,7 @@ describe("post server actions", () => {
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
+      mockGroupByResult.mockResolvedValue([]); // no existing posts — 7-day backfill
       mockTagsFindMany.mockResolvedValue([
         {
           id: "tag-1",
@@ -1027,6 +1033,7 @@ describe("post server actions", () => {
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
+      mockGroupByResult.mockResolvedValue([]); // no existing posts — 7-day backfill
       mockTagsFindMany.mockResolvedValue([
         {
           id: "tag-1",
@@ -1097,6 +1104,7 @@ describe("post server actions", () => {
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
+      mockGroupByResult.mockResolvedValue([]); // no existing posts — 7-day backfill
       mockTagsFindMany.mockResolvedValue([
         {
           id: "tag-1",
@@ -1175,6 +1183,7 @@ describe("post server actions", () => {
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
+      mockGroupByResult.mockResolvedValue([]); // no existing posts — 7-day backfill
       mockTagsFindMany.mockResolvedValue([
         {
           id: "tag-1",
@@ -1223,6 +1232,54 @@ describe("post server actions", () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.count).toBe(1);
+      }
+    });
+
+    it("uses DB timestamp for subreddits with existing posts and 7-day backfill for new subreddits", async () => {
+      const existingTimestamp = new Date("2026-02-05T12:00:00Z");
+      mockSubredditsFindMany.mockResolvedValue([
+        { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
+        { id: "sub-2", name: "node", userId: MOCK_USER_ID, createdAt: new Date() },
+      ]);
+      // postgresql has existing posts, node does not
+      mockGroupByResult.mockResolvedValue([
+        { subreddit: "postgresql", maxRedditCreatedAt: existingTimestamp },
+      ]);
+      mockTagsFindMany.mockResolvedValue([]);
+      mockFetchRedditPosts.mockResolvedValue([]);
+
+      await fetchNewPosts();
+
+      const calledWith = mockFetchRedditPosts.mock.calls[0]![0] as Map<string, number>;
+      expect(calledWith).toBeInstanceOf(Map);
+      expect(calledWith.size).toBe(2);
+
+      // postgresql should use DB timestamp (converted to Unix seconds)
+      const pgTs = calledWith.get("postgresql")!;
+      expect(pgTs).toBe(Math.floor(existingTimestamp.getTime() / 1000));
+
+      // node has no existing posts — should use 7-day backfill
+      const nodeTs = calledWith.get("node")!;
+      const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
+      expect(Math.abs(nodeTs - sevenDaysAgo)).toBeLessThan(5);
+    });
+
+    it("uses 7-day backfill for all subreddits when DB has no posts", async () => {
+      mockSubredditsFindMany.mockResolvedValue([
+        { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
+        { id: "sub-2", name: "node", userId: MOCK_USER_ID, createdAt: new Date() },
+      ]);
+      mockGroupByResult.mockResolvedValue([]); // no existing posts
+      mockTagsFindMany.mockResolvedValue([]);
+      mockFetchRedditPosts.mockResolvedValue([]);
+
+      await fetchNewPosts();
+
+      const calledWith = mockFetchRedditPosts.mock.calls[0]![0] as Map<string, number>;
+      const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
+
+      for (const [, ts] of calledWith) {
+        expect(Math.abs(ts - sevenDaysAgo)).toBeLessThan(5);
       }
     });
   });

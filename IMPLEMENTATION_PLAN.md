@@ -76,37 +76,27 @@ See git history for details. Key phases:
 
 ---
 
-## Phase 22: Per-Subreddit Incremental Fetching
+## Phase 22: Per-Subreddit Incremental Fetching — COMPLETE
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 **Priority: HIGH — Spec violation in fetching strategy**
 **Dependencies: None**
 **Spec: `specs/reddit-integration.md` — Fetching Strategy section**
 
-### Problem
+### Problem (Resolved)
 
-The reddit-integration spec (updated in commit `a42b59a`) requires per-subreddit incremental fetching:
-- For each subreddit, query the DB for the most recent `reddit_created_at` in the `posts` table
-- Use that timestamp as the `after` parameter (fetch only newer posts)
-- If no posts exist for a subreddit, use 7 days ago as initial backfill
-
-The current implementation uses a fixed 48-hour global time window for all subreddits (`DEFAULT_TIME_WINDOW_HOURS = 48` in `webapp/lib/reddit.ts:9`). The `fetchRedditPosts` function accepts a flat list of subreddit names and a single `timeWindowHours` parameter, with no per-subreddit timestamp support.
-
-### In Progress
-
-- [ ] **Update `fetchNewPosts` to build per-subreddit timestamps with 7-day initial backfill**
-  - Files: `webapp/app/actions/posts.ts`
-  - Spec: `specs/reddit-integration.md` — Fetching Strategy steps 1-4
-  - Acceptance: `fetchNewPosts` calls `getLastPostTimestampPerSubreddit` for the user's subreddits, builds a `Map<string, number>` where each subreddit maps to its last known post timestamp (as Unix seconds), or 7 days ago if no posts exist. Passes this map to the updated `fetchRedditPosts`. The fixed 48-hour window is no longer used.
-  - Tests: Add test in `webapp/__tests__/actions/posts.test.ts` — mock `getLastPostTimestampPerSubreddit` to return timestamps for some subreddits and empty for others. Verify `fetchRedditPosts` is called with correct per-subreddit timestamps (existing subreddits use DB timestamp, new subreddits use 7 days ago).
+The reddit-integration spec requires per-subreddit incremental fetching: for each subreddit, use the most recent `reddit_created_at` from the DB as the `after` parameter, or 7 days ago for initial backfill. Previously used a fixed 48-hour global time window.
 
 ### Completed (Phase 22)
 
 - [x] **Add `getLastPostTimestampPerSubreddit` query helper**
-  - New exported function in `webapp/app/actions/posts.ts` queries `posts` table grouped by `subreddit`, returns `Map<string, Date>` with max `reddit_created_at`. Accepts list of subreddit names. 4 unit tests added (2 subreddits with timestamps, empty result, empty input, null handling).
+  - New exported function in `webapp/app/actions/posts.ts` queries `posts` table grouped by `subreddit`, returns `Map<string, Date>` with max `reddit_created_at`. Accepts list of subreddit names. 4 unit tests added.
 
 - [x] **Change `fetchRedditPosts` to accept per-subreddit timestamps instead of a global time window**
-  - `fetchRedditPosts` now accepts `Map<string, number>` (subreddit → Unix after-timestamp). Removed `DEFAULT_TIME_WINDOW_HOURS`. `fetchNewPosts` builds the map with 48h default (temporary — task 3 will replace with DB timestamps). Also fixed 2 pre-existing broken tests in `posts.test.ts`.
+  - `fetchRedditPosts` now accepts `Map<string, number>` (subreddit → Unix after-timestamp). Removed `DEFAULT_TIME_WINDOW_HOURS`.
+
+- [x] **Update `fetchNewPosts` to build per-subreddit timestamps with 7-day initial backfill**
+  - `fetchNewPosts` now calls `getLastPostTimestampPerSubreddit` for the user's subreddits, builds a `Map<string, number>` where each subreddit maps to its last known post timestamp (Unix seconds), or 7 days ago if no posts exist. The fixed 48-hour window is fully removed. 2 new tests added verifying DB-timestamp usage for existing subreddits and 7-day backfill for new ones. All existing tests updated.
 
 ---
 
@@ -122,9 +112,9 @@ The current implementation uses a fixed 48-hour global time window for all subre
 | 19 | Post Card Line Clamp | 0 | **VERIFIED CORRECT** | — | — |
 | 20 | Suggest-Terms HTTP Status | 1 | **COMPLETE** | None | LOW |
 | 21 | Post Ordering & Data Delay | 2 | **COMPLETE** | None | HIGH |
-| 22 | Per-Subreddit Incremental Fetching | 3 | **IN PROGRESS** | None | HIGH |
+| 22 | Per-Subreddit Incremental Fetching | 3 | **COMPLETE** | None | HIGH |
 
-**Total Remaining Tasks: 1** — Phase 22 in progress
+**Total Remaining Tasks: 0** — All phases complete
 
 ### Environment Variables Required
 ```bash

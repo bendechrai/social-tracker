@@ -503,12 +503,20 @@ export async function fetchNewPosts(): Promise<{
     }
   }
 
-  // Build per-subreddit timestamp map (default: 48 hours ago)
-  // TODO: Phase 22 task 3 will replace this with DB-based per-subreddit timestamps
-  const defaultAfter = Math.floor(Date.now() / 1000) - 48 * 60 * 60;
+  // Build per-subreddit timestamp map using DB-based incremental fetching
+  // Spec: use last known reddit_created_at per subreddit, or 7 days ago for initial backfill
+  const subredditNames = userSubreddits.map((s) => s.name);
+  const lastTimestamps = await getLastPostTimestampPerSubreddit(subredditNames);
+
+  const sevenDaysAgoSec = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
   const subredditTimestamps = new Map<string, number>();
   for (const sub of userSubreddits) {
-    subredditTimestamps.set(sub.name, defaultAfter);
+    const lastDate = lastTimestamps.get(sub.name);
+    if (lastDate) {
+      subredditTimestamps.set(sub.name, Math.floor(lastDate.getTime() / 1000));
+    } else {
+      subredditTimestamps.set(sub.name, sevenDaysAgoSec);
+    }
   }
   const fetchedPosts = await fetchRedditPosts(subredditTimestamps);
 
