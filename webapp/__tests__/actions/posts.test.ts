@@ -135,6 +135,7 @@ import {
   getPostCounts,
   getLastPostTimestampPerSubreddit,
   fetchNewPosts,
+  fetchPostsForAllUsers,
 } from "@/app/actions/posts";
 
 // Helper to create a mock post (global, shared)
@@ -1281,6 +1282,235 @@ describe("post server actions", () => {
       for (const [, ts] of calledWith) {
         expect(Math.abs(ts - sevenDaysAgo)).toBeLessThan(5);
       }
+    });
+  });
+
+  describe("fetchPostsForAllUsers", () => {
+    const MOCK_USER_ID_2 = "test-user-uuid-5678";
+
+    // Helper to create a mock FetchedPost (as returned by Arctic Shift)
+    const createFetchedPost = (overrides: Partial<{
+      redditId: string;
+      title: string;
+      body: string | null;
+      author: string;
+      subreddit: string;
+      permalink: string;
+      url: string | null;
+      redditCreatedAt: Date;
+      score: number;
+      numComments: number;
+    }> = {}) => ({
+      redditId: "t3_abc123",
+      title: "Test Post",
+      body: "Test body content",
+      author: "test_author",
+      subreddit: "postgresql",
+      permalink: "/r/postgresql/comments/abc123/test_post/",
+      url: null,
+      redditCreatedAt: new Date("2024-01-15T10:00:00Z"),
+      score: 42,
+      numComments: 10,
+      isSelf: true,
+      ...overrides,
+    });
+
+    it("returns zero when given empty posts array", async () => {
+      const result = await fetchPostsForAllUsers("postgresql", []);
+      expect(result).toEqual({ newUserPostCount: 0 });
+    });
+
+    it("returns zero when subreddit has no subscribers", async () => {
+      // db.select().from(subreddits).where() — returns no subscribers
+      mockCountResult.mockResolvedValue([]);
+
+      const result = await fetchPostsForAllUsers("postgresql", [createFetchedPost()]);
+      expect(result).toEqual({ newUserPostCount: 0 });
+    });
+
+    it("creates user_posts for both subscribers of the same subreddit", async () => {
+      // Two users subscribe to "postgresql"
+      mockCountResult.mockResolvedValue([
+        { userId: MOCK_USER_ID },
+        { userId: MOCK_USER_ID_2 },
+      ]);
+
+      // Both users have tags with search terms
+      mockTagsFindMany.mockResolvedValue([
+        {
+          id: "tag-1",
+          name: "Yugabyte",
+          color: "#6366f1",
+          userId: MOCK_USER_ID,
+          createdAt: new Date(),
+          searchTerms: [
+            { id: "term-1", term: "yugabyte", tagId: "tag-1", createdAt: new Date() },
+          ],
+        },
+        {
+          id: "tag-2",
+          name: "DB",
+          color: "#10b981",
+          userId: MOCK_USER_ID_2,
+          createdAt: new Date(),
+          searchTerms: [
+            { id: "term-2", term: "database", tagId: "tag-2", createdAt: new Date() },
+          ],
+        },
+      ]);
+
+      let insertCallCount = 0;
+      mockReturning.mockImplementation(() => {
+        insertCallCount++;
+        if (insertCallCount === 1) {
+          // Global post insert
+          return Promise.resolve([{ id: "new-db-post-id", redditId: "t3_abc123" }]);
+        }
+        if (insertCallCount === 2) {
+          // user_posts for user 1
+          return Promise.resolve([{ userId: MOCK_USER_ID, postId: "new-db-post-id", status: "new" }]);
+        }
+        if (insertCallCount === 3) {
+          // user_post_tags for user 1 (yugabyte matched)
+          return Promise.resolve([{}]);
+        }
+        if (insertCallCount === 4) {
+          // user_posts for user 2
+          return Promise.resolve([{ userId: MOCK_USER_ID_2, postId: "new-db-post-id", status: "new" }]);
+        }
+        return Promise.resolve([{}]);
+      });
+
+      const result = await fetchPostsForAllUsers("postgresql", [
+        createFetchedPost({
+          title: "Yugabyte database discussion",
+          body: "Great distributed database",
+        }),
+      ]);
+
+      expect(result.newUserPostCount).toBe(2);
+      // Global post insert + user_posts for user1 + user_post_tags for user1 (yugabyte match)
+      // + user_posts for user2 + user_post_tags for user2 (database match)
+      expect(mockInsert).toHaveBeenCalledTimes(5);
+    });
+
+    it("creates user_post_tags only for matching search terms per user", async () => {
+      // One subscriber with a tag that matches, one with a tag that doesn't
+      mockCountResult.mockResolvedValue([
+        { userId: MOCK_USER_ID },
+        { userId: MOCK_USER_ID_2 },
+      ]);
+
+      mockTagsFindMany.mockResolvedValue([
+        {
+          id: "tag-1",
+          name: "Yugabyte",
+          color: "#6366f1",
+          userId: MOCK_USER_ID,
+          createdAt: new Date(),
+          searchTerms: [
+            { id: "term-1", term: "yugabyte", tagId: "tag-1", createdAt: new Date() },
+          ],
+        },
+        {
+          id: "tag-2",
+          name: "Redis",
+          color: "#10b981",
+          userId: MOCK_USER_ID_2,
+          createdAt: new Date(),
+          searchTerms: [
+            { id: "term-2", term: "redis", tagId: "tag-2", createdAt: new Date() },
+          ],
+        },
+      ]);
+
+      let insertCallCount = 0;
+      mockReturning.mockImplementation(() => {
+        insertCallCount++;
+        if (insertCallCount === 1) {
+          return Promise.resolve([{ id: "new-db-post-id", redditId: "t3_abc123" }]);
+        }
+        if (insertCallCount === 2) {
+          // user_posts for user 1
+          return Promise.resolve([{ userId: MOCK_USER_ID, postId: "new-db-post-id", status: "new" }]);
+        }
+        if (insertCallCount === 3) {
+          // user_post_tags for user 1 (yugabyte match) — this is an onConflictDoNothing chain
+          return Promise.resolve([{}]);
+        }
+        if (insertCallCount === 4) {
+          // user_posts for user 2
+          return Promise.resolve([{ userId: MOCK_USER_ID_2, postId: "new-db-post-id", status: "new" }]);
+        }
+        return Promise.resolve([{}]);
+      });
+
+      await fetchPostsForAllUsers("postgresql", [
+        createFetchedPost({
+          title: "Yugabyte is great",
+          body: "No mention of the other thing",
+        }),
+      ]);
+
+      // Insert calls: global post + user_posts(user1) + user_post_tags(user1, yugabyte match)
+      //             + user_posts(user2) = 4 total
+      // User 2's "redis" tag should NOT match "Yugabyte is great"
+      expect(mockInsert).toHaveBeenCalledTimes(4);
+    });
+
+    it("handles global deduplication — looks up existing post on conflict", async () => {
+      mockCountResult.mockResolvedValue([
+        { userId: MOCK_USER_ID },
+      ]);
+
+      mockTagsFindMany.mockResolvedValue([]);
+
+      let insertCallCount = 0;
+      mockReturning.mockImplementation(() => {
+        insertCallCount++;
+        if (insertCallCount === 1) {
+          // Global post conflict — returns empty (post already exists)
+          return Promise.resolve([]);
+        }
+        if (insertCallCount === 2) {
+          // user_posts for user 1
+          return Promise.resolve([{ userId: MOCK_USER_ID, postId: "existing-db-post-id", status: "new" }]);
+        }
+        return Promise.resolve([{}]);
+      });
+
+      mockPostsFindFirst.mockResolvedValue({ id: "existing-db-post-id", redditId: "t3_abc123" });
+
+      const result = await fetchPostsForAllUsers("postgresql", [createFetchedPost()]);
+
+      expect(result.newUserPostCount).toBe(1);
+      expect(mockPostsFindFirst).toHaveBeenCalled();
+    });
+
+    it("does not create duplicate user_posts if already linked", async () => {
+      mockCountResult.mockResolvedValue([
+        { userId: MOCK_USER_ID },
+      ]);
+
+      mockTagsFindMany.mockResolvedValue([]);
+
+      let insertCallCount = 0;
+      mockReturning.mockImplementation(() => {
+        insertCallCount++;
+        if (insertCallCount === 1) {
+          return Promise.resolve([{ id: "new-db-post-id", redditId: "t3_abc123" }]);
+        }
+        if (insertCallCount === 2) {
+          // user_posts conflict — already exists, returns empty
+          return Promise.resolve([]);
+        }
+        return Promise.resolve([{}]);
+      });
+
+      const result = await fetchPostsForAllUsers("postgresql", [createFetchedPost()]);
+
+      // No new user_posts created (conflict)
+      expect(result.newUserPostCount).toBe(0);
     });
   });
 });

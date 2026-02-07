@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { posts, userPosts, userPostTags, tags, subreddits } from "@/drizzle/schema";
 import { getCurrentUserId } from "./users";
 import { postStatusSchema, type PostStatus } from "@/lib/validations";
-import { fetchRedditPosts } from "@/lib/reddit";
+import { fetchRedditPosts, type FetchedPost } from "@/lib/reddit";
 import { eq, and, desc, inArray, notInArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -456,6 +456,133 @@ export async function getLastPostTimestampPerSubreddit(
     }
   }
   return result;
+}
+
+// Fan out fetched posts to all users subscribed to a subreddit.
+// Upserts posts into the global `posts` table, then creates `user_posts` and
+// `user_post_tags` for every subscriber. Reuses the same tag-matching logic
+// as `fetchNewPosts`. Called by the cron endpoint after fetching from Arctic Shift.
+export async function fetchPostsForAllUsers(
+  subredditName: string,
+  fetchedPosts: FetchedPost[]
+): Promise<{ newUserPostCount: number }> {
+  if (fetchedPosts.length === 0) {
+    return { newUserPostCount: 0 };
+  }
+
+  // Find all users subscribed to this subreddit
+  const subscribers = await db
+    .select({ userId: subreddits.userId })
+    .from(subreddits)
+    .where(eq(subreddits.name, subredditName));
+
+  if (subscribers.length === 0) {
+    return { newUserPostCount: 0 };
+  }
+
+  const subscriberIds = subscribers.map((s) => s.userId);
+
+  // Load tags + search terms for all subscribers in one query
+  const subscriberTags = await db.query.tags.findMany({
+    where: inArray(tags.userId, subscriberIds),
+    with: {
+      searchTerms: true,
+    },
+  });
+
+  // Build per-user tag-matching maps: userId → Map<term, tagId[]>
+  const userTermMaps = new Map<string, Map<string, string[]>>();
+  for (const tag of subscriberTags) {
+    let termMap = userTermMaps.get(tag.userId);
+    if (!termMap) {
+      termMap = new Map();
+      userTermMaps.set(tag.userId, termMap);
+    }
+    for (const st of tag.searchTerms) {
+      const existing = termMap.get(st.term) ?? [];
+      existing.push(tag.id);
+      termMap.set(st.term, existing);
+    }
+  }
+
+  let newUserPostCount = 0;
+
+  for (const fetchedPost of fetchedPosts) {
+    // Upsert into global posts table (deduplicate by reddit_id)
+    const postResult = await db
+      .insert(posts)
+      .values({
+        redditId: fetchedPost.redditId,
+        title: fetchedPost.title,
+        body: fetchedPost.body,
+        author: fetchedPost.author,
+        subreddit: fetchedPost.subreddit,
+        permalink: fetchedPost.permalink,
+        url: fetchedPost.url,
+        redditCreatedAt: fetchedPost.redditCreatedAt,
+        score: fetchedPost.score,
+        numComments: fetchedPost.numComments,
+      })
+      .onConflictDoNothing({ target: posts.redditId })
+      .returning();
+
+    // Get the post ID — either newly inserted or existing
+    let postId: string;
+    if (postResult[0]) {
+      postId = postResult[0].id;
+    } else {
+      const existingPost = await db.query.posts.findFirst({
+        where: eq(posts.redditId, fetchedPost.redditId),
+      });
+      if (!existingPost) continue;
+      postId = existingPost.id;
+    }
+
+    // For each subscriber, create user_posts and match tags
+    const postText = `${fetchedPost.title} ${fetchedPost.body ?? ""}`.toLowerCase();
+
+    for (const userId of subscriberIds) {
+      // Create user_post (conflict on (user_id, post_id) do nothing)
+      const userPostResult = await db
+        .insert(userPosts)
+        .values({
+          userId,
+          postId,
+          status: "new",
+        })
+        .onConflictDoNothing()
+        .returning();
+
+      if (userPostResult[0]) {
+        newUserPostCount++;
+
+        // Match tags for this user
+        const termMap = userTermMaps.get(userId);
+        if (termMap) {
+          const matchedTagIds = new Set<string>();
+          for (const [term, tagIdList] of termMap.entries()) {
+            if (postText.includes(term.toLowerCase())) {
+              for (const tagId of tagIdList) {
+                matchedTagIds.add(tagId);
+              }
+            }
+          }
+          for (const tagId of matchedTagIds) {
+            await db
+              .insert(userPostTags)
+              .values({
+                userId,
+                postId,
+                tagId,
+              })
+              .onConflictDoNothing();
+          }
+        }
+      }
+    }
+  }
+
+  return { newUserPostCount };
 }
 
 // Fetch new posts from Reddit

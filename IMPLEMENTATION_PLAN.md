@@ -26,7 +26,7 @@ This document outlines the implementation status and remaining tasks for complet
 - **Dashboard UX** - Configuration banners, status tabs, tag filter, post cards
 - **Pagination** - Previous/Next buttons, page indicator, page size selector
 - **Post Ordering** - Posts ordered by Reddit creation time (newest first), not by DB insertion time
-- **Unit Tests** - 27 test files (612 tests), no skipped or flaky tests
+- **Unit Tests** - 27 test files (623 tests), no skipped or flaky tests
 - **E2E Tests** - 3 spec files (auth, posts, settings) with Playwright
 - **Seed Script** - Creates test user with sample data
 
@@ -117,15 +117,14 @@ Replace the manual "Fetch New" button with an automatic cron-based fetch system.
   - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/0001_nebulous_mongoose.sql`
   - Table: `name` (PK, varchar 100), `last_fetched_at` (timestamp, nullable), `refresh_interval_minutes` (integer, default 60, not null), `created_at` (timestamp, default now, not null). Migration generated. typecheck, lint, tests (617), and build all pass.
 
-### In Progress
-
-- [ ] **Create `fetchPostsForAllUsers` shared function that fetches posts for a subreddit and fans out to all subscribers**
+- [x] **Create `fetchPostsForAllUsers` shared function that fetches posts for a subreddit and fans out to all subscribers**
   - Files: `webapp/app/actions/posts.ts`
   - Spec: `specs/auto-fetch.md` — Behavior steps 5a-5c
-  - Acceptance: New function accepts a subreddit name + fetched posts, queries all users subscribed to that subreddit, creates `user_posts` and `user_post_tags` for each user. Reuses existing tag-matching logic from `fetchNewPosts`.
-  - Tests: Unit test with 2 users subscribing to same subreddit — both get `user_posts` and `user_post_tags` created. Test with no subscribers — no user_posts created.
+  - Function accepts subreddit name + FetchedPost[], queries all subscribers, upserts global posts, creates user_posts/user_post_tags per user with tag matching. 6 unit tests added (empty posts, no subscribers, two subscribers, per-user tag matching, dedup on conflict, no duplicate user_posts).
 
-- [ ] **Create `GET /api/cron/fetch-posts` route handler**
+### In Progress
+
+- [ ] **Create `GET /api/cron/fetch-posts` route handler** *(next up)*
   - Files: `webapp/app/api/cron/fetch-posts/route.ts`
   - Spec: `specs/auto-fetch.md` — API Endpoint section
   - Acceptance: GET endpoint that: acquires advisory lock (`pg_try_advisory_lock(1)`), queries distinct subreddit names from `subreddits` table, checks `subreddit_fetch_status` for each to determine if due, fetches posts via Arctic Shift for due subreddits, calls `fetchPostsForAllUsers` for each, upserts `subreddit_fetch_status.last_fetched_at`, releases lock, returns `{ fetched: [...], skipped: N }`. Returns `{ status: "skipped", reason: "already_running" }` if lock not acquired.
@@ -184,7 +183,7 @@ Replace the manual "Fetch New" button with an automatic cron-based fetch system.
 | 22 | Per-Subreddit Incremental Fetching | 3 | **COMPLETE** | None | HIGH |
 | 23 | Auto-Fetch Cron | 9 | **IN PROGRESS** | Phase 22 | HIGH |
 
-**Total Remaining Tasks: 8** — Phase 23 in progress
+**Total Remaining Tasks: 7** — Phase 23 in progress
 
 ### Environment Variables Required
 ```bash
