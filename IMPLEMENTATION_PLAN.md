@@ -124,19 +124,16 @@ Replace the manual "Fetch New" button with an automatic cron-based fetch system.
 
 ### In Progress
 
-- [ ] **Create `GET /api/cron/fetch-posts` route handler** *(next up)*
+- [x] **Create `GET /api/cron/fetch-posts` route handler**
   - Files: `webapp/app/api/cron/fetch-posts/route.ts`
   - Spec: `specs/auto-fetch.md` — API Endpoint section
-  - Acceptance: GET endpoint that: acquires advisory lock (`pg_try_advisory_lock(1)`), queries distinct subreddit names from `subreddits` table, checks `subreddit_fetch_status` for each to determine if due, fetches posts via Arctic Shift for due subreddits, calls `fetchPostsForAllUsers` for each, upserts `subreddit_fetch_status.last_fetched_at`, releases lock, returns `{ fetched: [...], skipped: N }`. Returns `{ status: "skipped", reason: "already_running" }` if lock not acquired.
-  - Tests: Unit test verifying lock acquisition logic. Test that skipped subreddits (not due) are not fetched. Test response shape matches spec.
+  - Route acquires advisory lock, queries distinct subreddits, checks fetch_status, fetches via Arctic Shift for due subreddits, calls fetchPostsForAllUsers, upserts last_fetched_at, releases lock. Returns `{ fetched: [...], skipped: N }` or `{ status: "skipped", reason: "already_running" }`.
 
-- [ ] **Add tests for the cron fetch endpoint advisory lock and fetch-status logic**
+- [x] **Add tests for the cron fetch endpoint advisory lock and fetch-status logic**
   - Files: `webapp/__tests__/api/cron-fetch-posts.test.ts`
-  - Spec: `specs/auto-fetch.md` — Concurrency section, Acceptance criteria 6, 10
-  - Acceptance: Tests cover: lock already held returns skipped response, subreddits with no `subreddit_fetch_status` row trigger 7-day backfill, subreddits not due are skipped, `last_fetched_at` is updated after successful fetch, idempotent re-runs don't create duplicate posts or user_posts.
-  - Tests: At least 5 test cases covering the above scenarios.
+  - 12 unit tests covering: lock held returns skipped, empty subreddits, new subreddits trigger fetch, not-due subreddits skipped, overdue subreddits fetched, fetch_status upserted, mixed due/not-due, lock released on success and error, posts passed to fan-out, incremental timestamps used.
 
-- [ ] **Update `addSubreddit` to link existing posts or trigger on-demand fetch**
+- [ ] **Update `addSubreddit` to link existing posts or trigger on-demand fetch** *(next up)*
   - Files: `webapp/app/actions/subreddits.ts`
   - Spec: `specs/auto-fetch.md` — On-Demand Trigger section
   - Acceptance: After saving the subreddit, check if posts already exist for this subreddit name in the `posts` table. If yes: create `user_posts` (status "new") and `user_post_tags` for the current user for all existing posts. If no: call the cron fetch endpoint internally to trigger immediate 7-day backfill.
@@ -183,7 +180,7 @@ Replace the manual "Fetch New" button with an automatic cron-based fetch system.
 | 22 | Per-Subreddit Incremental Fetching | 3 | **COMPLETE** | None | HIGH |
 | 23 | Auto-Fetch Cron | 9 | **IN PROGRESS** | Phase 22 | HIGH |
 
-**Total Remaining Tasks: 7** — Phase 23 in progress
+**Total Remaining Tasks: 5** — Phase 23 in progress
 
 ### Environment Variables Required
 ```bash

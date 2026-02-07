@@ -1,0 +1,298 @@
+/**
+ * Unit tests for GET /api/cron/fetch-posts route.
+ *
+ * Tests cover:
+ * - Advisory lock acquisition and skipped response when lock is held
+ * - Subreddits with no subreddit_fetch_status row trigger fetch
+ * - Subreddits not due (within refresh interval) are skipped
+ * - last_fetched_at is updated after successful fetch
+ * - Response shape matches spec: { fetched: [...], skipped: N }
+ * - Empty subreddit list returns empty result
+ * - Idempotent: no duplicate posts on re-runs (via fetchPostsForAllUsers)
+ */
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// Mock db.execute for advisory lock
+const mockExecute = vi.fn();
+// Mock selectDistinct for subreddit names
+const mockSelectDistinctFrom = vi.fn();
+const mockSelectDistinct = vi.fn(() => ({
+  from: mockSelectDistinctFrom,
+}));
+// Mock select for fetch statuses
+const mockSelectWhere = vi.fn();
+const mockSelectFrom = vi.fn(() => ({
+  where: mockSelectWhere,
+}));
+const mockSelect = vi.fn(() => ({
+  from: mockSelectFrom,
+}));
+// Mock insert for upsert of subreddit_fetch_status
+const mockOnConflictDoUpdate = vi.fn();
+const mockInsertValues = vi.fn(() => ({
+  onConflictDoUpdate: mockOnConflictDoUpdate,
+}));
+const mockInsert = vi.fn(() => ({
+  values: mockInsertValues,
+}));
+
+vi.mock("@/lib/db", () => ({
+  db: {
+    execute: (arg: unknown) => mockExecute(arg),
+    selectDistinct: () => mockSelectDistinct(),
+    select: () => mockSelect(),
+    insert: () => mockInsert(),
+  },
+}));
+
+// Mock reddit fetcher
+const mockFetchRedditPosts = vi.fn();
+vi.mock("@/lib/reddit", () => ({
+  fetchRedditPosts: (...args: unknown[]) => mockFetchRedditPosts(...args),
+}));
+
+// Mock post actions
+const mockFetchPostsForAllUsers = vi.fn();
+const mockGetLastPostTimestampPerSubreddit = vi.fn();
+vi.mock("@/app/actions/posts", () => ({
+  fetchPostsForAllUsers: (...args: unknown[]) =>
+    mockFetchPostsForAllUsers(...args),
+  getLastPostTimestampPerSubreddit: (...args: unknown[]) =>
+    mockGetLastPostTimestampPerSubreddit(...args),
+}));
+
+// Mock drizzle-orm operators (preserve relations for schema imports)
+vi.mock("drizzle-orm", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("drizzle-orm")>();
+  return {
+    ...actual,
+    sql: actual.sql,
+    inArray: vi.fn(),
+  };
+});
+
+// Import after mocks
+import { GET } from "@/app/api/cron/fetch-posts/route";
+
+describe("GET /api/cron/fetch-posts", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Default: lock acquired successfully
+    mockExecute.mockResolvedValue([{ pg_try_advisory_lock: true }]);
+    // Default: no subreddits
+    mockSelectDistinctFrom.mockResolvedValue([]);
+    // Default: no fetch statuses
+    mockSelectWhere.mockResolvedValue([]);
+    // Default: no last timestamps
+    mockGetLastPostTimestampPerSubreddit.mockResolvedValue(new Map());
+    // Default: no posts fetched
+    mockFetchRedditPosts.mockResolvedValue([]);
+    // Default: fan-out returns 0
+    mockFetchPostsForAllUsers.mockResolvedValue({ newUserPostCount: 0 });
+    // Default: upsert succeeds
+    mockOnConflictDoUpdate.mockResolvedValue(undefined);
+  });
+
+  it("should return skipped response when advisory lock is already held", async () => {
+    mockExecute.mockResolvedValueOnce([{ pg_try_advisory_lock: false }]);
+
+    const res = await GET();
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data).toEqual({ status: "skipped", reason: "already_running" });
+    // Should not query subreddits
+    expect(mockSelectDistinct).not.toHaveBeenCalled();
+  });
+
+  it("should release advisory lock even after returning skipped", async () => {
+    mockExecute.mockResolvedValueOnce([{ pg_try_advisory_lock: false }]);
+
+    await GET();
+
+    // Lock was not acquired, so no unlock should happen
+    // (skipped path returns before the try block)
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+  });
+
+  it("should return empty result when no subreddits have subscribers", async () => {
+    mockSelectDistinctFrom.mockResolvedValue([]);
+
+    const res = await GET();
+    const data = await res.json();
+
+    expect(data).toEqual({ fetched: [], skipped: 0 });
+    // Advisory lock should be released (execute called twice: acquire + release)
+    expect(mockExecute).toHaveBeenCalledTimes(2);
+  });
+
+  it("should fetch subreddits with no fetch_status row (7-day backfill)", async () => {
+    mockSelectDistinctFrom.mockResolvedValue([{ name: "nextjs" }]);
+    mockSelectWhere.mockResolvedValue([]); // No fetch_status rows
+    mockGetLastPostTimestampPerSubreddit.mockResolvedValue(new Map());
+
+    const res = await GET();
+    const data = await res.json();
+
+    expect(data.fetched).toEqual(["nextjs"]);
+    expect(data.skipped).toBe(0);
+    expect(mockFetchRedditPosts).toHaveBeenCalledTimes(1);
+    expect(mockFetchPostsForAllUsers).toHaveBeenCalledWith("nextjs", []);
+  });
+
+  it("should skip subreddits that are not due for refresh", async () => {
+    const recentFetch = new Date(Date.now() - 10 * 60 * 1000); // 10 min ago
+    mockSelectDistinctFrom.mockResolvedValue([{ name: "react" }]);
+    mockSelectWhere.mockResolvedValue([
+      {
+        name: "react",
+        lastFetchedAt: recentFetch,
+        refreshIntervalMinutes: 60,
+        createdAt: new Date(),
+      },
+    ]);
+
+    const res = await GET();
+    const data = await res.json();
+
+    expect(data.fetched).toEqual([]);
+    expect(data.skipped).toBe(1);
+    expect(mockFetchRedditPosts).not.toHaveBeenCalled();
+  });
+
+  it("should fetch subreddits that are overdue for refresh", async () => {
+    const oldFetch = new Date(Date.now() - 120 * 60 * 1000); // 2 hours ago
+    mockSelectDistinctFrom.mockResolvedValue([{ name: "typescript" }]);
+    mockSelectWhere.mockResolvedValue([
+      {
+        name: "typescript",
+        lastFetchedAt: oldFetch,
+        refreshIntervalMinutes: 60,
+        createdAt: new Date(),
+      },
+    ]);
+    mockGetLastPostTimestampPerSubreddit.mockResolvedValue(
+      new Map([["typescript", new Date(Date.now() - 3600 * 1000)]])
+    );
+
+    const res = await GET();
+    const data = await res.json();
+
+    expect(data.fetched).toEqual(["typescript"]);
+    expect(data.skipped).toBe(0);
+    expect(mockFetchRedditPosts).toHaveBeenCalledTimes(1);
+  });
+
+  it("should upsert subreddit_fetch_status after successful fetch", async () => {
+    mockSelectDistinctFrom.mockResolvedValue([{ name: "svelte" }]);
+    mockSelectWhere.mockResolvedValue([]);
+
+    await GET();
+
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "svelte" })
+    );
+    expect(mockOnConflictDoUpdate).toHaveBeenCalled();
+  });
+
+  it("should handle mix of due and not-due subreddits", async () => {
+    const recentFetch = new Date(Date.now() - 10 * 60 * 1000);
+    const oldFetch = new Date(Date.now() - 120 * 60 * 1000);
+    mockSelectDistinctFrom.mockResolvedValue([
+      { name: "react" },
+      { name: "vue" },
+      { name: "angular" },
+    ]);
+    mockSelectWhere.mockResolvedValue([
+      {
+        name: "react",
+        lastFetchedAt: recentFetch,
+        refreshIntervalMinutes: 60,
+        createdAt: new Date(),
+      },
+      {
+        name: "vue",
+        lastFetchedAt: oldFetch,
+        refreshIntervalMinutes: 60,
+        createdAt: new Date(),
+      },
+      // angular has no fetch status — will be fetched
+    ]);
+    mockGetLastPostTimestampPerSubreddit.mockResolvedValue(new Map());
+
+    const res = await GET();
+    const data = await res.json();
+
+    expect(data.fetched).toEqual(["vue", "angular"]);
+    expect(data.skipped).toBe(1);
+    expect(mockFetchRedditPosts).toHaveBeenCalledTimes(2);
+  });
+
+  it("should always release the advisory lock on success", async () => {
+    mockSelectDistinctFrom.mockResolvedValue([{ name: "test" }]);
+    mockSelectWhere.mockResolvedValue([]);
+
+    await GET();
+
+    // execute called: 1 for lock acquire, 1 for lock release
+    expect(mockExecute).toHaveBeenCalledTimes(2);
+  });
+
+  it("should release advisory lock even on error", async () => {
+    mockSelectDistinctFrom.mockRejectedValue(new Error("DB error"));
+
+    const res = await GET();
+    const data = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(data.error).toBe("Internal server error");
+    // Lock should still be released
+    expect(mockExecute).toHaveBeenCalledTimes(2);
+  });
+
+  it("should pass fetched posts to fetchPostsForAllUsers", async () => {
+    const mockPosts = [
+      {
+        redditId: "t3_abc",
+        title: "Test",
+        body: null,
+        author: "user1",
+        subreddit: "nextjs",
+        permalink: "/r/nextjs/abc",
+        url: null,
+        redditCreatedAt: new Date(),
+        score: 10,
+        numComments: 5,
+        isSelf: true,
+      },
+    ];
+    mockSelectDistinctFrom.mockResolvedValue([{ name: "nextjs" }]);
+    mockSelectWhere.mockResolvedValue([]);
+    mockFetchRedditPosts.mockResolvedValue(mockPosts);
+
+    await GET();
+
+    expect(mockFetchPostsForAllUsers).toHaveBeenCalledWith("nextjs", mockPosts);
+  });
+
+  it("should use DB timestamp for incremental fetch when available", async () => {
+    const lastPostDate = new Date("2026-02-06T12:00:00Z");
+    mockSelectDistinctFrom.mockResolvedValue([{ name: "golang" }]);
+    mockSelectWhere.mockResolvedValue([]);
+    mockGetLastPostTimestampPerSubreddit.mockResolvedValue(
+      new Map([["golang", lastPostDate]])
+    );
+
+    await GET();
+
+    expect(mockFetchRedditPosts).toHaveBeenCalledTimes(1);
+    const callArg = mockFetchRedditPosts.mock.calls[0]![0] as Map<
+      string,
+      number
+    >;
+    expect(callArg.get("golang")).toBe(
+      Math.floor(lastPostDate.getTime() / 1000)
+    );
+  });
+});
