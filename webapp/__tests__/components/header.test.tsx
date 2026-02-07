@@ -9,7 +9,7 @@
  * - Error message display on fetch failure
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Header } from "@/components/header";
 
@@ -80,8 +80,13 @@ describe("Header component", () => {
 
       expect(screen.getByText("Fetching...")).toBeInTheDocument();
 
-      // Clean up
-      resolvePromise!({ success: true, count: 0 });
+      // Clean up: resolve promise and flush the 5-second message-clear timeout
+      await act(async () => {
+        resolvePromise!({ success: true, count: 0 });
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(5100);
+      });
     });
 
     it("disables fetch button during loading", async () => {
@@ -99,7 +104,13 @@ describe("Header component", () => {
       const button = screen.getByRole("button", { name: /fetching/i });
       expect(button).toBeDisabled();
 
-      resolvePromise!({ success: true, count: 0 });
+      // Clean up: resolve promise and flush the 5-second message-clear timeout
+      await act(async () => {
+        resolvePromise!({ success: true, count: 0 });
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(5100);
+      });
     });
 
     it("shows loading state when isFetching prop is true", () => {
@@ -124,6 +135,11 @@ describe("Header component", () => {
       await waitFor(() => {
         expect(screen.getByText("Found 5 new posts")).toBeInTheDocument();
       });
+
+      // Flush the 5-second message-clear timeout
+      await act(async () => {
+        vi.advanceTimersByTime(5100);
+      });
     });
 
     it("shows custom message when provided", async () => {
@@ -141,6 +157,11 @@ describe("Header component", () => {
           screen.getByText("Fetched 3 new posts from 2 subreddits")
         ).toBeInTheDocument();
       });
+
+      // Flush the 5-second message-clear timeout
+      await act(async () => {
+        vi.advanceTimersByTime(5100);
+      });
     });
 
     it("shows 0 count when no new posts found", async () => {
@@ -155,6 +176,11 @@ describe("Header component", () => {
 
       await waitFor(() => {
         expect(screen.getByText("Found 0 new posts")).toBeInTheDocument();
+      });
+
+      // Flush the 5-second message-clear timeout
+      await act(async () => {
+        vi.advanceTimersByTime(5100);
       });
     });
 
@@ -173,7 +199,9 @@ describe("Header component", () => {
       });
 
       // Advance past the 5-second timeout
-      vi.advanceTimersByTime(5100);
+      await act(async () => {
+        vi.advanceTimersByTime(5100);
+      });
 
       await waitFor(() => {
         expect(screen.queryByText("Found 3 new posts")).not.toBeInTheDocument();
@@ -197,6 +225,11 @@ describe("Header component", () => {
           screen.getByText("No subreddits configured")
         ).toBeInTheDocument();
       });
+
+      // Flush the 5-second message-clear timeout
+      await act(async () => {
+        vi.advanceTimersByTime(5100);
+      });
     });
 
     it("shows generic error when no error message provided", async () => {
@@ -210,6 +243,11 @@ describe("Header component", () => {
 
       await waitFor(() => {
         expect(screen.getByText("Failed to fetch posts")).toBeInTheDocument();
+      });
+
+      // Flush the 5-second message-clear timeout
+      await act(async () => {
+        vi.advanceTimersByTime(5100);
       });
     });
   });
@@ -228,6 +266,11 @@ describe("Header component", () => {
       await waitFor(() => {
         const button = screen.getByText("Fetch New").closest("button");
         expect(button).not.toBeDisabled();
+      });
+
+      // Flush the 5-second message-clear timeout
+      await act(async () => {
+        vi.advanceTimersByTime(5100);
       });
     });
   });

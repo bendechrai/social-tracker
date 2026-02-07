@@ -2,8 +2,8 @@
 
 This document outlines the implementation status and remaining tasks for completing the social media tracker application. Tasks are organized by priority and dependency order.
 
-**Last Verified:** 2026-02-07
-**Verification Method:** Automated codebase analysis against specs/*
+**Last Verified:** 2026-02-07 (Phase 14)
+**Verification Method:** Automated codebase analysis against specs/* + full validation suite
 
 ---
 
@@ -37,9 +37,10 @@ This document outlines the implementation status and remaining tasks for complet
 - **LLM**: User's own Groq key (BYOK) with fallback to env var
 
 ### Known Issues (Minor)
-- `webapp/lib/hooks/use-toast.ts` line 8: `TOAST_REMOVE_DELAY = 1000000` (~16.7 minutes) appears unusually high
-- `webapp/app/api/suggest-terms/route.ts`: LLM model `llama-3.3-70b-versatile` is hardcoded
-- `webapp/middleware.ts`: Next.js 16 shows a deprecation warning about "middleware" file convention being renamed to "proxy" in future versions
+- ~~`webapp/lib/hooks/use-toast.ts` line 8: `TOAST_REMOVE_DELAY = 1000000`~~ — NOT a bug. This is the standard shadcn/ui default. It controls DOM removal delay *after* dismissal, not visibility duration. Radix ToastProvider default 5s handles auto-dismiss.
+- `webapp/app/api/suggest-terms/route.ts`: LLM model `llama-3.3-70b-versatile` is hardcoded — matches spec requirement (llm-tag-suggestions.md line 13), not an issue
+- `webapp/middleware.ts`: Next.js 16 deprecation warning about "middleware" → "proxy" rename — future migration task for Next.js 17+, no current impact
+- shadcn/ui toast component is deprecated upstream in favor of Sonner — consider migrating in a future phase
 
 ---
 
@@ -111,6 +112,24 @@ Deep audit of all 10 spec files against test files revealed multiple acceptance 
 
 ---
 
+## Phase 14: Test Quality & Known Issues Audit — COMPLETE (2/2)
+
+**Status: COMPLETE**
+**Priority: MEDIUM — Resolves test warnings and clarifies known issues**
+
+### 14.1 Fix act() Warnings in Component Tests — COMPLETE
+- [x] `webapp/__tests__/components/header.test.tsx`: Wrapped `vi.advanceTimersByTime()` calls in `act()` to flush pending 5-second message-clear timeouts after fetch operations (8 tests fixed)
+- [x] `webapp/__tests__/components/suggest-terms.test.tsx`: Wrapped timer advancement in `act()` for rate limiting test (1 test fixed)
+- Why: React state updates from `setTimeout` callbacks fired after test completion, causing spurious warnings that obscured real issues in test output
+
+### 14.2 Known Issues Audit — COMPLETE
+- [x] Clarified `TOAST_REMOVE_DELAY = 1000000` is NOT a bug — standard shadcn/ui default for DOM removal after dismissal
+- [x] Confirmed `llama-3.3-70b-versatile` hardcoded model matches spec requirement
+- [x] Documented middleware deprecation as future Next.js 17+ migration task
+- [x] Noted shadcn/ui toast deprecation in favor of Sonner for future consideration
+
+---
+
 ## Summary
 
 | Phase | Description | Tasks | Status | Dependencies | Priority |
@@ -121,6 +140,7 @@ Deep audit of all 10 spec files against test files revealed multiple acceptance 
 | 11 | Spec Compliance — UX Polish & Error Handling | 7 | **COMPLETE (7/7)** | Phase 10 | HIGH |
 | 12 | Acceptance Criteria Test Coverage | 4 | **COMPLETE (4/4)** | Phase 11 | HIGH |
 | 13 | Accessibility & Responsive Polish | 3 | **COMPLETE (3/3)** | Phase 12 | HIGH |
+| 14 | Test Quality & Known Issues Audit | 2 | **COMPLETE (2/2)** | Phase 13 | MEDIUM |
 
 **Total Remaining Tasks: 0**
 

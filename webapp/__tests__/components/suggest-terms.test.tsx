@@ -12,7 +12,7 @@
  * - Empty tag name rejected
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse, delay } from "msw";
 import { server } from "@/mocks/server";
@@ -460,7 +460,9 @@ describe("SuggestTerms component", () => {
       expect(button).toBeDisabled();
 
       // Advance past the 2-second timeout
-      vi.advanceTimersByTime(2100);
+      await act(async () => {
+        vi.advanceTimersByTime(2100);
+      });
 
       await waitFor(() => {
         expect(button).not.toBeDisabled();
