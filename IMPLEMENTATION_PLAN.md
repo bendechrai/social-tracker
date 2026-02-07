@@ -2,7 +2,7 @@
 
 This document outlines the implementation status and remaining tasks for completing the social media tracker application. Tasks are organized by priority and dependency order.
 
-**Last Verified:** 2026-02-07 (Phase 22 planned)
+**Last Verified:** 2026-02-07 (Phase 23 planned)
 **Verification Method:** Opus-level codebase analysis comparing every spec acceptance criterion against source code
 
 ---
@@ -12,7 +12,7 @@ This document outlines the implementation status and remaining tasks for complet
 ### Completed Features (Verified Correct)
 - **Authentication** - Auth.js v5 with credentials provider, proxy-based middleware, login/signup pages (password visibility toggle, auto-login after signup, callbackUrl redirect), user menu, server actions, Drizzle adapter, 7-day JWT sessions
 - **Server Actions** - CRUD for posts, tags, subreddits, search terms with validation (4 action files + auth actions + API key actions)
-- **Reddit Data Fetching** - Via Arctic Shift API (public, no auth), rate limit awareness, exponential backoff, deduplication, t3_ prefix (note: uses fixed 48h window — incremental per-subreddit fetching planned in Phase 22)
+- **Reddit Data Fetching** - Via Arctic Shift API (public, no auth), rate limit awareness, exponential backoff, deduplication, t3_ prefix, per-subreddit incremental fetching with 7-day backfill
 - **UI Components** - 23 components total (12 UI primitives + 11 app components)
 - **React Query Hooks** - 20 hooks with cache invalidation and optimistic updates
 - **Zod Validations** - Schemas for subreddits, tags, search terms, post status, suggest terms, password, email
@@ -100,6 +100,77 @@ The reddit-integration spec requires per-subreddit incremental fetching: for eac
 
 ---
 
+## Phase 23: Auto-Fetch Cron
+
+**Status: IN PROGRESS**
+**Priority: HIGH — New spec**
+**Dependencies: Phase 22 (per-subreddit timestamps)**
+**Spec: `specs/auto-fetch.md`**
+
+### Overview
+
+Replace the manual "Fetch New" button with an automatic cron-based fetch system. A `GET /api/cron/fetch-posts` endpoint fetches posts for all subreddits that have at least one subscriber and are due for refresh. Uses a `subreddit_fetch_status` table to track per-subreddit fetch state and a PostgreSQL advisory lock to prevent concurrent runs. Adding a new subreddit triggers an immediate fetch or links existing posts.
+
+### In Progress
+
+- [ ] **Add `subreddit_fetch_status` table to Drizzle schema and generate migration**
+  - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/`
+  - Spec: `specs/auto-fetch.md` — Database section
+  - Acceptance: New table with columns `name` (PK, varchar 100), `last_fetched_at` (timestamp), `refresh_interval_minutes` (integer, default 60), `created_at` (timestamp, default now). Migration generated and applies cleanly.
+  - Tests: Run `npm run db:generate` and `npm run db:migrate` successfully. `tsc` passes.
+
+### Backlog
+
+- [ ] **Create `fetchPostsForAllUsers` shared function that fetches posts for a subreddit and fans out to all subscribers**
+  - Files: `webapp/app/actions/posts.ts`
+  - Spec: `specs/auto-fetch.md` — Behavior steps 5a-5c
+  - Acceptance: New function accepts a subreddit name + fetched posts, queries all users subscribed to that subreddit, creates `user_posts` and `user_post_tags` for each user. Reuses existing tag-matching logic from `fetchNewPosts`.
+  - Tests: Unit test with 2 users subscribing to same subreddit — both get `user_posts` and `user_post_tags` created. Test with no subscribers — no user_posts created.
+
+- [ ] **Create `GET /api/cron/fetch-posts` route handler**
+  - Files: `webapp/app/api/cron/fetch-posts/route.ts`
+  - Spec: `specs/auto-fetch.md` — API Endpoint section
+  - Acceptance: GET endpoint that: acquires advisory lock (`pg_try_advisory_lock(1)`), queries distinct subreddit names from `subreddits` table, checks `subreddit_fetch_status` for each to determine if due, fetches posts via Arctic Shift for due subreddits, calls `fetchPostsForAllUsers` for each, upserts `subreddit_fetch_status.last_fetched_at`, releases lock, returns `{ fetched: [...], skipped: N }`. Returns `{ status: "skipped", reason: "already_running" }` if lock not acquired.
+  - Tests: Unit test verifying lock acquisition logic. Test that skipped subreddits (not due) are not fetched. Test response shape matches spec.
+
+- [ ] **Add tests for the cron fetch endpoint advisory lock and fetch-status logic**
+  - Files: `webapp/__tests__/api/cron-fetch-posts.test.ts`
+  - Spec: `specs/auto-fetch.md` — Concurrency section, Acceptance criteria 6, 10
+  - Acceptance: Tests cover: lock already held returns skipped response, subreddits with no `subreddit_fetch_status` row trigger 7-day backfill, subreddits not due are skipped, `last_fetched_at` is updated after successful fetch, idempotent re-runs don't create duplicate posts or user_posts.
+  - Tests: At least 5 test cases covering the above scenarios.
+
+- [ ] **Update `addSubreddit` to link existing posts or trigger on-demand fetch**
+  - Files: `webapp/app/actions/subreddits.ts`
+  - Spec: `specs/auto-fetch.md` — On-Demand Trigger section
+  - Acceptance: After saving the subreddit, check if posts already exist for this subreddit name in the `posts` table. If yes: create `user_posts` (status "new") and `user_post_tags` for the current user for all existing posts. If no: call the cron fetch endpoint internally to trigger immediate 7-day backfill.
+  - Tests: Test adding subreddit with existing posts — user gets `user_posts` linked. Test adding brand-new subreddit — cron endpoint is triggered.
+
+- [ ] **Remove "Fetch New" button and related fetch UI from header/dashboard**
+  - Files: `webapp/components/header.tsx`, `webapp/app/dashboard/page.tsx`, `webapp/hooks/` (fetch hook)
+  - Spec: `specs/auto-fetch.md` — UI Changes: Remove section; `specs/post-management.md` — Trigger changed to cron
+  - Acceptance: "Fetch New" button removed from header. `onFetch` / `handleFetch` props and callbacks removed. Dashboard no longer shows fetch loading/result state. `useFetchNewPosts` hook removed or deprecated. Build and typecheck pass.
+  - Tests: Existing E2E tests updated if they reference the fetch button. `tsc` and `lint` pass.
+
+- [ ] **Add fetch status display to subreddit settings list**
+  - Files: `webapp/components/settings/subreddit-settings.tsx`, `webapp/app/actions/subreddits.ts`
+  - Spec: `specs/auto-fetch.md` — UI Changes: Settings Page section
+  - Acceptance: Each subreddit row in settings shows "Last fetched: X ago" (or "Never") and "Next fetch: in Y min" (or "Pending"). Data comes from `subreddit_fetch_status` joined by name. If no row exists, show "Pending" for both. Overdue subreddits show "Pending" instead of negative time.
+  - Tests: Component renders fetch status for subreddits with and without `subreddit_fetch_status` rows. Overdue subreddits show "Pending".
+
+- [ ] **Add unit tests for `addSubreddit` post-linking and on-demand fetch trigger**
+  - Files: `webapp/__tests__/actions/subreddits.test.ts`
+  - Spec: `specs/auto-fetch.md` — On-Demand Trigger section, Acceptance criteria 3, 4
+  - Acceptance: Tests verify: adding a subreddit with existing posts links them to the user with correct `user_posts` and `user_post_tags`. Adding a brand-new subreddit triggers the fetch endpoint. No duplicate `user_posts` if posts already linked.
+  - Tests: At least 3 test cases covering the above.
+
+- [ ] **Update E2E tests for auto-fetch flow (no manual fetch button)**
+  - Files: `webapp/e2e/posts.spec.ts`
+  - Spec: `specs/auto-fetch.md` — Acceptance criteria 2, 9
+  - Acceptance: E2E tests no longer click "Fetch New" button. Posts appear via the auto-fetch mechanism or seed data. All existing E2E tests pass.
+  - Tests: `npm run test:e2e` passes with all specs green.
+
+---
+
 ## Summary
 
 | Phase | Description | Tasks | Status | Dependencies | Priority |
@@ -113,8 +184,9 @@ The reddit-integration spec requires per-subreddit incremental fetching: for eac
 | 20 | Suggest-Terms HTTP Status | 1 | **COMPLETE** | None | LOW |
 | 21 | Post Ordering & Data Delay | 2 | **COMPLETE** | None | HIGH |
 | 22 | Per-Subreddit Incremental Fetching | 3 | **COMPLETE** | None | HIGH |
+| 23 | Auto-Fetch Cron | 9 | **IN PROGRESS** | Phase 22 | HIGH |
 
-**Total Remaining Tasks: 0** — All phases complete
+**Total Remaining Tasks: 9** — Phase 23 in progress
 
 ### Environment Variables Required
 ```bash
