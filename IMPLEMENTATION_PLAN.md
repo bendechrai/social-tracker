@@ -2,7 +2,7 @@
 
 This document outlines the implementation status and remaining tasks for completing the social media tracker application. Tasks are organized by priority and dependency order.
 
-**Last Verified:** 2026-02-07 (Phase 21 Complete)
+**Last Verified:** 2026-02-07 (Phase 22 planned)
 **Verification Method:** Opus-level codebase analysis comparing every spec acceptance criterion against source code
 
 ---
@@ -12,7 +12,7 @@ This document outlines the implementation status and remaining tasks for complet
 ### Completed Features (Verified Correct)
 - **Authentication** - Auth.js v5 with credentials provider, proxy-based middleware, login/signup pages (password visibility toggle, auto-login after signup, callbackUrl redirect), user menu, server actions, Drizzle adapter, 7-day JWT sessions
 - **Server Actions** - CRUD for posts, tags, subreddits, search terms with validation (4 action files + auth actions + API key actions)
-- **Reddit Data Fetching** - Via Arctic Shift API (public, no auth), rate limit awareness, exponential backoff, deduplication, 48h default time window, t3_ prefix
+- **Reddit Data Fetching** - Via Arctic Shift API (public, no auth), rate limit awareness, exponential backoff, deduplication, t3_ prefix (note: uses fixed 48h window — incremental per-subreddit fetching planned in Phase 22)
 - **UI Components** - 23 components total (12 UI primitives + 11 app components)
 - **React Query Hooks** - 20 hooks with cache invalidation and optimistic updates
 - **Zod Validations** - Schemas for subreddits, tags, search terms, post status, suggest terms, password, email
@@ -76,6 +76,46 @@ See git history for details. Key phases:
 
 ---
 
+## Phase 22: Per-Subreddit Incremental Fetching
+
+**Status: IN PROGRESS**
+**Priority: HIGH — Spec violation in fetching strategy**
+**Dependencies: None**
+**Spec: `specs/reddit-integration.md` — Fetching Strategy section**
+
+### Problem
+
+The reddit-integration spec (updated in commit `a42b59a`) requires per-subreddit incremental fetching:
+- For each subreddit, query the DB for the most recent `reddit_created_at` in the `posts` table
+- Use that timestamp as the `after` parameter (fetch only newer posts)
+- If no posts exist for a subreddit, use 7 days ago as initial backfill
+
+The current implementation uses a fixed 48-hour global time window for all subreddits (`DEFAULT_TIME_WINDOW_HOURS = 48` in `webapp/lib/reddit.ts:9`). The `fetchRedditPosts` function accepts a flat list of subreddit names and a single `timeWindowHours` parameter, with no per-subreddit timestamp support.
+
+### In Progress
+
+- [ ] **Change `fetchRedditPosts` to accept per-subreddit timestamps instead of a global time window**
+  - Files: `webapp/lib/reddit.ts`
+  - Spec: `specs/reddit-integration.md` — Fetching Strategy steps 1-5
+  - Acceptance: `fetchRedditPosts` accepts a `Map<string, number>` (subreddit → Unix after-timestamp) instead of `timeWindowHours`. Each subreddit is fetched with its own `after` value. Remove `DEFAULT_TIME_WINDOW_HOURS` constant. Function signature changes from `(subreddits: string[], timeWindowHours?)` to `(subredditTimestamps: Map<string, number>)`.
+  - Tests: Update existing tests in `webapp/__tests__/reddit.test.ts` to pass per-subreddit timestamps. Add test that two subreddits can have different `after` values in the same fetch call.
+
+### Backlog
+
+- [ ] **Add `getLastPostTimestampPerSubreddit` query helper**
+  - Files: `webapp/app/actions/posts.ts`
+  - Spec: `specs/reddit-integration.md` — Fetching Strategy step 1
+  - Acceptance: New exported function queries `posts` table grouped by `subreddit`, returning the max `reddit_created_at` per subreddit name. Returns `Map<string, Date>`. Only queries subreddits the user has configured (accepts a list of subreddit names).
+  - Tests: Add unit test in `webapp/__tests__/actions/posts.test.ts` — mock DB to return known timestamps for 2 subreddits, verify the returned Map has correct entries. Test empty result returns empty Map.
+
+- [ ] **Update `fetchNewPosts` to build per-subreddit timestamps with 7-day initial backfill**
+  - Files: `webapp/app/actions/posts.ts`
+  - Spec: `specs/reddit-integration.md` — Fetching Strategy steps 1-4
+  - Acceptance: `fetchNewPosts` calls `getLastPostTimestampPerSubreddit` for the user's subreddits, builds a `Map<string, number>` where each subreddit maps to its last known post timestamp (as Unix seconds), or 7 days ago if no posts exist. Passes this map to the updated `fetchRedditPosts`. The fixed 48-hour window is no longer used.
+  - Tests: Add test in `webapp/__tests__/actions/posts.test.ts` — mock `getLastPostTimestampPerSubreddit` to return timestamps for some subreddits and empty for others. Verify `fetchRedditPosts` is called with correct per-subreddit timestamps (existing subreddits use DB timestamp, new subreddits use 7 days ago).
+
+---
+
 ## Summary
 
 | Phase | Description | Tasks | Status | Dependencies | Priority |
@@ -88,8 +128,9 @@ See git history for details. Key phases:
 | 19 | Post Card Line Clamp | 0 | **VERIFIED CORRECT** | — | — |
 | 20 | Suggest-Terms HTTP Status | 1 | **COMPLETE** | None | LOW |
 | 21 | Post Ordering & Data Delay | 2 | **COMPLETE** | None | HIGH |
+| 22 | Per-Subreddit Incremental Fetching | 3 | **IN PROGRESS** | None | HIGH |
 
-**Total Remaining Tasks: 0** — All phases complete
+**Total Remaining Tasks: 3** — Phase 22 in progress
 
 ### Environment Variables Required
 ```bash
