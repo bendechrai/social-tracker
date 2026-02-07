@@ -133,13 +133,12 @@ Replace the manual "Fetch New" button with an automatic cron-based fetch system.
   - Files: `webapp/__tests__/api/cron-fetch-posts.test.ts`
   - 12 unit tests covering: lock held returns skipped, empty subreddits, new subreddits trigger fetch, not-due subreddits skipped, overdue subreddits fetched, fetch_status upserted, mixed due/not-due, lock released on success and error, posts passed to fan-out, incremental timestamps used.
 
-- [ ] **Update `addSubreddit` to link existing posts or trigger on-demand fetch** *(next up)*
+- [x] **Update `addSubreddit` to link existing posts or trigger on-demand fetch**
   - Files: `webapp/app/actions/subreddits.ts`
   - Spec: `specs/auto-fetch.md` — On-Demand Trigger section
-  - Acceptance: After saving the subreddit, check if posts already exist for this subreddit name in the `posts` table. If yes: create `user_posts` (status "new") and `user_post_tags` for the current user for all existing posts. If no: call the cron fetch endpoint internally to trigger immediate 7-day backfill.
-  - Tests: Test adding subreddit with existing posts — user gets `user_posts` linked. Test adding brand-new subreddit — cron endpoint is triggered.
+  - After saving the subreddit, checks if posts already exist in the `posts` table. If yes: `linkExistingPostsToUser` creates `user_posts` (status "new") and `user_post_tags` with tag matching. If no: dynamically imports and calls the cron `GET` handler for immediate 7-day backfill.
 
-- [ ] **Remove "Fetch New" button and related fetch UI from header/dashboard**
+- [ ] **Remove "Fetch New" button and related fetch UI from header/dashboard** *(next up)*
   - Files: `webapp/components/header.tsx`, `webapp/app/dashboard/page.tsx`, `webapp/hooks/` (fetch hook)
   - Spec: `specs/auto-fetch.md` — UI Changes: Remove section; `specs/post-management.md` — Trigger changed to cron
   - Acceptance: "Fetch New" button removed from header. `onFetch` / `handleFetch` props and callbacks removed. Dashboard no longer shows fetch loading/result state. `useFetchNewPosts` hook removed or deprecated. Build and typecheck pass.
@@ -151,11 +150,9 @@ Replace the manual "Fetch New" button with an automatic cron-based fetch system.
   - Acceptance: Each subreddit row in settings shows "Last fetched: X ago" (or "Never") and "Next fetch: in Y min" (or "Pending"). Data comes from `subreddit_fetch_status` joined by name. If no row exists, show "Pending" for both. Overdue subreddits show "Pending" instead of negative time.
   - Tests: Component renders fetch status for subreddits with and without `subreddit_fetch_status` rows. Overdue subreddits show "Pending".
 
-- [ ] **Add unit tests for `addSubreddit` post-linking and on-demand fetch trigger**
-  - Files: `webapp/__tests__/actions/subreddits.test.ts`
-  - Spec: `specs/auto-fetch.md` — On-Demand Trigger section, Acceptance criteria 3, 4
-  - Acceptance: Tests verify: adding a subreddit with existing posts links them to the user with correct `user_posts` and `user_post_tags`. Adding a brand-new subreddit triggers the fetch endpoint. No duplicate `user_posts` if posts already linked.
-  - Tests: At least 3 test cases covering the above.
+- [x] **Add unit tests for `addSubreddit` post-linking and on-demand fetch trigger**
+  - Files: `webapp/__tests__/actions/subreddits.test.ts`, `webapp/__tests__/actions/data-isolation.test.ts`
+  - 4 new tests: links existing posts to user, matches tags when linking, no duplicate user_posts if already linked, triggers cron when no existing posts. Updated data-isolation test mock for cron route.
 
 - [ ] **Update E2E tests for auto-fetch flow (no manual fetch button)**
   - Files: `webapp/e2e/posts.spec.ts`
@@ -180,7 +177,7 @@ Replace the manual "Fetch New" button with an automatic cron-based fetch system.
 | 22 | Per-Subreddit Incremental Fetching | 3 | **COMPLETE** | None | HIGH |
 | 23 | Auto-Fetch Cron | 9 | **IN PROGRESS** | Phase 22 | HIGH |
 
-**Total Remaining Tasks: 5** — Phase 23 in progress
+**Total Remaining Tasks: 3** — Phase 23 in progress
 
 ### Environment Variables Required
 ```bash

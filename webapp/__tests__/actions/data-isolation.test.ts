@@ -166,6 +166,11 @@ vi.mock("@/lib/encryption", () => ({
   decrypt: vi.fn().mockReturnValue("decrypted-key"),
 }));
 
+// Mock the cron route handler (used by addSubreddit for on-demand fetch)
+vi.mock("@/app/api/cron/fetch-posts/route", () => ({
+  GET: vi.fn().mockResolvedValue(new Response(JSON.stringify({ fetched: [], skipped: 0 }))),
+}));
+
 // Import actions after mocks
 import { listSubreddits, addSubreddit } from "@/app/actions/subreddits";
 import { listTags, createTag } from "@/app/actions/tags";

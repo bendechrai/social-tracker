@@ -6,6 +6,8 @@
  * - Add subreddits with proper validation and normalization
  * - Handle duplicate detection (same user + name)
  * - Remove subreddits without affecting existing posts
+ * - Link existing posts when adding a subreddit that already has posts
+ * - Trigger on-demand fetch when adding a brand-new subreddit
  *
  * Uses mocked database to isolate unit tests from database.
  */
@@ -14,11 +16,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Mock database before importing actions
 const mockFindMany = vi.fn();
 const mockFindFirst = vi.fn();
+const mockPostsFindMany = vi.fn();
+const mockTagsFindMany = vi.fn();
 const mockInsert = vi.fn();
 const mockDelete = vi.fn();
 const mockValues = vi.fn();
 const mockWhere = vi.fn();
 const mockReturning = vi.fn();
+const mockOnConflictDoNothing = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -26,6 +31,12 @@ vi.mock("@/lib/db", () => ({
       subreddits: {
         findMany: (...args: unknown[]) => mockFindMany(...args),
         findFirst: (...args: unknown[]) => mockFindFirst(...args),
+      },
+      posts: {
+        findMany: (...args: unknown[]) => mockPostsFindMany(...args),
+      },
+      tags: {
+        findMany: (...args: unknown[]) => mockTagsFindMany(...args),
       },
     },
     insert: (...args: unknown[]) => {
@@ -35,6 +46,12 @@ vi.mock("@/lib/db", () => ({
           mockValues(...valArgs);
           return {
             returning: () => mockReturning(),
+            onConflictDoNothing: () => {
+              mockOnConflictDoNothing();
+              return {
+                returning: () => mockOnConflictDoNothing(),
+              };
+            },
           };
         },
       };
@@ -67,6 +84,12 @@ vi.mock("@/lib/reddit", () => ({
   verifySubredditExists: (...args: unknown[]) => mockVerifySubredditExists(...args),
 }));
 
+// Mock the cron route handler for on-demand fetch trigger
+const mockCronGET = vi.fn();
+vi.mock("@/app/api/cron/fetch-posts/route", () => ({
+  GET: (...args: unknown[]) => mockCronGET(...args),
+}));
+
 // User ID constant for use in tests
 const MOCK_USER_ID = "test-user-uuid-1234";
 
@@ -82,6 +105,12 @@ describe("subreddit server actions", () => {
     vi.clearAllMocks();
     // Default: subreddit exists (verification passes)
     mockVerifySubredditExists.mockResolvedValue(true);
+    // Default: no existing posts for subreddit
+    mockPostsFindMany.mockResolvedValue([]);
+    // Default: no tags for user
+    mockTagsFindMany.mockResolvedValue([]);
+    // Default: cron GET returns a Response
+    mockCronGET.mockResolvedValue(new Response(JSON.stringify({ fetched: [], skipped: 0 })));
   });
 
   afterEach(() => {
@@ -392,6 +421,139 @@ describe("subreddit server actions", () => {
         await addSubreddit("ab"); // Too short
 
         expect(mockVerifySubredditExists).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("post linking for existing subreddits", () => {
+      it("links existing posts to user when subreddit already has posts", async () => {
+        mockFindFirst.mockResolvedValue(null); // No duplicate
+        mockReturning.mockResolvedValue([
+          { id: "new-sub", name: "nextjs", userId: MOCK_USER_ID, createdAt: new Date() },
+        ]);
+
+        // Existing posts in the global posts table for this subreddit
+        mockPostsFindMany.mockResolvedValue([
+          {
+            id: "post-1",
+            redditId: "t3_abc",
+            title: "Nextjs tutorial",
+            body: "Learn nextjs",
+            author: "user1",
+            subreddit: "nextjs",
+            permalink: "/r/nextjs/abc",
+            url: null,
+            redditCreatedAt: new Date(),
+            score: 10,
+            numComments: 5,
+            createdAt: new Date(),
+          },
+        ]);
+        // No tags for user
+        mockTagsFindMany.mockResolvedValue([]);
+        // user_posts insert succeeds
+        mockOnConflictDoNothing.mockResolvedValue([{ userId: MOCK_USER_ID, postId: "post-1", status: "new" }]);
+
+        const result = await addSubreddit("nextjs");
+
+        expect(result.success).toBe(true);
+        // Should NOT trigger the cron endpoint
+        expect(mockCronGET).not.toHaveBeenCalled();
+        // Should have inserted user_posts (insert called for subreddit + user_posts)
+        expect(mockInsert).toHaveBeenCalledTimes(2);
+      });
+
+      it("matches tags when linking existing posts", async () => {
+        mockFindFirst.mockResolvedValue(null);
+        mockReturning.mockResolvedValue([
+          { id: "new-sub", name: "reactjs", userId: MOCK_USER_ID, createdAt: new Date() },
+        ]);
+
+        mockPostsFindMany.mockResolvedValue([
+          {
+            id: "post-1",
+            redditId: "t3_xyz",
+            title: "React hooks guide",
+            body: "useState and useEffect",
+            author: "dev1",
+            subreddit: "reactjs",
+            permalink: "/r/reactjs/xyz",
+            url: null,
+            redditCreatedAt: new Date(),
+            score: 50,
+            numComments: 12,
+            createdAt: new Date(),
+          },
+        ]);
+
+        // User has a tag with matching search term
+        mockTagsFindMany.mockResolvedValue([
+          {
+            id: "tag-1",
+            userId: MOCK_USER_ID,
+            name: "Hooks",
+            color: "#6366f1",
+            createdAt: new Date(),
+            searchTerms: [{ id: "st-1", tagId: "tag-1", term: "hooks", createdAt: new Date() }],
+          },
+        ]);
+
+        // user_post insert returns a result (newly created)
+        mockOnConflictDoNothing.mockResolvedValue([{ userId: MOCK_USER_ID, postId: "post-1", status: "new" }]);
+
+        const result = await addSubreddit("reactjs");
+
+        expect(result.success).toBe(true);
+        expect(mockCronGET).not.toHaveBeenCalled();
+        // insert called for: subreddit, user_post, user_post_tag
+        expect(mockInsert).toHaveBeenCalledTimes(3);
+      });
+
+      it("does not create duplicate user_posts if already linked", async () => {
+        mockFindFirst.mockResolvedValue(null);
+        mockReturning.mockResolvedValue([
+          { id: "new-sub", name: "golang", userId: MOCK_USER_ID, createdAt: new Date() },
+        ]);
+
+        mockPostsFindMany.mockResolvedValue([
+          {
+            id: "post-1",
+            redditId: "t3_gol",
+            title: "Go tutorial",
+            body: null,
+            author: "gopher",
+            subreddit: "golang",
+            permalink: "/r/golang/gol",
+            url: null,
+            redditCreatedAt: new Date(),
+            score: 5,
+            numComments: 1,
+            createdAt: new Date(),
+          },
+        ]);
+        mockTagsFindMany.mockResolvedValue([]);
+        // onConflictDoNothing returns empty (post already linked)
+        mockOnConflictDoNothing.mockResolvedValue([]);
+
+        const result = await addSubreddit("golang");
+
+        expect(result.success).toBe(true);
+        // insert for subreddit + user_post (no tag inserts since no user_post created)
+        expect(mockInsert).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    describe("on-demand fetch for new subreddits", () => {
+      it("triggers cron endpoint when subreddit has no existing posts", async () => {
+        mockFindFirst.mockResolvedValue(null);
+        mockReturning.mockResolvedValue([
+          { id: "new-sub", name: "svelte", userId: MOCK_USER_ID, createdAt: new Date() },
+        ]);
+        mockPostsFindMany.mockResolvedValue([]); // No existing posts
+
+        const result = await addSubreddit("svelte");
+
+        expect(result.success).toBe(true);
+        expect(mockCronGET).toHaveBeenCalledOnce();
       });
     });
   });
