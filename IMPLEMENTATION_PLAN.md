@@ -143,17 +143,16 @@ Replace the manual "Fetch New" button with an automatic cron-based fetch system.
   - Spec: `specs/auto-fetch.md` — UI Changes: Remove section; `specs/post-management.md` — Trigger changed to cron
   - Header simplified: removed `onFetch`/`isFetching` props, fetch button, loading state, message display. Removed `"use client"` (no longer needs client state). Dashboard removed `useFetchNewPosts` hook usage, `handleFetch`, and fetch props. `useFetchNewPosts` hook removed from hooks index. Header tests rewritten (4 tests: title, settings link, user menu, no fetch button). Hook tests updated (removed `useFetchNewPosts` tests). E2E tests already didn't reference fetch button — no changes needed.
 
-- [ ] **Add fetch status display to subreddit settings list** *(next up)*
+- [x] **Add fetch status display to subreddit settings list**
   - Files: `webapp/components/settings/subreddit-settings.tsx`, `webapp/app/actions/subreddits.ts`
   - Spec: `specs/auto-fetch.md` — UI Changes: Settings Page section
-  - Acceptance: Each subreddit row in settings shows "Last fetched: X ago" (or "Never") and "Next fetch: in Y min" (or "Pending"). Data comes from `subreddit_fetch_status` joined by name. If no row exists, show "Pending" for both. Overdue subreddits show "Pending" instead of negative time.
-  - Tests: Component renders fetch status for subreddits with and without `subreddit_fetch_status` rows. Overdue subreddits show "Pending".
+  - `listSubreddits` now joins `subreddit_fetch_status` by name, returning `fetchStatus` with `lastFetchedAt` and `refreshIntervalMinutes`. Component shows "Last fetched: X ago · Next fetch: in Y min" per row. No status row → "Pending/Pending". Null lastFetchedAt → "Never/Pending". Overdue → "Pending". 5 new component tests + 1 new action test. All 633 tests pass.
 
 - [x] **Add unit tests for `addSubreddit` post-linking and on-demand fetch trigger**
   - Files: `webapp/__tests__/actions/subreddits.test.ts`, `webapp/__tests__/actions/data-isolation.test.ts`
   - 4 new tests: links existing posts to user, matches tags when linking, no duplicate user_posts if already linked, triggers cron when no existing posts. Updated data-isolation test mock for cron route.
 
-- [ ] **Update E2E tests for auto-fetch flow (no manual fetch button)**
+- [ ] **Update E2E tests for auto-fetch flow (no manual fetch button)** *(next up)*
   - Files: `webapp/e2e/posts.spec.ts`
   - Spec: `specs/auto-fetch.md` — Acceptance criteria 2, 9
   - Acceptance: E2E tests no longer click "Fetch New" button. Posts appear via the auto-fetch mechanism or seed data. All existing E2E tests pass.
@@ -176,7 +175,7 @@ Replace the manual "Fetch New" button with an automatic cron-based fetch system.
 | 22 | Per-Subreddit Incremental Fetching | 3 | **COMPLETE** | None | HIGH |
 | 23 | Auto-Fetch Cron | 9 | **IN PROGRESS** | Phase 22 | HIGH |
 
-**Total Remaining Tasks: 2** — Phase 23 in progress
+**Total Remaining Tasks: 1** — Phase 23 in progress
 
 ### Environment Variables Required
 ```bash

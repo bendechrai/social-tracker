@@ -24,6 +24,7 @@ const mockValues = vi.fn();
 const mockWhere = vi.fn();
 const mockReturning = vi.fn();
 const mockOnConflictDoNothing = vi.fn();
+const mockSelectFromWhere = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -39,6 +40,11 @@ vi.mock("@/lib/db", () => ({
         findMany: (...args: unknown[]) => mockTagsFindMany(...args),
       },
     },
+    select: () => ({
+      from: () => ({
+        where: (...args: unknown[]) => mockSelectFromWhere(...args),
+      }),
+    }),
     insert: (...args: unknown[]) => {
       mockInsert(...args);
       return {
@@ -111,6 +117,8 @@ describe("subreddit server actions", () => {
     mockTagsFindMany.mockResolvedValue([]);
     // Default: cron GET returns a Response
     mockCronGET.mockResolvedValue(new Response(JSON.stringify({ fetched: [], skipped: 0 })));
+    // Default: no fetch statuses
+    mockSelectFromWhere.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -133,6 +141,7 @@ describe("subreddit server actions", () => {
         { id: "sub-2", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date("2024-01-02") },
       ];
       mockFindMany.mockResolvedValue(mockData);
+      mockSelectFromWhere.mockResolvedValue([]);
 
       const result = await listSubreddits();
 
@@ -141,11 +150,34 @@ describe("subreddit server actions", () => {
         id: "sub-1",
         name: "database",
         createdAt: new Date("2024-01-01"),
+        fetchStatus: undefined,
       });
       expect(result[1]).toEqual({
         id: "sub-2",
         name: "postgresql",
         createdAt: new Date("2024-01-02"),
+        fetchStatus: undefined,
+      });
+    });
+
+    it("includes fetch status when subreddit_fetch_status row exists", async () => {
+      const lastFetched = new Date("2024-06-15T10:00:00Z");
+      const mockData = [
+        { id: "sub-1", name: "database", userId: MOCK_USER_ID, createdAt: new Date("2024-01-01") },
+        { id: "sub-2", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date("2024-01-02") },
+      ];
+      mockFindMany.mockResolvedValue(mockData);
+      mockSelectFromWhere.mockResolvedValue([
+        { name: "postgresql", lastFetchedAt: lastFetched, refreshIntervalMinutes: 60, createdAt: new Date() },
+      ]);
+
+      const result = await listSubreddits();
+
+      expect(result).toHaveLength(2);
+      expect(result[0]!.fetchStatus).toBeUndefined(); // "database" has no fetch status
+      expect(result[1]!.fetchStatus).toEqual({
+        lastFetchedAt: lastFetched,
+        refreshIntervalMinutes: 60,
       });
     });
 

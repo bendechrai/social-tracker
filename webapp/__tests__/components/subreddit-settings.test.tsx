@@ -233,6 +233,73 @@ describe("SubredditSettings component", () => {
     });
   });
 
+  describe("fetch status display", () => {
+    it("shows Pending for both when no fetch status exists", () => {
+      render(<SubredditSettings {...defaultProps} />);
+      // Default subreddits have no fetchStatus
+      const statusTexts = screen.getAllByText(/Last fetched: Pending/);
+      expect(statusTexts).toHaveLength(3);
+      for (const el of statusTexts) {
+        expect(el.textContent).toContain("Next fetch: Pending");
+      }
+    });
+
+    it("shows Never and Pending when lastFetchedAt is null", () => {
+      const subs = [
+        {
+          id: "sub-1",
+          name: "postgresql",
+          fetchStatus: { lastFetchedAt: null, refreshIntervalMinutes: 60 },
+        },
+      ];
+      render(<SubredditSettings {...defaultProps} subreddits={subs} />);
+      expect(screen.getByText(/Last fetched: Never/)).toBeInTheDocument();
+      expect(screen.getByText(/Next fetch: Pending/)).toBeInTheDocument();
+    });
+
+    it("shows relative time for recently fetched subreddit", () => {
+      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
+      const subs = [
+        {
+          id: "sub-1",
+          name: "postgresql",
+          fetchStatus: { lastFetchedAt: tenMinAgo, refreshIntervalMinutes: 60 },
+        },
+      ];
+      render(<SubredditSettings {...defaultProps} subreddits={subs} />);
+      expect(screen.getByText(/Last fetched: 10 min ago/)).toBeInTheDocument();
+      expect(screen.getByText(/Next fetch: in 50 min/)).toBeInTheDocument();
+    });
+
+    it("shows Pending for next fetch when overdue", () => {
+      const twoHoursAgo = new Date(Date.now() - 120 * 60 * 1000);
+      const subs = [
+        {
+          id: "sub-1",
+          name: "postgresql",
+          fetchStatus: { lastFetchedAt: twoHoursAgo, refreshIntervalMinutes: 60 },
+        },
+      ];
+      render(<SubredditSettings {...defaultProps} subreddits={subs} />);
+      expect(screen.getByText(/Last fetched: 2 hours ago/)).toBeInTheDocument();
+      expect(screen.getByText(/Next fetch: Pending/)).toBeInTheDocument();
+    });
+
+    it("shows hours for last fetched when over 60 min ago", () => {
+      const ninetyMinAgo = new Date(Date.now() - 90 * 60 * 1000);
+      const subs = [
+        {
+          id: "sub-1",
+          name: "postgresql",
+          fetchStatus: { lastFetchedAt: ninetyMinAgo, refreshIntervalMinutes: 120 },
+        },
+      ];
+      render(<SubredditSettings {...defaultProps} subreddits={subs} />);
+      expect(screen.getByText(/Last fetched: 2 hours ago/)).toBeInTheDocument();
+      expect(screen.getByText(/Next fetch: in 30 min/)).toBeInTheDocument();
+    });
+  });
+
   describe("loading states", () => {
     it("disables input during add", async () => {
       const user = userEvent.setup();

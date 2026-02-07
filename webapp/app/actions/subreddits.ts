@@ -1,21 +1,27 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { subreddits, posts, userPosts, userPostTags, tags } from "@/drizzle/schema";
+import { subreddits, subredditFetchStatus, posts, userPosts, userPostTags, tags } from "@/drizzle/schema";
 import { getCurrentUserId } from "./users";
 import { subredditNameSchema } from "@/lib/validations";
 import { verifySubredditExists } from "@/lib/reddit";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, inArray } from "drizzle-orm";
 import type { Post } from "@/drizzle/schema";
 import { revalidatePath } from "next/cache";
+
+export interface SubredditFetchStatusData {
+  lastFetchedAt: Date | null;
+  refreshIntervalMinutes: number;
+}
 
 export interface SubredditData {
   id: string;
   name: string;
   createdAt: Date;
+  fetchStatus?: SubredditFetchStatusData;
 }
 
-// List all subreddits for the current user, alphabetically ordered
+// List all subreddits for the current user, alphabetically ordered, with fetch status
 export async function listSubreddits(): Promise<SubredditData[]> {
   const userId = await getCurrentUserId();
 
@@ -24,11 +30,31 @@ export async function listSubreddits(): Promise<SubredditData[]> {
     orderBy: [asc(subreddits.name)],
   });
 
-  return results.map((s) => ({
-    id: s.id,
-    name: s.name,
-    createdAt: s.createdAt,
-  }));
+  if (results.length === 0) return [];
+
+  // Load fetch statuses for all user's subreddit names
+  const names = results.map((s) => s.name);
+  const statuses = await db
+    .select()
+    .from(subredditFetchStatus)
+    .where(inArray(subredditFetchStatus.name, names));
+
+  const statusMap = new Map(statuses.map((s) => [s.name, s]));
+
+  return results.map((s) => {
+    const fs = statusMap.get(s.name);
+    return {
+      id: s.id,
+      name: s.name,
+      createdAt: s.createdAt,
+      fetchStatus: fs
+        ? {
+            lastFetchedAt: fs.lastFetchedAt,
+            refreshIntervalMinutes: fs.refreshIntervalMinutes,
+          }
+        : undefined,
+    };
+  });
 }
 
 // Add a new subreddit
