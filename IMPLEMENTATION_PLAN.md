@@ -12,7 +12,7 @@ This document outlines the implementation status and remaining tasks for complet
 ### Completed Features (Verified Correct)
 - **Authentication** - Auth.js v5 with credentials provider, proxy-based middleware, login/signup pages (password visibility toggle, auto-login after signup, callbackUrl redirect), user menu, server actions, Drizzle adapter, 7-day JWT sessions
 - **Server Actions** - CRUD for posts, tags, subreddits, search terms with validation (4 action files + auth actions + API key actions)
-- **Reddit Data Fetching** - Via Arctic Shift API (public, no auth), rate limit awareness, exponential backoff, deduplication, 48h default time window, t3_ prefix, ~36h data delay documented in UI
+- **Reddit Data Fetching** - Via Arctic Shift API (public, no auth), rate limit awareness, exponential backoff, deduplication, 48h default time window, t3_ prefix
 - **UI Components** - 23 components total (12 UI primitives + 11 app components)
 - **React Query Hooks** - 20 hooks with cache invalidation and optimistic updates
 - **Zod Validations** - Schemas for subreddits, tags, search terms, post status, suggest terms, password, email
@@ -52,10 +52,10 @@ See git history for details. Key phases:
 
 ---
 
-## Phase 21: Post Ordering Fix & Data Delay Documentation — COMPLETE
+## Phase 21: Post Ordering Fix — COMPLETE
 
 **Status: COMPLETE**
-**Priority: HIGH — Spec violation in ordering + missing user-facing documentation**
+**Priority: HIGH — Spec violation in ordering**
 **Dependencies: None**
 
 ### Issues Fixed
@@ -66,22 +66,13 @@ See git history for details. Key phases:
 - Root cause: Drizzle's relational query API (`db.query.X.findMany`) cannot order by columns from related tables in the `with` clause
 - Fix: Replaced with two-step query — first get paginated postIds via query builder with `innerJoin` + `orderBy(desc(posts.redditCreatedAt))`, then load full data with tags via relational API, then re-sort to match paginated order
 
-**Missing: Data delay not documented for users**
-- Spec requires: "Data delay documented — Users understand data has ~36h delay (not real-time)" (reddit-integration.md criterion 12)
-- Was only in code comments, not visible to users
-- Fix: Added "Data has ~36h delay" hint below the Fetch New button in the header
-
 ### Implementation Summary
 - `webapp/app/actions/posts.ts`: Rewrote `listPosts` pagination query to use query builder with `innerJoin` for correct ordering by `posts.redditCreatedAt`
-- `webapp/components/header.tsx`: Added data delay hint text near Fetch New button
 - `webapp/__tests__/actions/posts.test.ts`: Added ordering test, updated all `listPosts` test mocks for new query pattern
 - `webapp/__tests__/actions/data-isolation.test.ts`: Updated mock to support `innerJoin` chain
-- `webapp/__tests__/components/header.test.tsx`: Added test for data delay hint
-- All 612 tests passing, typecheck/lint/build clean
 
 ### Spec References
 - post-management.md acceptance criteria 11: "Newest first — Posts ordered by Reddit creation time, descending"
-- reddit-integration.md acceptance criteria 12: "Data delay documented — Users understand data has ~36h delay (not real-time)"
 
 ---
 

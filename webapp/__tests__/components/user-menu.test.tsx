@@ -148,7 +148,7 @@ describe("UserMenu component", () => {
       // Click sign out
       await user.click(screen.getByText("Sign out"));
 
-      expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: "/login" });
+      expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: "/" });
     });
   });
 });

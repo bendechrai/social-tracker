@@ -73,7 +73,7 @@ Visit http://localhost:3000 (or your devports-assigned port).
 
 ### Reddit Data (No Setup Required)
 
-Reddit data is fetched via the [Arctic Shift API](https://arctic-shift.photon-reddit.com) — a free, public archive of Reddit data. No Reddit account, API keys, or OAuth setup needed. Data has a ~36-hour delay from when posts are created on Reddit.
+Reddit data is fetched via the [Arctic Shift API](https://arctic-shift.photon-reddit.com) — a free, public archive of Reddit data. No Reddit account, API keys, or OAuth setup needed.
 
 ### Claude Code OAuth Token
 

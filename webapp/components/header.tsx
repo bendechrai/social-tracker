@@ -57,7 +57,6 @@ export function Header({ onFetch, isFetching = false }: HeaderProps) {
                 </>
               )}
             </Button>
-            <span className="text-[10px] text-muted-foreground">Data has ~36h delay</span>
           </div>
           <Button variant="outline" size="icon" asChild>
             <Link href="/settings">

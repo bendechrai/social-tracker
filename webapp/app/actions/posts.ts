@@ -476,14 +476,6 @@ export async function fetchNewPosts(): Promise<{
     }
   }
 
-  if (allTerms.length === 0) {
-    return {
-      success: true,
-      count: 0,
-      message: "No search terms configured. Add tags with search terms in settings.",
-    };
-  }
-
   // Fetch all recent posts from configured subreddits
   const subredditNames = userSubreddits.map((s) => s.name);
   const fetchedPosts = await fetchRedditPosts(subredditNames);
@@ -534,12 +526,8 @@ export async function fetchNewPosts(): Promise<{
       }
     }
 
-    // Only create user_posts for posts matching search terms
-    if (matchedTagIds.size === 0) {
-      continue;
-    }
-
-    // Create user_post record (conflict on (user_id, post_id) do nothing)
+    // Create user_post record for all posts from monitored subreddits
+    // (conflict on (user_id, post_id) do nothing)
     const userPostResult = await db
       .insert(userPosts)
       .values({
@@ -550,24 +538,20 @@ export async function fetchNewPosts(): Promise<{
       .onConflictDoNothing()
       .returning();
 
-    // If user_post already existed, skip tag assignment
-    if (!userPostResult[0]) {
-      continue;
+    // If user_post was newly created, assign matching tags
+    if (userPostResult[0]) {
+      for (const tagId of matchedTagIds) {
+        await db
+          .insert(userPostTags)
+          .values({
+            userId,
+            postId,
+            tagId,
+          })
+          .onConflictDoNothing();
+      }
+      newCount++;
     }
-
-    // Create user_post_tags entries for matching tags
-    for (const tagId of matchedTagIds) {
-      await db
-        .insert(userPostTags)
-        .values({
-          userId,
-          postId,
-          tagId,
-        })
-        .onConflictDoNothing();
-    }
-
-    newCount++;
   }
 
   revalidatePath("/");

@@ -20,7 +20,7 @@ export function UserMenu() {
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
-    await signOut({ callbackUrl: "/login" });
+    await signOut({ callbackUrl: "/" });
   };
 
   // Loading state

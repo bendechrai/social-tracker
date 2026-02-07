@@ -4,7 +4,7 @@ Fetch Reddit posts via the Arctic Shift API — a free, public, no-auth-required
 
 ## Overview
 
-All recent posts are fetched from each configured subreddit within a configurable time window. No per-user Reddit account or OAuth is required. The Arctic Shift API provides historical Reddit data with approximately a 36-hour delay from when posts are created.
+All recent posts are fetched from each configured subreddit within a configurable time window. No per-user Reddit account or OAuth is required.
 
 Posts are fetched per-subreddit (not per search term). Tag matching happens locally in the application after fetching. This minimizes API calls — one request per subreddit regardless of how many search terms or users monitor it.
 
@@ -14,7 +14,6 @@ Posts are fetched per-subreddit (not per search term). Tag matching happens loca
 
 - Free, public API — no API key or authentication required
 - Archives all public Reddit posts and comments (since 2005)
-- Data delay: ~36 hours before posts appear (not real-time)
 - Rate limited — respect `X-RateLimit-Remaining` and `X-RateLimit-Reset` response headers
 - No uptime or performance guarantees (community service)
 
@@ -74,7 +73,7 @@ This approach:
 
 ### Time Window
 
-- Default: posts from the last 48 hours (accounts for ~36h data delay)
+- Default: posts from the last 48 hours
 - Configurable per-fetch
 - Use `after` and `before` parameters for date range
 
@@ -141,4 +140,4 @@ The app should be fully functional for development and testing without calling t
 9. **All fields extracted** — Every field listed in Data Extraction is populated (or explicitly null/empty)
 10. **Errors don't crash** — Transient errors retry; permanent errors log and continue
 11. **Multiple subreddits** — Can fetch across multiple subreddits in a single fetch operation
-12. **Data delay documented** — Users understand data has ~36h delay (not real-time)
+12. **Multiple subreddits deduplicated** — Cross-posted content is not duplicated

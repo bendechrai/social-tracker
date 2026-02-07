@@ -5,7 +5,7 @@
 const ARCTIC_SHIFT_POSTS_URL =
   "https://arctic-shift.photon-reddit.com/api/posts/search";
 
-// Default time window: 48 hours (accounts for ~36h data delay)
+// Default time window: 48 hours
 const DEFAULT_TIME_WINDOW_HOURS = 48;
 
 // Rate limit tracking from response headers
