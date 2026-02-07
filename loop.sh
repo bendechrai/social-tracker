@@ -7,6 +7,12 @@
 
 set -euo pipefail
 
+# This script runs inside the Ralph Docker container. Use ralph.sh to launch it.
+if [ ! -f /.dockerenv ]; then
+    echo "Error: loop.sh must run inside the Ralph container. Use ./ralph.sh instead."
+    exit 1
+fi
+
 STOPFILE=".ralph-stop"
 
 # Parse arguments
