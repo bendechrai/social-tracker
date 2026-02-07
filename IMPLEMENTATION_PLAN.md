@@ -2,7 +2,7 @@
 
 This document outlines the implementation status and remaining tasks for completing the social media tracker application. Tasks are organized by priority and dependency order.
 
-**Last Verified:** 2026-02-07 (Phase 23 planned)
+**Last Verified:** 2026-02-07 (Phase 24 planned)
 **Verification Method:** Opus-level codebase analysis comparing every spec acceptance criterion against source code
 
 ---
@@ -157,6 +157,50 @@ Replace the manual "Fetch New" button with an automatic cron-based fetch system.
 
 ---
 
+## Phase 24: Tag Search Term Constraints — IN PROGRESS
+
+**Status: IN PROGRESS**
+**Priority: HIGH — Spec violation in tag system**
+**Dependencies: None**
+**Spec: `specs/tag-system.md` — Acceptance criteria 9, 10**
+
+### Problem
+
+The tag-system spec requires two constraints that are not enforced:
+
+1. **"At least one search term required"** (criterion 9): `createTag` accepts `initialTerms` as optional and allows creating tags with zero search terms. Neither the server action nor the UI validates this.
+2. **"Cannot remove last term"** (criterion 10): `removeSearchTerm` deletes any term without checking if it's the tag's only remaining term. The UI does not disable the remove button when one term remains.
+
+### In Progress
+
+- [ ] **Add server-side validation to `createTag` requiring at least one search term**
+  - Files: `webapp/app/actions/tags.ts`
+  - Spec: `specs/tag-system.md` acceptance criterion 9
+  - Acceptance: `createTag` returns `{ success: false, error: "At least one search term is required" }` when `initialTerms` is empty or missing
+  - Tests: Add unit test calling `createTag` with no terms and verifying error response; add test with empty array
+
+### Backlog
+
+- [ ] **Add server-side validation to `removeSearchTerm` preventing removal of last term**
+  - Files: `webapp/app/actions/tags.ts`
+  - Spec: `specs/tag-system.md` acceptance criterion 10
+  - Acceptance: `removeSearchTerm` returns `{ success: false, error: "Cannot remove the last search term" }` when the tag has exactly one term remaining
+  - Tests: Add unit test deleting a tag's only term and verifying error; add test confirming deletion succeeds when 2+ terms exist
+
+- [ ] **Add UI validation for tag creation requiring at least one search term**
+  - Files: `webapp/components/settings/tag-settings.tsx`
+  - Spec: `specs/tag-system.md` acceptance criterion 9
+  - Acceptance: "Create" button is disabled when the terms input is empty; attempting to create shows an error message
+  - Tests: Add component test rendering tag creation form with empty terms and verifying button is disabled or error shown
+
+- [ ] **Add UI prevention for removing last search term from a tag**
+  - Files: `webapp/components/settings/tag-settings.tsx`
+  - Spec: `specs/tag-system.md` acceptance criterion 10
+  - Acceptance: Remove button is disabled (or hidden) when a tag has exactly one search term; attempting removal shows an error
+  - Tests: Add component test rendering a tag with one term and verifying remove button is disabled
+
+---
+
 ## Summary
 
 | Phase | Description | Tasks | Status | Dependencies | Priority |
@@ -171,8 +215,9 @@ Replace the manual "Fetch New" button with an automatic cron-based fetch system.
 | 21 | Post Ordering & Data Delay | 2 | **COMPLETE** | None | HIGH |
 | 22 | Per-Subreddit Incremental Fetching | 3 | **COMPLETE** | None | HIGH |
 | 23 | Auto-Fetch Cron | 9 | **COMPLETE** | Phase 22 | HIGH |
+| 24 | Tag Search Term Constraints | 4 | **IN PROGRESS** | None | HIGH |
 
-**Total Remaining Tasks: 0** — All phases complete
+**Total Remaining Tasks: 4** — Phase 24 in progress
 
 ### Environment Variables Required
 ```bash
