@@ -109,12 +109,13 @@ Users provide their own Groq API key for LLM tag suggestions.
 ## Routes
 
 ### Public (no auth required)
+- `/` - Marketing landing page (redirects to `/dashboard` if authenticated)
 - `/login` - Login page
 - `/signup` - Registration page
 - `/api/auth/*` - Auth.js API routes
 
 ### Protected (auth required)
-- `/` - Dashboard (main app)
+- `/dashboard` - Dashboard (main app)
 - `/settings` - User settings
 - `/api/*` - All other API routes
 

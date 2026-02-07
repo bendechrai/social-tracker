@@ -20,12 +20,13 @@ Multi-page application with authentication, tabbed navigation for post statuses,
 
 ### Public Pages (no auth required)
 
+- `/` - Marketing landing page (redirects to `/dashboard` if authenticated)
 - `/login` - Login page
 - `/signup` - Registration page
 
 ### Protected Pages (auth required)
 
-- `/` - Dashboard (main app)
+- `/dashboard` - Dashboard (main app)
 - `/settings` - User settings (could also be modal)
 
 ## Authentication Pages
@@ -65,7 +66,7 @@ Features:
 - "Sign in" button
 - Link to signup page
 - Error display for invalid credentials
-- Redirects to `/` on success
+- Redirects to `/dashboard` on success
 
 ### Signup Page (`/signup`)
 
@@ -111,7 +112,7 @@ Features:
 - "Create account" button
 - Link to login page
 - Inline validation errors
-- Redirects to `/` on success
+- Redirects to `/dashboard` on success
 
 ## Dashboard Layout (authenticated)
 
@@ -157,9 +158,11 @@ Features:
 ### Tag Filter
 
 - Dropdown or multi-select
-- Shows all user's tags
+- Shows all user's tags plus an "Untagged" option
 - Filters posts to those with ANY selected tag
-- "All" option to clear filter
+- "Untagged" option: shows posts with zero tag associations in `user_post_tags` for this user
+- "Untagged" is unchecked by default — only tagged posts shown unless user opts in
+- "All" option to clear filter (shows all tagged posts; "Untagged" must be explicitly selected)
 - Persists selection across tab switches
 
 ### Post Card
@@ -282,7 +285,7 @@ Modal, slide-over, or dedicated page containing multiple sections:
 6. **Protected routes redirect** - Unauthenticated users sent to login
 7. **Tabs filter correctly** - Clicking tab shows only posts with that status
 8. **Counts are accurate** - Tab counts match actual post counts per status
-9. **Tag filter works** - Selecting tags filters to posts with those tags
+9. **Tag filter works** - Selecting tags filters to posts with those tags; "Untagged" option shows posts with no tag associations
 10. **Status changes reflect immediately** - Optimistic UI updates on button click
 11. **Response text saves** - Text area content persists to database
 12. **Settings CRUD works** - Can add/edit/remove subreddits, tags, and terms

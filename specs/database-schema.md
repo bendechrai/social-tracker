@@ -115,13 +115,12 @@ Unique constraint: (tag_id, term)
 
 ### posts
 
-Reddit posts fetched and stored.
+Reddit posts fetched and stored. Shared across all users — one row per unique Reddit post. Contains only the Reddit content, no per-user state.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | uuid | PK, default gen | Primary key |
-| user_id | uuid | FK users, not null, cascade delete | Owner who fetched this |
-| reddit_id | varchar(20) | not null | Reddit's ID (t3_xxxxx) |
+| reddit_id | varchar(20) | unique, not null | Reddit's ID (t3_xxxxx) |
 | title | text | not null | Post title |
 | body | text | | Post body (selftext) |
 | author | varchar(100) | not null | Reddit username |
@@ -131,26 +130,43 @@ Reddit posts fetched and stored.
 | reddit_created_at | timestamp | not null | When posted on Reddit |
 | score | integer | not null, default 0 | Reddit score |
 | num_comments | integer | not null, default 0 | Comment count |
-| status | varchar(20) | not null, default 'new' | new, ignored, done |
-| response_text | text | | User's response notes |
-| responded_at | timestamp | | When user marked as done |
 | created_at | timestamp | not null, default now | Record creation time |
-| updated_at | timestamp | not null, default now | Last update time |
 
-Unique constraint: (user_id, reddit_id)
+Unique constraint: (reddit_id)
 
-Index: (user_id, status) for filtered queries
+Index: (subreddit) for fetching by subreddit
 
-### post_tags
+### user_posts
 
-Many-to-many relationship between posts and tags.
+Per-user relationship to a post. Stores the user's triage state and response notes. A user_post row is created when a post is associated with a user (either via tag matching or when the user monitors the subreddit).
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
+| user_id | uuid | FK users, not null, cascade delete | User |
+| post_id | uuid | FK posts, not null, cascade delete | Post |
+| status | varchar(20) | not null, default 'new' | new, ignored, done |
+| response_text | text | | User's response notes |
+| responded_at | timestamp | | When user marked as done |
+| created_at | timestamp | not null, default now | When user first saw this post |
+| updated_at | timestamp | not null, default now | Last update time |
+
+Primary key: (user_id, post_id)
+
+Index: (user_id, status) for filtered queries
+
+### user_post_tags
+
+Per-user tag associations for posts. Tags are user-specific, so this junction table connects a user's relationship with a post to their tags.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| user_id | uuid | FK users, not null, cascade delete | User |
 | post_id | uuid | FK posts, not null, cascade delete | Post |
 | tag_id | uuid | FK tags, not null, cascade delete | Tag |
 
-Primary key: (post_id, tag_id)
+Primary key: (user_id, post_id, tag_id)
+
+Foreign key: (user_id, post_id) references user_posts(user_id, post_id) cascade delete
 
 ## Encrypted Fields
 
@@ -181,10 +197,12 @@ Note: Seed script should hash password with bcrypt before storing.
 
 1. **Schema matches spec** - All tables, columns, types, and constraints match this specification
 2. **Migrations work** - `npm run db:migrate` applies schema to fresh database without errors
-3. **Foreign keys enforced** - Deleting a user cascades to their sessions, subreddits, tags, and posts
-4. **Unique constraints enforced** - Duplicate (user_id, reddit_id) for posts is rejected
-5. **Drizzle types generated** - TypeScript types are inferred from schema, no manual type definitions
-6. **Seed script works** - `npm run db:seed` populates database with test user and data
-7. **Indexes created** - (user_id, status) index exists on posts table
-8. **Auth.js tables present** - sessions, accounts, verification_tokens tables exist
-9. **Encrypted fields work** - Can store and retrieve encrypted values correctly
+3. **Foreign keys enforced** - Deleting a user cascades to their sessions, subreddits, tags, user_posts, and user_post_tags
+4. **Posts are shared** - Duplicate reddit_id for posts is rejected (global uniqueness, not per-user)
+5. **User posts are per-user** - Same post can have different status/response for different users
+6. **Tag associations are per-user** - user_post_tags references user_posts, cascade deletes work correctly
+7. **Drizzle types generated** - TypeScript types are inferred from schema, no manual type definitions
+8. **Seed script works** - `npm run db:seed` populates database with test user and data
+9. **Indexes created** - (user_id, status) index exists on user_posts table, (subreddit) index on posts
+10. **Auth.js tables present** - sessions, accounts, verification_tokens tables exist
+11. **Encrypted fields work** - Can store and retrieve encrypted values correctly

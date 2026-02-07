@@ -15,7 +15,7 @@ Tags group related search terms under a meaningful label. For example, a "Yugaby
   
 - **Search Term**: Individual strings to search for
   - Belongs to exactly one tag
-  - Case-insensitive matching in Reddit search
+  - Case-insensitive matching (done locally in the application, not at the API level)
 
 ## Operations
 
@@ -42,8 +42,8 @@ Input: tag_id, name (optional), color (optional)
 Input: tag_id
 
 1. Validate tag belongs to user
-2. Delete tag (cascades to search_terms and post_tags)
-3. Note: Posts remain, just lose the tag association
+2. Delete tag (cascades to search_terms and user_post_tags)
+3. Note: Posts and user_posts remain, just lose the tag association
 
 ### Add Search Term
 
@@ -68,7 +68,7 @@ Input: user_id
 
 1. Fetch all tags for user
 2. Include search_terms for each tag
-3. Include count of posts per tag
+3. Include count of posts per tag (from user_post_tags for this user)
 4. Order by name alphabetically
 
 ### Get Tag
@@ -105,7 +105,7 @@ LLM suggestions (see llm-tag-suggestions.md) can help generate comprehensive ter
 1. **Tag CRUD works** - Can create, read, update, delete tags
 2. **Term CRUD works** - Can add and remove search terms from tags
 3. **Uniqueness enforced** - Duplicate tag names for same user rejected; duplicate terms within tag rejected
-4. **Cascade delete** - Deleting tag removes its terms and post associations
+4. **Cascade delete** - Deleting tag removes its search_terms and user_post_tags associations
 5. **Posts retain on term delete** - Removing a search term doesn't untag already-matched posts
 6. **Color persists** - Custom colors are saved and returned
 7. **Post counts included** - List tags includes count of posts per tag
