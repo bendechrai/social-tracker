@@ -6,7 +6,6 @@ import {
   getPostCounts,
   changePostStatus,
   updateResponseText,
-  fetchNewPosts,
 } from "@/app/actions/posts";
 import {
   listSubreddits,
@@ -145,18 +144,6 @@ export function useUpdateResponseText() {
     }) => updateResponseText(postId, responseText),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] });
-    },
-  });
-}
-
-export function useFetchNewPosts() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: fetchNewPosts,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["posts"] });
-      queryClient.invalidateQueries({ queryKey: ["postCounts"] });
     },
   });
 }

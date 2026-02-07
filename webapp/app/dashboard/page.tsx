@@ -12,7 +12,6 @@ import {
   usePostCounts,
   useChangePostStatus,
   useUpdateResponseText,
-  useFetchNewPosts,
   useSubreddits,
   useTags,
 } from "@/lib/hooks";
@@ -52,26 +51,8 @@ export default function HomePage() {
   // Mutations
   const changeStatus = useChangePostStatus();
   const updateResponse = useUpdateResponseText();
-  const fetchNewPosts = useFetchNewPosts();
 
   // Handlers
-  const handleFetch = async () => {
-    const result = await fetchNewPosts.mutateAsync();
-    if (result.success) {
-      toast({
-        title: "Posts fetched",
-        description: result.message,
-      });
-    } else {
-      toast({
-        title: "Error",
-        description: result.error,
-        variant: "destructive",
-      });
-    }
-    return result;
-  };
-
   const handlePostStatusChange = async (
     postId: string,
     status: PostStatus,
@@ -108,10 +89,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header
-        onFetch={handleFetch}
-        isFetching={fetchNewPosts.isPending}
-      />
+      <Header />
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Banner for missing configuration */}

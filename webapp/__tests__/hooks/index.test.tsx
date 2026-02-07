@@ -19,14 +19,11 @@ const mockListPosts = vi.fn();
 const mockGetPostCounts = vi.fn();
 const mockChangePostStatus = vi.fn();
 const mockUpdateResponseText = vi.fn();
-const mockFetchNewPosts = vi.fn();
-
 vi.mock("@/app/actions/posts", () => ({
   listPosts: (...args: unknown[]) => mockListPosts(...args),
   getPostCounts: () => mockGetPostCounts(),
   changePostStatus: (...args: unknown[]) => mockChangePostStatus(...args),
   updateResponseText: (...args: unknown[]) => mockUpdateResponseText(...args),
-  fetchNewPosts: () => mockFetchNewPosts(),
 }));
 
 const mockListSubreddits = vi.fn();
@@ -72,7 +69,6 @@ import {
   usePostCounts,
   useChangePostStatus,
   useUpdateResponseText,
-  useFetchNewPosts,
   useSubreddits,
   useAddSubreddit,
   useRemoveSubreddit,
@@ -332,41 +328,6 @@ describe("React Query hooks", () => {
       });
     });
 
-    describe("useFetchNewPosts", () => {
-      it("calls fetchNewPosts", async () => {
-        mockFetchNewPosts.mockResolvedValue({ success: true, count: 5 });
-        const { wrapper } = createWrapper();
-
-        const { result } = renderHook(() => useFetchNewPosts(), { wrapper });
-
-        await act(async () => {
-          result.current.mutate();
-        });
-
-        await waitFor(() => {
-          expect(mockFetchNewPosts).toHaveBeenCalled();
-        });
-      });
-
-      it("invalidates posts and postCounts on success", async () => {
-        mockFetchNewPosts.mockResolvedValue({ success: true, count: 5 });
-        const { wrapper, queryClient } = createWrapper();
-        const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
-
-        const { result } = renderHook(() => useFetchNewPosts(), { wrapper });
-
-        await act(async () => {
-          result.current.mutate();
-        });
-
-        await waitFor(() => {
-          expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["posts"] });
-          expect(invalidateSpy).toHaveBeenCalledWith({
-            queryKey: ["postCounts"],
-          });
-        });
-      });
-    });
   });
 
   describe("Subreddit hooks", () => {

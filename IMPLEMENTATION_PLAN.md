@@ -138,13 +138,12 @@ Replace the manual "Fetch New" button with an automatic cron-based fetch system.
   - Spec: `specs/auto-fetch.md` — On-Demand Trigger section
   - After saving the subreddit, checks if posts already exist in the `posts` table. If yes: `linkExistingPostsToUser` creates `user_posts` (status "new") and `user_post_tags` with tag matching. If no: dynamically imports and calls the cron `GET` handler for immediate 7-day backfill.
 
-- [ ] **Remove "Fetch New" button and related fetch UI from header/dashboard** *(next up)*
-  - Files: `webapp/components/header.tsx`, `webapp/app/dashboard/page.tsx`, `webapp/hooks/` (fetch hook)
+- [x] **Remove "Fetch New" button and related fetch UI from header/dashboard**
+  - Files: `webapp/components/header.tsx`, `webapp/app/dashboard/page.tsx`, `webapp/lib/hooks/index.ts`
   - Spec: `specs/auto-fetch.md` — UI Changes: Remove section; `specs/post-management.md` — Trigger changed to cron
-  - Acceptance: "Fetch New" button removed from header. `onFetch` / `handleFetch` props and callbacks removed. Dashboard no longer shows fetch loading/result state. `useFetchNewPosts` hook removed or deprecated. Build and typecheck pass.
-  - Tests: Existing E2E tests updated if they reference the fetch button. `tsc` and `lint` pass.
+  - Header simplified: removed `onFetch`/`isFetching` props, fetch button, loading state, message display. Removed `"use client"` (no longer needs client state). Dashboard removed `useFetchNewPosts` hook usage, `handleFetch`, and fetch props. `useFetchNewPosts` hook removed from hooks index. Header tests rewritten (4 tests: title, settings link, user menu, no fetch button). Hook tests updated (removed `useFetchNewPosts` tests). E2E tests already didn't reference fetch button — no changes needed.
 
-- [ ] **Add fetch status display to subreddit settings list**
+- [ ] **Add fetch status display to subreddit settings list** *(next up)*
   - Files: `webapp/components/settings/subreddit-settings.tsx`, `webapp/app/actions/subreddits.ts`
   - Spec: `specs/auto-fetch.md` — UI Changes: Settings Page section
   - Acceptance: Each subreddit row in settings shows "Last fetched: X ago" (or "Never") and "Next fetch: in Y min" (or "Pending"). Data comes from `subreddit_fetch_status` joined by name. If no row exists, show "Pending" for both. Overdue subreddits show "Pending" instead of negative time.
@@ -177,7 +176,7 @@ Replace the manual "Fetch New" button with an automatic cron-based fetch system.
 | 22 | Per-Subreddit Incremental Fetching | 3 | **COMPLETE** | None | HIGH |
 | 23 | Auto-Fetch Cron | 9 | **IN PROGRESS** | Phase 22 | HIGH |
 
-**Total Remaining Tasks: 3** — Phase 23 in progress
+**Total Remaining Tasks: 2** — Phase 23 in progress
 
 ### Environment Variables Required
 ```bash
