@@ -75,12 +75,17 @@ export async function getTag(
   };
 }
 
-// Create a new tag with optional initial terms
+// Create a new tag with required initial terms
 export async function createTag(
   name: string,
   color?: string,
   initialTerms?: string[]
 ): Promise<{ success: true; tag: TagData } | { success: false; error: string }> {
+  // Validate at least one search term is provided
+  if (!initialTerms || initialTerms.length === 0) {
+    return { success: false, error: "At least one search term is required" };
+  }
+
   const userId = await getCurrentUserId();
 
   // Validate tag input

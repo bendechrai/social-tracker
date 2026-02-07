@@ -171,15 +171,15 @@ The tag-system spec requires two constraints that are not enforced:
 1. **"At least one search term required"** (criterion 9): `createTag` accepts `initialTerms` as optional and allows creating tags with zero search terms. Neither the server action nor the UI validates this.
 2. **"Cannot remove last term"** (criterion 10): `removeSearchTerm` deletes any term without checking if it's the tag's only remaining term. The UI does not disable the remove button when one term remains.
 
-### In Progress
+### Completed (Phase 24)
 
-- [ ] **Add server-side validation to `createTag` requiring at least one search term**
+- [x] **Add server-side validation to `createTag` requiring at least one search term**
   - Files: `webapp/app/actions/tags.ts`
   - Spec: `specs/tag-system.md` acceptance criterion 9
   - Acceptance: `createTag` returns `{ success: false, error: "At least one search term is required" }` when `initialTerms` is empty or missing
-  - Tests: Add unit test calling `createTag` with no terms and verifying error response; add test with empty array
+  - Tests: 2 new tests (missing terms, empty array); updated all existing `createTag` tests to pass terms
 
-### Backlog
+### In Progress
 
 - [ ] **Add server-side validation to `removeSearchTerm` preventing removal of last term**
   - Files: `webapp/app/actions/tags.ts`

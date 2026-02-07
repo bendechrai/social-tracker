@@ -78,6 +78,12 @@ vi.mock("@/lib/db", () => ({
           return mockFindFirst(...args);
         },
       },
+      searchTerms: {
+        findFirst: (...args: unknown[]) => {
+          mockQueryCalls.push({ method: "searchTerms.findFirst", args });
+          return mockFindFirst(...args);
+        },
+      },
     },
     insert: (...args: unknown[]) => {
       mockInsert(...args);
@@ -251,11 +257,15 @@ describe("data isolation between users", () => {
     it("createTag uses authenticated user's ID in insert", async () => {
       currentMockUserId = "user-B-id";
       mockFindFirst.mockResolvedValue(null); // No duplicate
-      mockReturning.mockResolvedValue([
-        { id: "tag-1", name: "React", color: "#6366f1", userId: "user-B-id", createdAt: new Date() },
-      ]);
+      mockReturning
+        .mockResolvedValueOnce([
+          { id: "tag-1", name: "React", color: "#6366f1", userId: "user-B-id", createdAt: new Date() },
+        ])
+        .mockResolvedValueOnce([
+          { id: "term-1", term: "react", tagId: "tag-1", createdAt: new Date() },
+        ]);
 
-      await createTag("React", "#6366f1", []);
+      await createTag("React", "#6366f1", ["react"]);
 
       expect(getCurrentUserId).toHaveBeenCalled();
       expect(mockValues).toHaveBeenCalled();

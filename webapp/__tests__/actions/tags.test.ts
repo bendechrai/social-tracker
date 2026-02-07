@@ -252,9 +252,28 @@ describe("tag server actions", () => {
 
   describe("createTag", () => {
     describe("validation", () => {
+      it("rejects missing initial terms", async () => {
+        const result = await createTag("Test");
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toBe("At least one search term is required");
+        }
+        expect(mockInsert).not.toHaveBeenCalled();
+      });
+
+      it("rejects empty initial terms array", async () => {
+        const result = await createTag("Test", undefined, []);
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toBe("At least one search term is required");
+        }
+        expect(mockInsert).not.toHaveBeenCalled();
+      });
+
       it("rejects empty tag name", async () => {
-        // Validation happens before database queries, so no mocks needed
-        const result = await createTag("");
+        const result = await createTag("", undefined, ["term"]);
 
         expect(result.success).toBe(false);
         if (!result.success) {
@@ -264,8 +283,7 @@ describe("tag server actions", () => {
       });
 
       it("rejects name longer than 100 characters", async () => {
-        // Validation happens before database queries, so no mocks needed
-        const result = await createTag("a".repeat(101));
+        const result = await createTag("a".repeat(101), undefined, ["term"]);
 
         expect(result.success).toBe(false);
         if (!result.success) {
@@ -275,8 +293,7 @@ describe("tag server actions", () => {
       });
 
       it("rejects invalid color format", async () => {
-        // Validation happens before database queries when color is provided
-        const result = await createTag("Test", "invalid-color");
+        const result = await createTag("Test", "invalid-color", ["term"]);
 
         expect(result.success).toBe(false);
         expect(mockInsert).not.toHaveBeenCalled();
@@ -288,17 +305,21 @@ describe("tag server actions", () => {
         // No existing tags (empty array)
         mockFindMany.mockResolvedValue([]);
         mockFindFirst.mockResolvedValue(null); // No duplicate
-        mockReturning.mockResolvedValue([
-          {
-            id: "new-tag",
-            name: "Test",
-            color: TAG_COLOR_PALETTE[0],
-            userId: MOCK_USER_ID,
-            createdAt: new Date(),
-          },
-        ]);
+        mockReturning
+          .mockResolvedValueOnce([
+            {
+              id: "new-tag",
+              name: "Test",
+              color: TAG_COLOR_PALETTE[0],
+              userId: MOCK_USER_ID,
+              createdAt: new Date(),
+            },
+          ])
+          .mockResolvedValueOnce([
+            { id: "term-1", term: "test", tagId: "new-tag", createdAt: new Date() },
+          ]);
 
-        const result = await createTag("Test");
+        const result = await createTag("Test", undefined, ["test"]);
 
         expect(result.success).toBe(true);
         if (result.success) {
@@ -313,17 +334,21 @@ describe("tag server actions", () => {
         // Simulate first color already in use
         mockFindMany.mockResolvedValue([{ color: TAG_COLOR_PALETTE[0] }]);
         mockFindFirst.mockResolvedValue(null); // No duplicate
-        mockReturning.mockResolvedValue([
-          {
-            id: "new-tag",
-            name: "Test",
-            color: TAG_COLOR_PALETTE[1], // Should be second color
-            userId: MOCK_USER_ID,
-            createdAt: new Date(),
-          },
-        ]);
+        mockReturning
+          .mockResolvedValueOnce([
+            {
+              id: "new-tag",
+              name: "Test",
+              color: TAG_COLOR_PALETTE[1], // Should be second color
+              userId: MOCK_USER_ID,
+              createdAt: new Date(),
+            },
+          ])
+          .mockResolvedValueOnce([
+            { id: "term-1", term: "test", tagId: "new-tag", createdAt: new Date() },
+          ]);
 
-        const result = await createTag("Test");
+        const result = await createTag("Test", undefined, ["test"]);
 
         expect(result.success).toBe(true);
         if (result.success) {
@@ -342,17 +367,21 @@ describe("tag server actions", () => {
           { color: TAG_COLOR_PALETTE[2] },
         ]);
         mockFindFirst.mockResolvedValue(null);
-        mockReturning.mockResolvedValue([
-          {
-            id: "new-tag",
-            name: "Test",
-            color: TAG_COLOR_PALETTE[3], // Should be fourth color
-            userId: MOCK_USER_ID,
-            createdAt: new Date(),
-          },
-        ]);
+        mockReturning
+          .mockResolvedValueOnce([
+            {
+              id: "new-tag",
+              name: "Test",
+              color: TAG_COLOR_PALETTE[3], // Should be fourth color
+              userId: MOCK_USER_ID,
+              createdAt: new Date(),
+            },
+          ])
+          .mockResolvedValueOnce([
+            { id: "term-1", term: "test", tagId: "new-tag", createdAt: new Date() },
+          ]);
 
-        const result = await createTag("Test");
+        const result = await createTag("Test", undefined, ["test"]);
 
         expect(result.success).toBe(true);
         if (result.success) {
@@ -369,17 +398,21 @@ describe("tag server actions", () => {
           TAG_COLOR_PALETTE.map((color) => ({ color }))
         );
         mockFindFirst.mockResolvedValue(null);
-        mockReturning.mockResolvedValue([
-          {
-            id: "new-tag",
-            name: "Test",
-            color: TAG_COLOR_PALETTE[0], // Should cycle back to first
-            userId: MOCK_USER_ID,
-            createdAt: new Date(),
-          },
-        ]);
+        mockReturning
+          .mockResolvedValueOnce([
+            {
+              id: "new-tag",
+              name: "Test",
+              color: TAG_COLOR_PALETTE[0], // Should cycle back to first
+              userId: MOCK_USER_ID,
+              createdAt: new Date(),
+            },
+          ])
+          .mockResolvedValueOnce([
+            { id: "term-1", term: "test", tagId: "new-tag", createdAt: new Date() },
+          ]);
 
-        const result = await createTag("Test");
+        const result = await createTag("Test", undefined, ["test"]);
 
         expect(result.success).toBe(true);
         if (result.success) {
@@ -392,17 +425,21 @@ describe("tag server actions", () => {
 
       it("uses provided custom color when valid (skips auto-color)", async () => {
         mockFindFirst.mockResolvedValue(null);
-        mockReturning.mockResolvedValue([
-          {
-            id: "new-tag",
-            name: "Test",
-            color: "#ff5733",
-            userId: MOCK_USER_ID,
-            createdAt: new Date(),
-          },
-        ]);
+        mockReturning
+          .mockResolvedValueOnce([
+            {
+              id: "new-tag",
+              name: "Test",
+              color: "#ff5733",
+              userId: MOCK_USER_ID,
+              createdAt: new Date(),
+            },
+          ])
+          .mockResolvedValueOnce([
+            { id: "term-1", term: "test", tagId: "new-tag", createdAt: new Date() },
+          ]);
 
-        const result = await createTag("Test", "#ff5733");
+        const result = await createTag("Test", "#ff5733", ["test"]);
 
         expect(result.success).toBe(true);
         if (result.success) {
@@ -425,7 +462,7 @@ describe("tag server actions", () => {
           createdAt: new Date(),
         });
 
-        const result = await createTag("Yugabyte");
+        const result = await createTag("Yugabyte", undefined, ["yugabyte"]);
 
         expect(result.success).toBe(false);
         if (!result.success) {
@@ -502,17 +539,21 @@ describe("tag server actions", () => {
       it("creates tag and returns complete data", async () => {
         mockFindFirst.mockResolvedValue(null);
         const createdAt = new Date();
-        mockReturning.mockResolvedValue([
-          {
-            id: "new-tag-id",
-            name: "PostgreSQL",
-            color: "#10b981",
-            userId: MOCK_USER_ID,
-            createdAt,
-          },
-        ]);
+        mockReturning
+          .mockResolvedValueOnce([
+            {
+              id: "new-tag-id",
+              name: "PostgreSQL",
+              color: "#10b981",
+              userId: MOCK_USER_ID,
+              createdAt,
+            },
+          ])
+          .mockResolvedValueOnce([
+            { id: "term-1", term: "postgresql", tagId: "new-tag-id", createdAt },
+          ]);
 
-        const result = await createTag("PostgreSQL", "#10b981");
+        const result = await createTag("PostgreSQL", "#10b981", ["postgresql"]);
 
         expect(result.success).toBe(true);
         if (result.success) {
@@ -521,7 +562,7 @@ describe("tag server actions", () => {
             name: "PostgreSQL",
             color: "#10b981",
             createdAt,
-            terms: [],
+            terms: [{ id: "term-1", term: "postgresql" }],
             postCount: 0,
           });
         }
