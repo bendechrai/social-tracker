@@ -179,13 +179,13 @@ The tag-system spec requires two constraints that are not enforced:
   - Acceptance: `createTag` returns `{ success: false, error: "At least one search term is required" }` when `initialTerms` is empty or missing
   - Tests: 2 new tests (missing terms, empty array); updated all existing `createTag` tests to pass terms
 
-### In Progress
-
-- [ ] **Add server-side validation to `removeSearchTerm` preventing removal of last term**
+- [x] **Add server-side validation to `removeSearchTerm` preventing removal of last term**
   - Files: `webapp/app/actions/tags.ts`
   - Spec: `specs/tag-system.md` acceptance criterion 10
   - Acceptance: `removeSearchTerm` returns `{ success: false, error: "Cannot remove the last search term" }` when the tag has exactly one term remaining
-  - Tests: Add unit test deleting a tag's only term and verifying error; add test confirming deletion succeeds when 2+ terms exist
+  - Tests: 3 new tests (reject last term removal, allow removal with 2 terms, allow removal with 3+ terms); updated 2 existing tests with count mock
+
+### In Progress
 
 - [ ] **Add UI validation for tag creation requiring at least one search term**
   - Files: `webapp/components/settings/tag-settings.tsx`
@@ -217,7 +217,7 @@ The tag-system spec requires two constraints that are not enforced:
 | 23 | Auto-Fetch Cron | 9 | **COMPLETE** | Phase 22 | HIGH |
 | 24 | Tag Search Term Constraints | 4 | **IN PROGRESS** | None | HIGH |
 
-**Total Remaining Tasks: 4** — Phase 24 in progress
+**Total Remaining Tasks: 2** — Phase 24 in progress
 
 ### Environment Variables Required
 ```bash

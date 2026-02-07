@@ -22,6 +22,9 @@ const mockValues = vi.fn();
 const mockWhere = vi.fn();
 const mockReturning = vi.fn();
 const mockSet = vi.fn();
+const mockSelect = vi.fn();
+const mockFrom = vi.fn();
+const mockSelectWhere = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -33,6 +36,17 @@ vi.mock("@/lib/db", () => ({
       searchTerms: {
         findFirst: (...args: unknown[]) => mockFindFirst(...args),
       },
+    },
+    select: (...args: unknown[]) => {
+      mockSelect(...args);
+      return {
+        from: (...fromArgs: unknown[]) => {
+          mockFrom(...fromArgs);
+          return {
+            where: (...whereArgs: unknown[]) => mockSelectWhere(...whereArgs),
+          };
+        },
+      };
     },
     insert: (...args: unknown[]) => {
       mockInsert(...args);
@@ -891,7 +905,7 @@ describe("tag server actions", () => {
       }
     });
 
-    it("successfully removes term", async () => {
+    it("successfully removes term when tag has multiple terms", async () => {
       mockFindFirst.mockResolvedValue({
         id: "term-to-delete",
         term: "test",
@@ -905,6 +919,8 @@ describe("tag server actions", () => {
           createdAt: new Date(),
         },
       });
+      // Tag has 2 terms, so removing one is allowed
+      mockSelectWhere.mockResolvedValue([{ count: 2 }]);
 
       const result = await removeSearchTerm("term-to-delete");
 
@@ -928,11 +944,62 @@ describe("tag server actions", () => {
           createdAt: new Date(),
         },
       });
+      // Tag has 3 terms, so removing one is allowed
+      mockSelectWhere.mockResolvedValue([{ count: 3 }]);
 
       const result = await removeSearchTerm("term-to-delete");
 
       expect(result.success).toBe(true);
       // Only one delete call (search_terms), no user_post_tags manipulation
+      expect(mockDelete).toHaveBeenCalledOnce();
+    });
+
+    it("returns error when trying to remove the last search term", async () => {
+      mockFindFirst.mockResolvedValue({
+        id: "only-term",
+        term: "test",
+        tagId: "tag-1",
+        createdAt: new Date(),
+        tag: {
+          id: "tag-1",
+          name: "Test",
+          color: "#6366f1",
+          userId: MOCK_USER_ID,
+          createdAt: new Date(),
+        },
+      });
+      // Tag has only 1 term
+      mockSelectWhere.mockResolvedValue([{ count: 1 }]);
+
+      const result = await removeSearchTerm("only-term");
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe("Cannot remove the last search term");
+      }
+      expect(mockDelete).not.toHaveBeenCalled();
+    });
+
+    it("allows removal when tag has exactly two terms", async () => {
+      mockFindFirst.mockResolvedValue({
+        id: "term-to-delete",
+        term: "yugabyte",
+        tagId: "tag-1",
+        createdAt: new Date(),
+        tag: {
+          id: "tag-1",
+          name: "Yugabyte",
+          color: "#6366f1",
+          userId: MOCK_USER_ID,
+          createdAt: new Date(),
+        },
+      });
+      // Tag has exactly 2 terms
+      mockSelectWhere.mockResolvedValue([{ count: 2 }]);
+
+      const result = await removeSearchTerm("term-to-delete");
+
+      expect(result.success).toBe(true);
       expect(mockDelete).toHaveBeenCalledOnce();
     });
   });

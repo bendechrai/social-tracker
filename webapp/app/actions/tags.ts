@@ -332,6 +332,16 @@ export async function removeSearchTerm(
     return { success: false, error: "Search term not found" };
   }
 
+  // Check if this is the last search term for the tag
+  const termCount = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(searchTerms)
+    .where(eq(searchTerms.tagId, term.tag.id));
+
+  if (termCount[0]!.count <= 1) {
+    return { success: false, error: "Cannot remove the last search term" };
+  }
+
   // Delete the term
   await db.delete(searchTerms).where(eq(searchTerms.id, termId));
 
