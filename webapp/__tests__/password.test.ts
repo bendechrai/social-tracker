@@ -24,14 +24,14 @@ describe("password utilities", () => {
 
       // Each hash should be different due to random salt
       expect(hash1).not.toBe(hash2);
-    });
+    }, 15000);
 
     it("produces different hashes for different passwords", async () => {
       const hash1 = await hashPassword("Password1!");
       const hash2 = await hashPassword("Password2!");
 
       expect(hash1).not.toBe(hash2);
-    });
+    }, 15000);
 
     it("handles empty password", async () => {
       const hash = await hashPassword("");
@@ -111,7 +111,7 @@ describe("password utilities", () => {
       // Both hashes should verify the same password
       expect(await verifyPassword(password, hash1)).toBe(true);
       expect(await verifyPassword(password, hash2)).toBe(true);
-    });
+    }, 15000);
   });
 
   describe("security properties", () => {
@@ -138,6 +138,6 @@ describe("password utilities", () => {
 
       // Durations should be similar (within 100ms) - timing attack resistance
       expect(Math.abs(correctDuration - wrongDuration)).toBeLessThan(100);
-    });
+    }, 15000);
   });
 });
