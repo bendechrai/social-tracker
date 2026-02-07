@@ -1,5 +1,5 @@
 {
-  "id": "b868538e-5369-496e-92fd-1576d74ab47e",
+  "id": "66b23972-adc1-4882-a5b3-425bce0e4413",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -443,17 +443,10 @@
       "name": "sessions",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
         "session_token": {
           "name": "session_token",
           "type": "varchar(255)",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true
         },
         "user_id": {
@@ -486,15 +479,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "sessions_session_token_unique": {
-          "name": "sessions_session_token_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "session_token"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -673,33 +658,27 @@
           "primaryKey": false,
           "notNull": true
         },
-        "password_hash": {
-          "name": "password_hash",
-          "type": "text",
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false
         },
-        "reddit_access_token": {
-          "name": "reddit_access_token",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reddit_refresh_token": {
-          "name": "reddit_refresh_token",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reddit_token_expires_at": {
-          "name": "reddit_token_expires_at",
+        "email_verified": {
+          "name": "email_verified",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
         },
-        "reddit_username": {
-          "name": "reddit_username",
-          "type": "varchar(100)",
+        "image": {
+          "name": "image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

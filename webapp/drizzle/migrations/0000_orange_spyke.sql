@@ -47,11 +47,9 @@ CREATE TABLE "search_terms" (
 );
 --> statement-breakpoint
 CREATE TABLE "sessions" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"session_token" varchar(255) NOT NULL,
+	"session_token" varchar(255) PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
-	"expires" timestamp NOT NULL,
-	CONSTRAINT "sessions_session_token_unique" UNIQUE("session_token")
+	"expires" timestamp NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "subreddits" (
@@ -72,11 +70,10 @@ CREATE TABLE "tags" (
 CREATE TABLE "users" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"email" varchar(255) NOT NULL,
+	"name" varchar(255),
+	"email_verified" timestamp,
+	"image" text,
 	"password_hash" text,
-	"reddit_access_token" text,
-	"reddit_refresh_token" text,
-	"reddit_token_expires_at" timestamp,
-	"reddit_username" varchar(100),
 	"groq_api_key" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,

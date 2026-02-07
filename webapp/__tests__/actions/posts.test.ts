@@ -634,7 +634,7 @@ describe("post server actions", () => {
         expect(result.count).toBe(1);
         expect(result.message).toBe("Found 1 new post.");
       }
-      expect(mockFetchRedditPosts).toHaveBeenCalledWith(["postgresql"], ["yugabyte"]);
+      expect(mockFetchRedditPosts).toHaveBeenCalledWith(["postgresql"]);
     });
 
     it("skips duplicate posts (same reddit_id) via upsert", async () => {
@@ -656,7 +656,7 @@ describe("post server actions", () => {
       mockFetchRedditPosts.mockResolvedValue([
         {
           redditId: "existing-post-id",
-          title: "Existing post",
+          title: "Existing yugabyte post",
           body: null,
           author: "poster",
           subreddit: "postgresql",

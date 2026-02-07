@@ -55,7 +55,7 @@ export default function SignupPage() {
       });
 
       if (signInResult?.ok) {
-        router.push("/");
+        router.push("/dashboard");
         router.refresh();
       } else {
         // Signup succeeded but auto-login failed; redirect to login

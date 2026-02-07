@@ -396,13 +396,30 @@ export async function fetchNewPosts(): Promise<{
     };
   }
 
-  // Fetch posts from Reddit
+  // Fetch all recent posts from configured subreddits
   const subredditNames = userSubreddits.map((s) => s.name);
-  const fetchedPosts = await fetchRedditPosts(subredditNames, allTerms);
+  const fetchedPosts = await fetchRedditPosts(subredditNames);
 
   let newCount = 0;
 
   for (const fetchedPost of fetchedPosts) {
+    // Match tags locally before storing — only keep posts that match at least one term
+    const matchedTagIds = new Set<string>();
+    const postText = `${fetchedPost.title} ${fetchedPost.body ?? ""}`.toLowerCase();
+
+    for (const [term, tagIdList] of termToTagIds.entries()) {
+      if (postText.includes(term.toLowerCase())) {
+        for (const tagId of tagIdList) {
+          matchedTagIds.add(tagId);
+        }
+      }
+    }
+
+    // Skip posts that don't match any search terms
+    if (matchedTagIds.size === 0) {
+      continue;
+    }
+
     // Upsert: insert on conflict do nothing (race-condition safe deduplication)
     const result = await db
       .insert(posts)
@@ -427,18 +444,6 @@ export async function fetchNewPosts(): Promise<{
     const newPost = result[0];
     if (!newPost) {
       continue;
-    }
-
-    // Determine which tags match this post
-    const matchedTagIds = new Set<string>();
-    const postText = `${fetchedPost.title} ${fetchedPost.body ?? ""}`.toLowerCase();
-
-    for (const [term, tagIdList] of termToTagIds.entries()) {
-      if (postText.includes(term)) {
-        for (const tagId of tagIdList) {
-          matchedTagIds.add(tagId);
-        }
-      }
     }
 
     // Create post_tag associations

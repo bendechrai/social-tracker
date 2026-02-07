@@ -8,20 +8,6 @@
       "when": 1768150030311,
       "tag": "0000_orange_spyke",
       "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1768150582418,
-      "tag": "0001_whole_mole_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1770417796493,
-      "tag": "0002_light_falcon",
-      "breakpoints": true
     }
   ]
 }

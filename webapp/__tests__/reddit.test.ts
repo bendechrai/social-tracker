@@ -24,17 +24,7 @@ describe("fetchRedditPosts", () => {
 
   describe("input validation", () => {
     it("returns empty array when no subreddits provided", async () => {
-      const result = await fetchRedditPosts([], ["yugabyte"]);
-      expect(result).toEqual([]);
-    });
-
-    it("returns empty array when no search terms provided", async () => {
-      const result = await fetchRedditPosts(["postgresql"], []);
-      expect(result).toEqual([]);
-    });
-
-    it("returns empty array when both inputs are empty", async () => {
-      const result = await fetchRedditPosts([], []);
+      const result = await fetchRedditPosts([]);
       expect(result).toEqual([]);
     });
   });
@@ -52,48 +42,41 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      await fetchRedditPosts(["postgresql"], ["yugabyte"], 48);
+      await fetchRedditPosts(["postgresql"], 48);
 
       const url = new URL(capturedUrl);
       expect(url.searchParams.get("subreddit")).toBe("postgresql");
-      expect(url.searchParams.get("query")).toBe("yugabyte");
+      expect(url.searchParams.has("query")).toBe(false);
       expect(url.searchParams.get("sort")).toBe("desc");
-      expect(url.searchParams.get("limit")).toBe("100");
+      expect(url.searchParams.get("limit")).toBe("auto");
       // after should be a Unix timestamp roughly 48 hours ago
       const afterTs = parseInt(url.searchParams.get("after")!);
       const expectedTs = Math.floor(Date.now() / 1000) - 48 * 60 * 60;
       expect(Math.abs(afterTs - expectedTs)).toBeLessThan(5); // within 5 seconds
     });
 
-    it("makes one request per subreddit+term combination", async () => {
+    it("makes one request per subreddit", async () => {
       const requests: string[] = [];
       server.use(
         http.get(
           "https://arctic-shift.photon-reddit.com/api/posts/search",
           ({ request }) => {
             const url = new URL(request.url);
-            requests.push(
-              `${url.searchParams.get("subreddit")}:${url.searchParams.get("query")}`
-            );
+            requests.push(url.searchParams.get("subreddit")!);
             return HttpResponse.json({ data: [] });
           }
         )
       );
 
-      await fetchRedditPosts(["sub1", "sub2"], ["term1", "term2"]);
+      await fetchRedditPosts(["sub1", "sub2"]);
 
-      expect(requests).toEqual([
-        "sub1:term1",
-        "sub1:term2",
-        "sub2:term1",
-        "sub2:term2",
-      ]);
+      expect(requests).toEqual(["sub1", "sub2"]);
     });
   });
 
   describe("response parsing", () => {
     it("fetches posts from Arctic Shift API", async () => {
-      const result = await fetchRedditPosts(["postgresql"], ["yugabyte"]);
+      const result = await fetchRedditPosts(["postgresql"]);
       expect(result.length).toBeGreaterThan(0);
     });
 
@@ -124,7 +107,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(["postgresql"], ["test"]);
+      const result = await fetchRedditPosts(["postgresql"]);
       expect(result.length).toBe(1);
 
       const post = result[0]!;
@@ -167,7 +150,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(["test"], ["query"]);
+      const result = await fetchRedditPosts(["test"]);
       expect(result[0]!.redditId).toBe("t3_xyz789");
     });
 
@@ -197,7 +180,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(["test"], ["query"]);
+      const result = await fetchRedditPosts(["test"]);
       expect(result[0]!.body).toBeNull();
     });
 
@@ -227,7 +210,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(["test"], ["query"]);
+      const result = await fetchRedditPosts(["test"]);
       expect(result[0]!.body).toBeNull();
     });
 
@@ -241,7 +224,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(["test"], ["query"]);
+      const result = await fetchRedditPosts(["test"]);
       expect(result).toEqual([]);
     });
   });
@@ -275,10 +258,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(
-        ["postgresql", "database"],
-        ["yugabyte"]
-      );
+      const result = await fetchRedditPosts(["postgresql", "database"]);
       expect(result.length).toBe(2);
       expect(result.map((p) => p.subreddit).sort()).toEqual([
         "database",
@@ -314,45 +294,10 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(
-        ["postgresql", "database"],
-        ["test"]
-      );
+      const result = await fetchRedditPosts(["postgresql", "database"]);
       expect(result.length).toBe(1);
     });
 
-    it("deduplicates posts across multiple search terms", async () => {
-      server.use(
-        http.get(
-          "https://arctic-shift.photon-reddit.com/api/posts/search",
-          () => {
-            return HttpResponse.json({
-              data: [
-                {
-                  id: "shared_post",
-                  title: "Matches multiple terms",
-                  selftext: "Body",
-                  author: "author",
-                  subreddit: "test",
-                  permalink: "/r/test/comments/shared_post/",
-                  url: null,
-                  created_utc: Math.floor(Date.now() / 1000) - 1800,
-                  score: 1,
-                  num_comments: 0,
-                  is_self: true,
-                },
-              ],
-            });
-          }
-        )
-      );
-
-      const result = await fetchRedditPosts(
-        ["test"],
-        ["term1", "term2", "term3"]
-      );
-      expect(result.length).toBe(1);
-    });
   });
 
   describe("sorting", () => {
@@ -396,7 +341,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(["test"], ["query"]);
+      const result = await fetchRedditPosts(["test"]);
       expect(result.length).toBe(2);
       expect(result[0]!.redditId).toBe("t3_newer");
       expect(result[1]!.redditId).toBe("t3_older");
@@ -439,10 +384,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(
-        ["failing", "working"],
-        ["query"]
-      );
+      const result = await fetchRedditPosts(["failing", "working"]);
       expect(result.length).toBe(1);
       expect(result[0]!.subreddit).toBe("working");
     }, 15000);
@@ -458,7 +400,7 @@ describe("fetchRedditPosts", () => {
       );
 
       // Should not throw
-      const result = await fetchRedditPosts(["test"], ["query"]);
+      const result = await fetchRedditPosts(["test"]);
       expect(result).toEqual([]);
     }, 15000);
 
@@ -474,7 +416,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      await fetchRedditPosts(["test"], ["query"]);
+      await fetchRedditPosts(["test"]);
 
       // No Authorization header should be sent
       expect(requestHeaders!.get("Authorization")).toBeNull();
@@ -503,7 +445,7 @@ describe("fetchRedditPosts", () => {
       );
 
       // Should succeed without issues
-      const result = await fetchRedditPosts(["test"], ["query"]);
+      const result = await fetchRedditPosts(["test"]);
       expect(result).toEqual([]);
     });
   });
@@ -522,7 +464,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      await fetchRedditPosts(["test"], ["query"]);
+      await fetchRedditPosts(["test"]);
 
       const afterTs = parseInt(capturedAfter);
       const expectedTs = Math.floor(Date.now() / 1000) - 48 * 60 * 60;
@@ -542,7 +484,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      await fetchRedditPosts(["test"], ["query"], 24);
+      await fetchRedditPosts(["test"], 24);
 
       const afterTs = parseInt(capturedAfter);
       const expectedTs = Math.floor(Date.now() / 1000) - 24 * 60 * 60;

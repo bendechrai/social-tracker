@@ -2,6 +2,7 @@
  * Unit tests for authentication middleware.
  *
  * Tests verify that:
+ * - Landing page (/) passes through for all users (handles own auth)
  * - Unauthenticated page requests redirect to /login
  * - Unauthenticated API requests return 401 JSON
  * - Authenticated requests pass through
@@ -71,13 +72,12 @@ describe("authentication middleware", () => {
     const nullSession: MockSession = null;
 
     describe("page routes", () => {
-      it("redirects / to /login", () => {
+      it("allows / through (landing page handles its own auth)", () => {
         const response = callMiddleware("/", nullSession);
 
         expect(response).toBeInstanceOf(NextResponse);
         const nextResponse = response as NextResponse;
-        expect(nextResponse.status).toBe(307); // Temporary redirect
-        expect(nextResponse.headers.get("location")).toContain("/login");
+        expect(nextResponse.status).toBe(200);
       });
 
       it("redirects /settings to /login", () => {
@@ -91,6 +91,15 @@ describe("authentication middleware", () => {
 
       it("redirects /settings/account to /login", () => {
         const response = callMiddleware("/settings/account", nullSession);
+
+        expect(response).toBeInstanceOf(NextResponse);
+        const nextResponse = response as NextResponse;
+        expect(nextResponse.status).toBe(307);
+        expect(nextResponse.headers.get("location")).toContain("/login");
+      });
+
+      it("redirects /dashboard to /login", () => {
+        const response = callMiddleware("/dashboard", nullSession);
 
         expect(response).toBeInstanceOf(NextResponse);
         const nextResponse = response as NextResponse;
@@ -173,6 +182,14 @@ describe("authentication middleware", () => {
 
     it("allows access to /", () => {
       const response = callMiddleware("/", validSession);
+
+      expect(response).toBeInstanceOf(NextResponse);
+      const nextResponse = response as NextResponse;
+      expect(nextResponse.status).toBe(200);
+    });
+
+    it("allows access to /dashboard", () => {
+      const response = callMiddleware("/dashboard", validSession);
 
       expect(response).toBeInstanceOf(NextResponse);
       const nextResponse = response as NextResponse;

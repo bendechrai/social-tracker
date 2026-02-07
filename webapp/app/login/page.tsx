@@ -40,7 +40,7 @@ function LoginForm() {
       setIsLoading(false);
     } else if (result?.ok) {
       // Redirect to callbackUrl or dashboard
-      const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+      const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
       router.push(callbackUrl);
       router.refresh();
     } else {

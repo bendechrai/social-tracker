@@ -129,19 +129,17 @@ async function fetchWithRetry(
 }
 
 /**
- * Build Arctic Shift search URL for a subreddit + search term combination.
+ * Build Arctic Shift search URL for all recent posts in a subreddit.
  */
 function buildSearchUrl(
   subreddit: string,
-  query: string,
   afterTimestamp: number
 ): string {
   const url = new URL(ARCTIC_SHIFT_POSTS_URL);
   url.searchParams.set("subreddit", subreddit);
-  url.searchParams.set("query", query);
   url.searchParams.set("after", afterTimestamp.toString());
   url.searchParams.set("sort", "desc");
-  url.searchParams.set("limit", "100");
+  url.searchParams.set("limit", "auto");
   return url.toString();
 }
 
@@ -166,22 +164,21 @@ function parsePost(post: ArcticShiftPost): FetchedPost {
 }
 
 /**
- * Fetch Reddit posts from Arctic Shift API.
+ * Fetch all recent Reddit posts from Arctic Shift API.
  *
- * Searches configured subreddits for posts matching search terms
- * within a time window. No authentication required.
+ * Fetches all posts from configured subreddits within a time window.
+ * One API call per subreddit (no query filtering). Tag matching is
+ * done locally by the caller. No authentication required.
  *
  * @param subreddits - List of subreddit names (without r/ prefix)
- * @param searchTerms - List of search terms to match
  * @param timeWindowHours - How far back to search (default: 48 hours)
  * @returns Deduplicated, sorted list of fetched posts
  */
 export async function fetchRedditPosts(
   subreddits: string[],
-  searchTerms: string[],
   timeWindowHours = DEFAULT_TIME_WINDOW_HOURS
 ): Promise<FetchedPost[]> {
-  if (subreddits.length === 0 || searchTerms.length === 0) {
+  if (subreddits.length === 0) {
     return [];
   }
 
@@ -191,36 +188,34 @@ export async function fetchRedditPosts(
   // Calculate time threshold as Unix timestamp
   const afterTimestamp = Math.floor(Date.now() / 1000) - timeWindowHours * 60 * 60;
 
-  // For each subreddit + search term combination, make one request
+  // One request per subreddit — fetch all recent posts
   for (const subreddit of subreddits) {
-    for (const term of searchTerms) {
-      try {
-        const url = buildSearchUrl(subreddit, term, afterTimestamp);
-        const response = await fetchWithRetry(url);
-        const data = (await response.json()) as ArcticShiftResponse;
+    try {
+      const url = buildSearchUrl(subreddit, afterTimestamp);
+      const response = await fetchWithRetry(url);
+      const data = (await response.json()) as ArcticShiftResponse;
 
-        if (!data.data || !Array.isArray(data.data)) {
+      if (!data.data || !Array.isArray(data.data)) {
+        continue;
+      }
+
+      for (const rawPost of data.data) {
+        const postId = `t3_${rawPost.id}`;
+
+        // Deduplicate by reddit_id (handles cross-posts across subreddits)
+        if (seenIds.has(postId)) {
           continue;
         }
 
-        for (const rawPost of data.data) {
-          const postId = `t3_${rawPost.id}`;
-
-          // Deduplicate by reddit_id
-          if (seenIds.has(postId)) {
-            continue;
-          }
-
-          seenIds.add(postId);
-          posts.push(parsePost(rawPost));
-        }
-      } catch (error) {
-        console.error(
-          `Error fetching from Arctic Shift for r/${subreddit} term="${term}":`,
-          error
-        );
-        // Continue with other subreddit+term combinations
+        seenIds.add(postId);
+        posts.push(parsePost(rawPost));
       }
+    } catch (error) {
+      console.error(
+        `Error fetching from Arctic Shift for r/${subreddit}:`,
+        error
+      );
+      // Continue with other subreddits
     }
   }
 

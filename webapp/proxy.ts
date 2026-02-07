@@ -2,6 +2,7 @@
  * Authentication proxy for route protection.
  *
  * Protects all routes except:
+ * - / - Marketing landing page (public, handles own auth redirect)
  * - /login - Login page (public)
  * - /signup - Signup page (public)
  * - /api/auth/* - Auth.js API routes (public)
@@ -19,6 +20,11 @@ export const proxy = auth((req) => {
 
   // Check if this is an API route (excluding /api/auth/*)
   const isApiRoute = pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/");
+
+  // Landing page handles its own auth redirect
+  if (pathname === "/") {
+    return NextResponse.next();
+  }
 
   if (!isAuthenticated) {
     // For API routes, return 401 JSON response
