@@ -45,8 +45,7 @@ cd webapp && npm run typecheck && npm run lint && npm run test && npm run build
 1. Mark the task `[x]` in `IMPLEMENTATION_PLAN.md` and move it to **Completed**
 2. If the next Backlog task has no blockers, promote it to **In Progress**
 3. Commit: `git add -A && git commit -m "<what you did>"`
-4. Push: `git push`
-5. **Stop.** Do not start the next task. The loop handles the next iteration.
+4. **Stop.** Do not start the next task. The loop handles the next iteration.
 
 ### If validation fails
 
