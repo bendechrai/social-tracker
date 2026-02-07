@@ -1,5 +1,5 @@
 /**
- * Authentication middleware for route protection.
+ * Authentication proxy for route protection.
  *
  * Protects all routes except:
  * - /login - Login page (public)
@@ -13,7 +13,7 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
-export default auth((req) => {
+export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
   const isAuthenticated = !!req.auth;
 
@@ -42,7 +42,7 @@ export default auth((req) => {
 
 // Matcher configuration for Next.js
 // Protects all routes except public paths.
-// The middleware logic handles the actual auth checking.
+// The proxy logic handles the actual auth checking.
 export const config = {
   matcher: [
     /*

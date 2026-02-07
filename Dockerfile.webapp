@@ -1,0 +1,42 @@
+# Webapp container with Tailscale Funnel
+
+FROM node:22-slim
+
+# Install system dependencies
+# - curl, ca-certificates: for Tailscale installer
+# - iptables: required by tailscaled
+# - python3, make, g++: required for bcrypt native compilation
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    iptables \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Tailscale
+RUN curl -fsSL https://tailscale.com/install.sh | sh
+
+WORKDIR /app
+
+# Copy package files first for better layer caching
+COPY webapp/package.json webapp/package-lock.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy webapp source code
+COPY webapp/ ./
+
+# Conditionally build Next.js for production
+ARG NODE_ENV=production
+RUN if [ "$NODE_ENV" = "production" ]; then npm run build; fi
+
+EXPOSE 3000
+
+# Copy entrypoint script
+COPY docker-entrypoint-webapp.sh /usr/local/bin/docker-entrypoint-webapp.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint-webapp.sh
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint-webapp.sh"]

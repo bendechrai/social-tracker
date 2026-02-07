@@ -30,7 +30,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     verificationTokensTable: verificationTokens,
   }),
   session: {
-    strategy: "database",
+    strategy: "jwt",
     maxAge: SESSION_MAX_AGE,
     updateAge: 24 * 60 * 60, // Update session every 24 hours (sliding window)
   },
@@ -49,11 +49,19 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async session({ session, user }) {
-      // Add user id and email to session
+    async jwt({ token, user }) {
+      // On sign-in, persist user id and email into the JWT
+      if (user) {
+        token.id = user.id;
+        token.email = user.email;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      // Populate session from JWT token
       if (session.user) {
-        session.user.id = user.id;
-        session.user.email = user.email;
+        session.user.id = String(token.id);
+        session.user.email = String(token.email);
       }
       return session;
     },

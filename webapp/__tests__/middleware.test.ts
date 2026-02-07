@@ -60,7 +60,7 @@ function callMiddleware(
 describe("authentication middleware", () => {
   // Import middleware to trigger mock setup
   beforeAll(async () => {
-    await import("../middleware");
+    await import("../proxy");
   });
 
   beforeEach(() => {
@@ -219,14 +219,14 @@ describe("authentication middleware", () => {
     // Integration/E2E tests provide full verification of route protection.
 
     it("has a matcher array defined", async () => {
-      const { config } = await import("../middleware");
+      const { config } = await import("../proxy");
       expect(config.matcher).toBeDefined();
       expect(Array.isArray(config.matcher)).toBe(true);
       expect(config.matcher.length).toBeGreaterThan(0);
     });
 
     it("matcher pattern contains exclusions for public routes", async () => {
-      const { config } = await import("../middleware");
+      const { config } = await import("../proxy");
       const matcher = config.matcher[0];
       if (!matcher) throw new Error("Matcher not defined");
 
@@ -238,7 +238,7 @@ describe("authentication middleware", () => {
     });
 
     it("matcher pattern excludes files with extensions", async () => {
-      const { config } = await import("../middleware");
+      const { config } = await import("../proxy");
       const matcher = config.matcher[0];
       if (!matcher) throw new Error("Matcher not defined");
 

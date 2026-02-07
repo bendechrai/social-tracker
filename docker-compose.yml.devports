@@ -16,6 +16,47 @@ services:
       timeout: 5s
       retries: 5
 
+  webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile.webapp
+      args:
+        NODE_ENV: development
+    container_name: {devports:project}-webapp
+    environment:
+      # Database (uses docker network, not localhost)
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/social_tracker
+      # Auth.js
+      - AUTH_SECRET=${AUTH_SECRET}
+      - AUTH_URL=${AUTH_URL}
+      # Encryption key for API key storage
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      # Groq API key for AI suggestions
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      # App URL
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+      # Tailscale
+      - TAILSCALE_AUTHKEY=${TAILSCALE_AUTHKEY}
+      - TAILSCALE_HOSTNAME=${TAILSCALE_HOSTNAME:-social-tracker}
+      # Development mode
+      - NODE_ENV=development
+    volumes:
+      # Mount source code for hot reloading in development
+      - ./webapp:/app
+      # Exclude node_modules to avoid host/container conflicts
+      - /app/node_modules
+      # Exclude .next build directory
+      - /app/.next
+      # Persist Tailscale state to avoid re-auth on restart
+      - tailscale_data:/var/lib/tailscale
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    depends_on:
+      db:
+        condition: service_healthy
+
   ralph:
     build:
       context: .
@@ -52,3 +93,4 @@ services:
 volumes:
   postgres_data:
   webapp_node_modules:
+  tailscale_data:
