@@ -2,7 +2,7 @@
 
 This document outlines the implementation status and remaining tasks for completing the social media tracker application. Tasks are organized by priority and dependency order.
 
-**Last Verified:** 2026-02-07 (Phase 16 Complete - Untagged Filter)
+**Last Verified:** 2026-02-07 (Phase 17 Complete - Landing Page Sections)
 **Verification Method:** Opus-level codebase analysis comparing every spec acceptance criterion against source code
 
 ---
@@ -25,7 +25,7 @@ This document outlines the implementation status and remaining tasks for complet
 - **Settings Pages** - 4 sections (Account, API Keys, Subreddits, Tags) with sidebar navigation
 - **Dashboard UX** - Configuration banners, status tabs, tag filter, post cards
 - **Pagination** - Previous/Next buttons, page indicator, page size selector
-- **Unit Tests** - 26 test files (595 tests), no skipped or flaky tests
+- **Unit Tests** - 27 test files (609 tests), no skipped or flaky tests
 - **E2E Tests** - 3 spec files (auth, posts, settings) with Playwright
 - **Seed Script** - Creates test user with sample data
 
@@ -173,13 +173,19 @@ The spec requires an "Untagged" filter option that shows posts with zero tag ass
 
 ---
 
-## Phase 17: Landing Page — Roadmap, Pricing & Creator Sections — NOT STARTED
+## Phase 17: Landing Page — Roadmap, Pricing & Creator Sections — COMPLETE
 
-**Status: NOT STARTED**
+**Status: COMPLETE**
 **Priority: HIGH — Missing sections required by specs/landing-page.md**
 **Dependencies: None**
 
-The landing page is missing three sections required by the spec: Roadmap, Pricing, and Creator attribution.
+**Implementation Summary:**
+- Hero: Added creator byline with name ("Ben Dechrai") and GitHub avatar photo via `next/image`
+- Roadmap: "What's coming" section with 3 cards — More platforms (HN, Twitter/X, Discord, SO), AI response research, Team accounts
+- Pricing: Two-card section — Individuals ($0+, donation-based) and Teams & Enterprise (coming soon)
+- Footer: Updated from "a real human" to "Ben Dechrai"
+- next.config.ts: Added `github.com` to `images.remotePatterns` for avatar
+- Tests: 14 new tests in landing-page.test.tsx, all 609 tests passing
 
 ### Spec References
 - landing-page.md acceptance criteria 7: "Creator visible — Page includes creator name and photo"
@@ -187,25 +193,18 @@ The landing page is missing three sections required by the spec: Roadmap, Pricin
 - landing-page.md acceptance criteria 9: "Pricing clear — Individual donation model and future team plans are communicated"
 
 ### 17.1 Add Roadmap section
-- [ ] `webapp/app/(marketing)/page.tsx`: Add "What's Coming" section after features
-- [ ] Three roadmap items per spec: More platforms (HN, Twitter/X, Discord, SO), AI response research, Team accounts
+- [x] `webapp/app/(marketing)/page.tsx`: Add "What's Coming" section after features
+- [x] Three roadmap items per spec: More platforms (HN, Twitter/X, Discord, SO), AI response research, Team accounts
 
 ### 17.2 Add Pricing section
-- [ ] Add pricing section: Individuals (donation-based, $0+), Teams & Enterprise (coming soon)
+- [x] Add pricing section: Individuals (donation-based, $0+), Teams & Enterprise (coming soon)
 
 ### 17.3 Update Hero with creator attribution
-- [ ] Add creator byline with name and photo per spec: "Creator byline with name and photo"
-- [ ] Personal origin story one-liner
+- [x] Add creator byline with name and photo per spec: "Creator byline with name and photo"
+- [x] Personal origin story one-liner (preserved existing text)
 
 ### 17.4 Update Footer
-- [ ] Personal attribution: "Made with care by [name]" (currently says "Made with care by a real human" — needs actual name)
-
-**Tests:**
-- Landing page renders Roadmap section with 3 items
-- Landing page renders Pricing section with donation model and team plans
-- Landing page shows creator name/photo in hero
-- Footer has personal attribution with name
-- All sections render on mobile viewport
+- [x] Personal attribution: "Made with care by Ben Dechrai"
 
 ---
 
@@ -272,12 +271,12 @@ The landing page is missing three sections required by the spec: Roadmap, Pricin
 | 1-14 | All Previous Phases | 55 | **COMPLETE** | Various | Various |
 | 15 | Shared Posts Architecture | 5 | **COMPLETE** | None | CRITICAL |
 | 16 | Untagged Filter | 3 | **COMPLETE** | Phase 15 | HIGH |
-| 17 | Landing Page Sections | 4 | **NOT STARTED** | None | HIGH |
+| 17 | Landing Page Sections | 4 | **COMPLETE** | None | HIGH |
 | 18 | Pagination Page Size Fix | 1 | **NOT STARTED** | None | MODERATE |
 | 19 | Post Card Line Clamp | 0 | **VERIFIED CORRECT** | — | — |
 | 20 | Suggest-Terms HTTP Status | 1 | **NOT STARTED** | None | LOW |
 
-**Total Remaining Tasks: 6** (across phases 17-18, 20)
+**Total Remaining Tasks: 2** (across phases 18, 20)
 
 ### Environment Variables Required
 ```bash

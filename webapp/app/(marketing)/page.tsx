@@ -1,9 +1,17 @@
 import { redirect } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { RadioIcon, TagIcon, SparklesIcon } from "lucide-react";
+import {
+  RadioIcon,
+  TagIcon,
+  SparklesIcon,
+  GlobeIcon,
+  BrainIcon,
+  UsersIcon,
+} from "lucide-react";
 
 export default async function LandingPage() {
   const session = await auth();
@@ -19,9 +27,18 @@ export default async function LandingPage() {
         <h1 className="text-5xl font-bold tracking-tight sm:text-6xl">
           Social Tracker
         </h1>
-        <p className="mt-4 text-sm text-muted-foreground">
-          Built by one developer who got tired of missing conversations
-        </p>
+        <div className="mt-6 flex items-center gap-3">
+          <Image
+            src="https://github.com/bendechrai.png"
+            alt="Ben Dechrai"
+            width={40}
+            height={40}
+            className="rounded-full"
+          />
+          <p className="text-sm text-muted-foreground">
+            Built by Ben Dechrai
+          </p>
+        </div>
         <p className="mt-6 max-w-xl text-lg text-muted-foreground">
           I built this because I kept missing Reddit threads where people were
           asking about things I could actually help with. Now I don&apos;t.
@@ -79,9 +96,83 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* What's Coming */}
+      <section className="px-4 pb-20">
+        <h2 className="text-center text-2xl font-semibold mb-2">
+          What&apos;s coming
+        </h2>
+        <p className="text-center text-sm text-muted-foreground mb-10 max-w-lg mx-auto">
+          This is just the beginning. Here&apos;s what&apos;s next.
+        </p>
+        <div className="mx-auto max-w-4xl grid gap-6 sm:grid-cols-3">
+          <Card>
+            <CardContent className="pt-6 text-center space-y-3">
+              <GlobeIcon className="mx-auto h-10 w-10 text-muted-foreground" />
+              <h3 className="font-semibold text-lg">More platforms</h3>
+              <p className="text-sm text-muted-foreground">
+                Hacker News, Twitter/X, Discord, Stack Overflow.
+                Same workflow, more places to listen.
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 text-center space-y-3">
+              <BrainIcon className="mx-auto h-10 w-10 text-muted-foreground" />
+              <h3 className="font-semibold text-lg">AI response research</h3>
+              <p className="text-sm text-muted-foreground">
+                For each post, get AI-generated context, relevant talking
+                points, and a draft reply to help you respond faster.
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 text-center space-y-3">
+              <UsersIcon className="mx-auto h-10 w-10 text-muted-foreground" />
+              <h3 className="font-semibold text-lg">Team accounts</h3>
+              <p className="text-sm text-muted-foreground">
+                Shared dashboards, assigned posts, and team analytics
+                for DevRel and marketing teams.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section className="px-4 pb-20">
+        <h2 className="text-center text-2xl font-semibold mb-2">
+          Pricing
+        </h2>
+        <p className="text-center text-sm text-muted-foreground mb-10 max-w-lg mx-auto">
+          Use it for free. Support it if you find it valuable.
+        </p>
+        <div className="mx-auto max-w-2xl grid gap-6 sm:grid-cols-2">
+          <Card>
+            <CardContent className="pt-6 text-center space-y-3">
+              <h3 className="font-semibold text-lg">Individuals</h3>
+              <p className="text-3xl font-bold">$0+</p>
+              <p className="text-sm text-muted-foreground">
+                Free to use, donation-based. Pay what you want if it
+                helps you.
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 text-center space-y-3">
+              <h3 className="font-semibold text-lg">Teams &amp; Enterprise</h3>
+              <p className="text-3xl font-bold text-muted-foreground">Coming soon</p>
+              <p className="text-sm text-muted-foreground">
+                Shared dashboards, team management, and priority support.
+                Details coming later.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="py-6 text-center text-sm text-muted-foreground border-t">
-        Made with care by a real human
+        Made with care by Ben Dechrai
       </footer>
     </div>
   );
