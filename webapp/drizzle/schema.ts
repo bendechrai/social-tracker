@@ -261,6 +261,14 @@ export const userPostTagsRelations = relations(userPostTags, ({ one }) => ({
   }),
 }));
 
+// Subreddit fetch status — tracks per-subreddit fetch state (shared across users)
+export const subredditFetchStatus = pgTable("subreddit_fetch_status", {
+  name: varchar("name", { length: 100 }).primaryKey(),
+  lastFetchedAt: timestamp("last_fetched_at"),
+  refreshIntervalMinutes: integer("refresh_interval_minutes").notNull().default(60),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Type exports for use throughout the application
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -291,3 +299,6 @@ export type NewAccount = typeof accounts.$inferInsert;
 
 export type VerificationToken = typeof verificationTokens.$inferSelect;
 export type NewVerificationToken = typeof verificationTokens.$inferInsert;
+
+export type SubredditFetchStatus = typeof subredditFetchStatus.$inferSelect;
+export type NewSubredditFetchStatus = typeof subredditFetchStatus.$inferInsert;

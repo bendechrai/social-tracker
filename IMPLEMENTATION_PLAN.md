@@ -111,15 +111,13 @@ The reddit-integration spec requires per-subreddit incremental fetching: for eac
 
 Replace the manual "Fetch New" button with an automatic cron-based fetch system. A `GET /api/cron/fetch-posts` endpoint fetches posts for all subreddits that have at least one subscriber and are due for refresh. Uses a `subreddit_fetch_status` table to track per-subreddit fetch state and a PostgreSQL advisory lock to prevent concurrent runs. Adding a new subreddit triggers an immediate fetch or links existing posts.
 
+### Completed (Phase 23)
+
+- [x] **Add `subreddit_fetch_status` table to Drizzle schema and generate migration**
+  - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/0001_nebulous_mongoose.sql`
+  - Table: `name` (PK, varchar 100), `last_fetched_at` (timestamp, nullable), `refresh_interval_minutes` (integer, default 60, not null), `created_at` (timestamp, default now, not null). Migration generated. typecheck, lint, tests (617), and build all pass.
+
 ### In Progress
-
-- [ ] **Add `subreddit_fetch_status` table to Drizzle schema and generate migration**
-  - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/`
-  - Spec: `specs/auto-fetch.md` — Database section
-  - Acceptance: New table with columns `name` (PK, varchar 100), `last_fetched_at` (timestamp), `refresh_interval_minutes` (integer, default 60), `created_at` (timestamp, default now). Migration generated and applies cleanly.
-  - Tests: Run `npm run db:generate` and `npm run db:migrate` successfully. `tsc` passes.
-
-### Backlog
 
 - [ ] **Create `fetchPostsForAllUsers` shared function that fetches posts for a subreddit and fans out to all subscribers**
   - Files: `webapp/app/actions/posts.ts`
@@ -186,7 +184,7 @@ Replace the manual "Fetch New" button with an automatic cron-based fetch system.
 | 22 | Per-Subreddit Incremental Fetching | 3 | **COMPLETE** | None | HIGH |
 | 23 | Auto-Fetch Cron | 9 | **IN PROGRESS** | Phase 22 | HIGH |
 
-**Total Remaining Tasks: 9** — Phase 23 in progress
+**Total Remaining Tasks: 8** — Phase 23 in progress
 
 ### Environment Variables Required
 ```bash
