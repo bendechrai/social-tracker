@@ -58,6 +58,13 @@ export function TagFilter({ tags, selectedIds, onChange }: TagFilterProps) {
           </div>
         ) : (
           <>
+            <DropdownMenuCheckboxItem
+              checked={selectedIds.includes("untagged")}
+              onCheckedChange={(checked) => handleSelect("untagged", checked)}
+            >
+              <span className="text-sm text-muted-foreground">Untagged</span>
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuSeparator />
             {tags.map((tag) => (
               <DropdownMenuCheckboxItem
                 key={tag.id}

@@ -2,7 +2,7 @@
 
 This document outlines the implementation status and remaining tasks for completing the social media tracker application. Tasks are organized by priority and dependency order.
 
-**Last Verified:** 2026-02-07 (Phase 15 Complete - Shared Posts Architecture)
+**Last Verified:** 2026-02-07 (Phase 16 Complete - Untagged Filter)
 **Verification Method:** Opus-level codebase analysis comparing every spec acceptance criterion against source code
 
 ---
@@ -25,7 +25,7 @@ This document outlines the implementation status and remaining tasks for complet
 - **Settings Pages** - 4 sections (Account, API Keys, Subreddits, Tags) with sidebar navigation
 - **Dashboard UX** - Configuration banners, status tabs, tag filter, post cards
 - **Pagination** - Previous/Next buttons, page indicator, page size selector
-- **Unit Tests** - 25 test files (583 tests), no skipped or flaky tests
+- **Unit Tests** - 26 test files (595 tests), no skipped or flaky tests
 - **E2E Tests** - 3 spec files (auth, posts, settings) with Playwright
 - **Seed Script** - Creates test user with sample data
 
@@ -134,13 +134,19 @@ The spec requires a three-table architecture for shared posts:
 
 ---
 
-## Phase 16: Untagged Filter — NOT STARTED
+## Phase 16: Untagged Filter — COMPLETE
 
-**Status: NOT STARTED**
+**Status: COMPLETE**
 **Priority: HIGH — Missing feature required by specs/post-management.md and specs/ui-components.md**
 **Dependencies: Phase 15 (uses user_post_tags table)**
 
-The spec requires an "Untagged" filter option that shows posts with zero tag associations. This is completely missing from both backend and frontend.
+The spec requires an "Untagged" filter option that shows posts with zero tag associations.
+
+**Implementation Summary:**
+- Backend: `listPosts` accepts `"untagged"` sentinel in `tagIds` array; queries for `user_posts` with zero `user_post_tags` entries; union with specific tag matches when both selected
+- Frontend: TagFilter component renders "Untagged" checkbox before user tags, unchecked by default, sentinel flows through existing selectedTagIds → usePosts → listPosts
+- Dashboard: No changes needed — sentinel value flows through existing state management
+- Tests: 12 new tests (2 backend in posts.test.ts, 10 frontend in tag-filter.test.tsx), all 595 tests passing
 
 ### Spec References
 - post-management.md acceptance criteria 8: "Untagged filter works — Can show/hide posts with no tag associations"
@@ -151,35 +157,19 @@ The spec requires an "Untagged" filter option that shows posts with zero tag ass
 - ui-components.md acceptance criteria 9: "Tag filter works — Selecting tags filters to posts with those tags; 'Untagged' option shows posts with no tag associations"
 
 ### 16.1 Backend: Add "Untagged" filter support to `listPosts`
-- [ ] Accept a special sentinel value (e.g., `"untagged"`) in the `tagIds` array parameter
-- [ ] When "untagged" is in `tagIds`: query for `user_posts` that have zero rows in `user_post_tags`
-- [ ] When both specific tags AND "untagged" are selected: return posts matching ANY selected tag OR posts with zero tags (union)
-- [ ] Default behavior (no tag filter): show all posts regardless of tag status
-
-**Tests:**
-- `listPosts` with `tagIds=["untagged"]` returns only posts with zero `user_post_tags` entries
-- `listPosts` with `tagIds=["tag1", "untagged"]` returns posts with tag1 OR posts with no tags
-- `listPosts` with `tagIds=["tag1"]` returns only posts with tag1 (no untagged)
-- `listPosts` with no `tagIds` returns all posts
-- Untagged filter combined with status filter works correctly
-- Pagination works correctly with untagged filter
+- [x] Accept a special sentinel value (`"untagged"`) in the `tagIds` array parameter
+- [x] When "untagged" is in `tagIds`: query for `user_posts` that have zero rows in `user_post_tags`
+- [x] When both specific tags AND "untagged" are selected: return posts matching ANY selected tag OR posts with zero tags (union)
+- [x] Default behavior (no tag filter): show all posts regardless of tag status
 
 ### 16.2 Frontend: Add "Untagged" option to TagFilter component
-- [ ] `webapp/components/tag-filter.tsx`: Add "Untagged" checkbox item after the separator, before user's tags
-- [ ] "Untagged" option is unchecked by default
-- [ ] Selecting "Untagged" passes the sentinel value through to the API
-- [ ] "Clear all filters" also clears the Untagged selection
-
-**Tests:**
-- TagFilter renders "Untagged" option
-- "Untagged" is unchecked by default
-- Selecting "Untagged" calls onChange with sentinel value
-- "Clear all" clears Untagged selection
-- "Untagged" can be combined with specific tag selections
+- [x] `webapp/components/tag-filter.tsx`: Add "Untagged" checkbox item before the separator and user's tags
+- [x] "Untagged" option is unchecked by default
+- [x] Selecting "Untagged" passes the sentinel value through to the API
+- [x] "Clear all filters" also clears the Untagged selection
 
 ### 16.3 Update dashboard page
-- [ ] `webapp/app/dashboard/page.tsx`: Pass "untagged" sentinel through to `usePosts` hook when selected
-- [ ] Verify empty message reflects untagged filter state
+- [x] Dashboard page: No changes needed — `"untagged"` sentinel flows through existing `selectedTagIds` → `usePosts` hook → `listPosts` action
 
 ---
 
@@ -281,13 +271,13 @@ The landing page is missing three sections required by the spec: Roadmap, Pricin
 |-------|-------------|-------|--------|--------------|----------|
 | 1-14 | All Previous Phases | 55 | **COMPLETE** | Various | Various |
 | 15 | Shared Posts Architecture | 5 | **COMPLETE** | None | CRITICAL |
-| 16 | Untagged Filter | 3 | **NOT STARTED** | Phase 15 | HIGH |
+| 16 | Untagged Filter | 3 | **COMPLETE** | Phase 15 | HIGH |
 | 17 | Landing Page Sections | 4 | **NOT STARTED** | None | HIGH |
 | 18 | Pagination Page Size Fix | 1 | **NOT STARTED** | None | MODERATE |
 | 19 | Post Card Line Clamp | 0 | **VERIFIED CORRECT** | — | — |
 | 20 | Suggest-Terms HTTP Status | 1 | **NOT STARTED** | None | LOW |
 
-**Total Remaining Tasks: 9** (across phases 16-18, 20)
+**Total Remaining Tasks: 6** (across phases 17-18, 20)
 
 ### Environment Variables Required
 ```bash

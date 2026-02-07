@@ -5,7 +5,7 @@ import { posts, userPosts, userPostTags, tags, subreddits } from "@/drizzle/sche
 import { getCurrentUserId } from "./users";
 import { postStatusSchema, type PostStatus } from "@/lib/validations";
 import { fetchRedditPosts } from "@/lib/reddit";
-import { eq, and, desc, inArray, sql } from "drizzle-orm";
+import { eq, and, desc, inArray, notInArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export interface PostData {
@@ -51,22 +51,66 @@ export async function listPosts(
     eq(userPosts.status, status),
   ];
 
-  // Get posts with optional tag filtering
+  // Get posts with optional tag filtering (supports "untagged" sentinel)
   let filteredPostIds: string[] | null = null;
 
   if (tagIds && tagIds.length > 0) {
-    // Get post IDs that have ANY of the selected tags for this user
-    const postIdsWithTags = await db
-      .selectDistinct({ postId: userPostTags.postId })
-      .from(userPostTags)
-      .where(and(
-        eq(userPostTags.userId, userId),
-        inArray(userPostTags.tagId, tagIds),
-      ));
+    const includeUntagged = tagIds.includes("untagged");
+    const realTagIds = tagIds.filter((id) => id !== "untagged");
 
-    filteredPostIds = postIdsWithTags.map((p) => p.postId);
+    const matchedPostIds = new Set<string>();
 
-    // If no posts match the tag filter, return empty
+    // Get post IDs that have ANY of the selected real tags for this user
+    if (realTagIds.length > 0) {
+      const postIdsWithTags = await db
+        .selectDistinct({ postId: userPostTags.postId })
+        .from(userPostTags)
+        .where(and(
+          eq(userPostTags.userId, userId),
+          inArray(userPostTags.tagId, realTagIds),
+        ));
+
+      for (const p of postIdsWithTags) {
+        matchedPostIds.add(p.postId);
+      }
+    }
+
+    // Get post IDs that have zero tags for this user (untagged)
+    if (includeUntagged) {
+      // Find all post IDs that DO have tags
+      const postIdsWithAnyTag = await db
+        .selectDistinct({ postId: userPostTags.postId })
+        .from(userPostTags)
+        .where(eq(userPostTags.userId, userId));
+
+      const taggedPostIds = postIdsWithAnyTag.map((p) => p.postId);
+
+      // Get user_posts that are NOT in the tagged set
+      const untaggedUserPosts = taggedPostIds.length > 0
+        ? await db
+          .selectDistinct({ postId: userPosts.postId })
+          .from(userPosts)
+          .where(and(
+            eq(userPosts.userId, userId),
+            eq(userPosts.status, status),
+            notInArray(userPosts.postId, taggedPostIds),
+          ))
+        : await db
+          .selectDistinct({ postId: userPosts.postId })
+          .from(userPosts)
+          .where(and(
+            eq(userPosts.userId, userId),
+            eq(userPosts.status, status),
+          ));
+
+      for (const p of untaggedUserPosts) {
+        matchedPostIds.add(p.postId);
+      }
+    }
+
+    filteredPostIds = Array.from(matchedPostIds);
+
+    // If no posts match the filter, return empty
     if (filteredPostIds.length === 0) {
       return {
         posts: [],

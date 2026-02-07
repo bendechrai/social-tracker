@@ -277,6 +277,56 @@ describe("post server actions", () => {
         totalPages: 0,
       });
     });
+
+    it("accepts 'untagged' sentinel to filter untagged posts", async () => {
+      // First call: get posts with any tag (returns post-1)
+      // Second call: get untagged user_posts (returns post-2 which has no tags)
+      mockSelectDistinctResult
+        .mockResolvedValueOnce([{ postId: "post-1" }]) // posts with any tag
+        .mockResolvedValueOnce([{ postId: "post-2" }]); // untagged user_posts
+
+      mockUserPostsFindMany.mockResolvedValue([
+        createMockUserPost({
+          postId: "post-2",
+          post: createMockPost({ id: "post-2" }),
+        }),
+      ]);
+      mockCountResult.mockResolvedValue([{ count: 1 }]);
+
+      const result = await listPosts("new", ["untagged"]);
+
+      expect(result.posts).toHaveLength(1);
+      expect(result.posts[0]?.id).toBe("post-2");
+    });
+
+    it("combines 'untagged' with specific tags (union)", async () => {
+      // First call for realTagIds: get posts with tag-1 (returns post-1)
+      // Second call: get posts with any tag (returns post-1)
+      // Third call: get untagged user_posts (returns post-2)
+      mockSelectDistinctResult
+        .mockResolvedValueOnce([{ postId: "post-1" }]) // posts with tag-1
+        .mockResolvedValueOnce([{ postId: "post-1" }]) // all tagged posts
+        .mockResolvedValueOnce([{ postId: "post-2" }]); // untagged user_posts
+
+      mockUserPostsFindMany.mockResolvedValue([
+        createMockUserPost({
+          postId: "post-1",
+          post: createMockPost({ id: "post-1" }),
+          userPostTags: [
+            { userId: MOCK_USER_ID, postId: "post-1", tagId: "tag-1", tag: { id: "tag-1", name: "Test", color: "#6366f1" } },
+          ],
+        }),
+        createMockUserPost({
+          postId: "post-2",
+          post: createMockPost({ id: "post-2" }),
+        }),
+      ]);
+      mockCountResult.mockResolvedValue([{ count: 2 }]);
+
+      const result = await listPosts("new", ["tag-1", "untagged"]);
+
+      expect(result.posts).toHaveLength(2);
+    });
   });
 
   describe("getPost", () => {
