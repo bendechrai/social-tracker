@@ -21,12 +21,13 @@ Tags group related search terms under a meaningful label. For example, a "Yugaby
 
 ### Create Tag
 
-Input: user_id, name, color (optional), initial_terms (optional)
+Input: user_id, name, color (optional), initial_terms (required, at least one)
 
-1. Validate name is unique for user
-2. Create tag with default color if not provided
-3. If initial_terms provided, create search_terms records
-4. Return created tag with terms
+1. Validate at least one search term is provided
+2. Validate name is unique for user
+3. Create tag with default color if not provided
+4. Create search_terms records
+5. Return created tag with terms
 
 ### Update Tag
 
@@ -59,8 +60,9 @@ Input: tag_id, term
 Input: term_id
 
 1. Validate term's tag belongs to user
-2. Delete term
-3. Note: Existing posts keep the tag (term was already matched)
+2. Validate the tag has more than one search term (cannot remove the last one)
+3. Delete term
+4. Note: Existing posts keep the tag (term was already matched)
 
 ### List Tags
 
@@ -110,3 +112,5 @@ LLM suggestions (see llm-tag-suggestions.md) can help generate comprehensive ter
 6. **Color persists** - Custom colors are saved and returned
 7. **Post counts included** - List tags includes count of posts per tag
 8. **Case insensitive terms** - Search terms are stored/compared case-insensitively
+9. **At least one term required** - Cannot create a tag without at least one search term
+10. **Cannot remove last term** - Cannot delete a tag's only remaining search term

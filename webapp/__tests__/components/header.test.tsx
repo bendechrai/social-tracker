@@ -3,9 +3,8 @@
  *
  * Verifies:
  * - Header shows title "Social Tracker"
- * - Settings button linking to /settings
  * - UserMenu is rendered
- * - No "Fetch New" button (auto-fetch replaces manual fetch)
+ * - No settings icon in header (settings is in user menu)
  */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -16,25 +15,10 @@ vi.mock("@/components/user-menu", () => ({
   UserMenu: () => <div data-testid="user-menu">UserMenu</div>,
 }));
 
-// Mock next/link
-vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [key: string]: unknown }) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
-  ),
-}));
-
 describe("Header component", () => {
   it("renders 'Social Tracker' title", () => {
     render(<Header />);
     expect(screen.getByText("Social Tracker")).toBeInTheDocument();
-  });
-
-  it("renders Settings link to /settings", () => {
-    render(<Header />);
-    const settingsLink = screen.getByText("Settings").closest("a");
-    expect(settingsLink).toHaveAttribute("href", "/settings");
   });
 
   it("renders UserMenu", () => {
@@ -42,8 +26,8 @@ describe("Header component", () => {
     expect(screen.getByTestId("user-menu")).toBeInTheDocument();
   });
 
-  it("does not render a Fetch New button", () => {
+  it("does not render a settings icon in the header", () => {
     render(<Header />);
-    expect(screen.queryByText("Fetch New")).not.toBeInTheDocument();
+    expect(screen.queryByText("Settings")).not.toBeInTheDocument();
   });
 });
