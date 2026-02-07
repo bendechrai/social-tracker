@@ -62,6 +62,16 @@ vi.mock("@/lib/db", () => ({
           return mockFindFirst(...args);
         },
       },
+      userPosts: {
+        findMany: (...args: unknown[]) => {
+          mockQueryCalls.push({ method: "userPosts.findMany", args });
+          return mockFindMany(...args);
+        },
+        findFirst: (...args: unknown[]) => {
+          mockQueryCalls.push({ method: "userPosts.findFirst", args });
+          return mockFindFirst(...args);
+        },
+      },
       users: {
         findFirst: (...args: unknown[]) => {
           mockQueryCalls.push({ method: "users.findFirst", args });

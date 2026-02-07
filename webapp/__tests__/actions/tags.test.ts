@@ -5,7 +5,7 @@
  * - List tags with search terms and post counts, alphabetically ordered
  * - Create tags with optional color and initial terms
  * - Update tag name and color with uniqueness validation
- * - Delete tags with proper cascade to search terms and post_tags
+ * - Delete tags with proper cascade to search terms and user_user_post_tags
  * - Add and remove search terms with case-insensitive duplicate detection
  *
  * Uses mocked database to isolate unit tests from database.
@@ -129,7 +129,7 @@ describe("tag server actions", () => {
             { id: "term-1", term: "distributed postgres", tagId: "tag-1", createdAt: new Date() },
             { id: "term-2", term: "distributed postgresql", tagId: "tag-1", createdAt: new Date() },
           ],
-          postTags: [{ postId: "post-1", tagId: "tag-1" }, { postId: "post-2", tagId: "tag-1" }],
+          userPostTags: [{ userId: MOCK_USER_ID, postId: "post-1", tagId: "tag-1" }, { userId: MOCK_USER_ID, postId: "post-2", tagId: "tag-1" }],
         },
         {
           id: "tag-2",
@@ -140,7 +140,7 @@ describe("tag server actions", () => {
           searchTerms: [
             { id: "term-3", term: "yugabyte", tagId: "tag-2", createdAt: new Date() },
           ],
-          postTags: [{ postId: "post-3", tagId: "tag-2" }],
+          userPostTags: [{ userId: MOCK_USER_ID, postId: "post-3", tagId: "tag-2" }],
         },
       ];
       mockFindMany.mockResolvedValue(mockData);
@@ -178,7 +178,7 @@ describe("tag server actions", () => {
           userId: MOCK_USER_ID,
           createdAt: new Date(),
           searchTerms: [],
-          postTags: [],
+          userPostTags: [],
         },
         {
           id: "tag-2",
@@ -187,7 +187,7 @@ describe("tag server actions", () => {
           userId: MOCK_USER_ID,
           createdAt: new Date(),
           searchTerms: [],
-          postTags: [],
+          userPostTags: [],
         },
         {
           id: "tag-3",
@@ -196,7 +196,7 @@ describe("tag server actions", () => {
           userId: MOCK_USER_ID,
           createdAt: new Date(),
           searchTerms: [],
-          postTags: [],
+          userPostTags: [],
         },
       ];
       mockFindMany.mockResolvedValue(mockData);
@@ -230,10 +230,10 @@ describe("tag server actions", () => {
           { id: "term-1", term: "yugabyte", tagId: "tag-1", createdAt: new Date() },
           { id: "term-2", term: "yugabytedb", tagId: "tag-1", createdAt: new Date() },
         ],
-        postTags: [
-          { postId: "post-1", tagId: "tag-1" },
-          { postId: "post-2", tagId: "tag-1" },
-          { postId: "post-3", tagId: "tag-1" },
+        userPostTags: [
+          { userId: MOCK_USER_ID, postId: "post-1", tagId: "tag-1" },
+          { userId: MOCK_USER_ID, postId: "post-2", tagId: "tag-1" },
+          { userId: MOCK_USER_ID, postId: "post-3", tagId: "tag-1" },
         ],
       });
 
@@ -553,7 +553,7 @@ describe("tag server actions", () => {
           userId: MOCK_USER_ID,
           createdAt: new Date(),
           searchTerms: [],
-          postTags: [],
+          userPostTags: [],
         })
         .mockResolvedValueOnce(null); // No duplicate
 
@@ -586,7 +586,7 @@ describe("tag server actions", () => {
         userId: MOCK_USER_ID,
         createdAt: new Date(),
         searchTerms: [],
-        postTags: [],
+        userPostTags: [],
       });
 
       mockReturning.mockResolvedValue([
@@ -618,7 +618,7 @@ describe("tag server actions", () => {
           userId: MOCK_USER_ID,
           createdAt: new Date(),
           searchTerms: [],
-          postTags: [],
+          userPostTags: [],
         })
         .mockResolvedValueOnce({
           id: "tag-2", // Different ID
@@ -645,7 +645,7 @@ describe("tag server actions", () => {
         userId: MOCK_USER_ID,
         createdAt: new Date(),
         searchTerms: [],
-        postTags: [],
+        userPostTags: [],
       });
 
       const result = await updateTag("tag-1", undefined, "invalid");
@@ -685,7 +685,7 @@ describe("tag server actions", () => {
       expect(mockDelete).toHaveBeenCalledOnce();
     });
 
-    it("cascade deletes search terms and post_tags (via schema constraint)", async () => {
+    it("cascade deletes search terms and user_post_tags (via schema constraint)", async () => {
       // The cascade is handled by database FK constraints, not by the action code
       // This test verifies that only the tag table delete is called
       mockFindFirst.mockResolvedValue({
@@ -700,7 +700,7 @@ describe("tag server actions", () => {
 
       expect(result.success).toBe(true);
       // Only one delete call should be made (to tags table)
-      // Cascade handles search_terms and post_tags
+      // Cascade handles search_terms and user_post_tags
       expect(mockDelete).toHaveBeenCalledOnce();
     });
   });
@@ -891,7 +891,7 @@ describe("tag server actions", () => {
       const result = await removeSearchTerm("term-to-delete");
 
       expect(result.success).toBe(true);
-      // Only one delete call (search_terms), no post_tags manipulation
+      // Only one delete call (search_terms), no user_post_tags manipulation
       expect(mockDelete).toHaveBeenCalledOnce();
     });
   });

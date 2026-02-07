@@ -5,7 +5,8 @@ import {
   tags,
   searchTerms,
   posts,
-  postTags,
+  userPosts,
+  userPostTags,
 } from "./schema";
 import { eq, and } from "drizzle-orm";
 import { hashPassword } from "@/lib/password";
@@ -101,7 +102,7 @@ async function seed() {
   const yugabyteTag = allTags.find((t) => t.name === "Yugabyte");
   const distributedTag = allTags.find((t) => t.name === "Distributed PG");
 
-  // Create sample posts for each status
+  // Create sample posts (global shared table) and user_posts (per-user state)
   const samplePosts = [
     // New posts
     {
@@ -223,49 +224,59 @@ async function seed() {
   ];
 
   for (const postData of samplePosts) {
-    // Check if post already exists
-    const existing = await db.query.posts.findFirst({
+    // Check if post already exists in global posts table
+    let post = await db.query.posts.findFirst({
+      where: eq(posts.redditId, postData.redditId),
+    });
+
+    if (!post) {
+      // Create global post
+      const [newPost] = await db
+        .insert(posts)
+        .values({
+          redditId: postData.redditId,
+          title: postData.title,
+          body: postData.body,
+          author: postData.author,
+          subreddit: postData.subreddit,
+          permalink: postData.permalink,
+          url: `https://reddit.com${postData.permalink}`,
+          redditCreatedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),
+          score: postData.score,
+          numComments: postData.numComments,
+        })
+        .returning();
+      post = newPost!;
+      console.log("Created post:", postData.title);
+    }
+
+    // Check if user_post already exists
+    const existingUserPost = await db.query.userPosts.findFirst({
       where: and(
-        eq(posts.userId, userId),
-        eq(posts.redditId, postData.redditId)
+        eq(userPosts.userId, userId),
+        eq(userPosts.postId, post.id),
       ),
     });
 
-    if (existing) {
-      console.log("Post already exists:", postData.redditId);
-      continue;
-    }
-
-    // Create post
-    const [post] = await db
-      .insert(posts)
-      .values({
+    if (!existingUserPost) {
+      // Create user_post with per-user state
+      await db.insert(userPosts).values({
         userId,
-        redditId: postData.redditId,
-        title: postData.title,
-        body: postData.body,
-        author: postData.author,
-        subreddit: postData.subreddit,
-        permalink: postData.permalink,
-        url: `https://reddit.com${postData.permalink}`,
-        redditCreatedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),
-        score: postData.score,
-        numComments: postData.numComments,
+        postId: post.id,
         status: postData.status,
         responseText: postData.responseText,
         respondedAt: postData.status === "done" ? new Date() : null,
-      })
-      .returning();
+      });
 
-    console.log("Created post:", postData.title);
-
-    // Add post tags
-    for (const tagId of postData.tagIds) {
-      if (tagId) {
-        await db.insert(postTags).values({
-          postId: post!.id,
-          tagId,
-        });
+      // Add user_post_tags
+      for (const tagId of postData.tagIds) {
+        if (tagId) {
+          await db.insert(userPostTags).values({
+            userId,
+            postId: post.id,
+            tagId,
+          });
+        }
       }
     }
   }

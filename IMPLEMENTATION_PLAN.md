@@ -2,7 +2,7 @@
 
 This document outlines the implementation status and remaining tasks for completing the social media tracker application. Tasks are organized by priority and dependency order.
 
-**Last Verified:** 2026-02-07 (Deep Audit against specs/*)
+**Last Verified:** 2026-02-07 (Phase 15 Complete - Shared Posts Architecture)
 **Verification Method:** Opus-level codebase analysis comparing every spec acceptance criterion against source code
 
 ---
@@ -25,7 +25,7 @@ This document outlines the implementation status and remaining tasks for complet
 - **Settings Pages** - 4 sections (Account, API Keys, Subreddits, Tags) with sidebar navigation
 - **Dashboard UX** - Configuration banners, status tabs, tag filter, post cards
 - **Pagination** - Previous/Next buttons, page indicator, page size selector
-- **Unit Tests** - 25 test files (582 tests), no skipped or flaky tests
+- **Unit Tests** - 25 test files (583 tests), no skipped or flaky tests
 - **E2E Tests** - 3 spec files (auth, posts, settings) with Playwright
 - **Seed Script** - Creates test user with sample data
 
@@ -44,9 +44,9 @@ See git history for details. Covered: Authentication Foundation, Settings Founda
 
 ---
 
-## Phase 15: Shared Posts Architecture (Database Schema Refactor) — NOT STARTED
+## Phase 15: Shared Posts Architecture (Database Schema Refactor) — COMPLETE
 
-**Status: NOT STARTED**
+**Status: COMPLETE**
 **Priority: CRITICAL — Core architectural violation of specs/database-schema.md and specs/post-management.md**
 **Dependencies: None (foundational change)**
 
@@ -55,7 +55,14 @@ The spec requires a three-table architecture for shared posts:
 - `user_posts` — per-user state (`userId`, `postId`, `status`, `responseText`, `respondedAt`)
 - `user_post_tags` — per-user tag associations (`userId`, `postId`, `tagId`)
 
-The current implementation collapses `posts` and `user_posts` into a single `posts` table with `userId` on it. Posts are stored per-user instead of globally. The `postTags` table references `posts.id` directly rather than through `user_posts`.
+**Implementation Summary:**
+- Schema refactored: `posts` table is now global (no userId, unique reddit_id)
+- New `user_posts` table with composite PK (user_id, post_id)
+- New `user_post_tags` table with composite PK (user_id, post_id, tag_id) and FK to user_posts
+- Server actions updated: posts.ts works with three-table model, tags.ts uses userPostTags
+- Seed script updated for three-table model
+- All 583 tests passing, migration regenerated from schema
+- PostData interface preserved — UI components unchanged (hooks and components use the same PostData shape)
 
 ### Spec References
 - database-schema.md acceptance criteria 4: "Posts are shared — Duplicate reddit_id for posts is rejected (global uniqueness, not per-user)"
@@ -66,14 +73,14 @@ The current implementation collapses `posts` and `user_posts` into a single `pos
 - reddit-integration.md acceptance criteria 5: "Posts stored globally — Fetched posts are stored in a shared table (deduplicated by reddit_id), not per-user"
 
 ### 15.1 Create new migration with three-table schema
-- [ ] Add `user_posts` table: composite PK `(user_id, post_id)`, columns: `user_id` (FK users, cascade), `post_id` (FK posts, cascade), `status` (varchar(20), default 'new'), `response_text` (text, nullable), `responded_at` (timestamp, nullable), `created_at` (default now), `updated_at` (default now). Index on `(user_id, status)`.
-- [ ] Add `user_post_tags` table: composite PK `(user_id, post_id, tag_id)`, columns: `user_id` (FK users, cascade), `post_id` (FK posts, cascade), `tag_id` (FK tags, cascade). FK `(user_id, post_id)` references `user_posts(user_id, post_id)` cascade.
-- [ ] Remove from `posts` table: `userId`, `status`, `responseText`, `respondedAt`, `updatedAt` columns
-- [ ] Change `posts.reddit_id` unique constraint from composite `(userId, redditId)` to global `(reddit_id)`
-- [ ] Change `posts` index from `(userId, status)` to `(subreddit)` per spec
-- [ ] Remove `post_tags` table (replaced by `user_post_tags`)
-- [ ] Update Drizzle relations for all affected tables
-- [ ] Export new TypeScript types: `UserPost`, `NewUserPost`, `UserPostTag`, `NewUserPostTag`
+- [x] Add `user_posts` table: composite PK `(user_id, post_id)`, columns: `user_id` (FK users, cascade), `post_id` (FK posts, cascade), `status` (varchar(20), default 'new'), `response_text` (text, nullable), `responded_at` (timestamp, nullable), `created_at` (default now), `updated_at` (default now). Index on `(user_id, status)`.
+- [x] Add `user_post_tags` table: composite PK `(user_id, post_id, tag_id)`, columns: `user_id` (FK users, cascade), `post_id` (FK posts, cascade), `tag_id` (FK tags, cascade). FK `(user_id, post_id)` references `user_posts(user_id, post_id)` cascade.
+- [x] Remove from `posts` table: `userId`, `status`, `responseText`, `respondedAt`, `updatedAt` columns
+- [x] Change `posts.reddit_id` unique constraint from composite `(userId, redditId)` to global `(reddit_id)`
+- [x] Change `posts` index from `(userId, status)` to `(subreddit)` per spec
+- [x] Remove `post_tags` table (replaced by `user_post_tags`)
+- [x] Update Drizzle relations for all affected tables
+- [x] Export new TypeScript types: `UserPost`, `NewUserPost`, `UserPostTag`, `NewUserPostTag`
 
 **Tests (derived from acceptance criteria):**
 - Schema matches spec: all tables, columns, types, constraints verified
@@ -87,16 +94,16 @@ The current implementation collapses `posts` and `user_posts` into a single `pos
 - Index exists on `posts(subreddit)`
 
 ### 15.2 Update server actions for three-table model
-- [ ] `fetchNewPosts` (`webapp/app/actions/posts.ts`):
+- [x] `fetchNewPosts` (`webapp/app/actions/posts.ts`):
   - Upsert into global `posts` table (conflict on `reddit_id` globally, not per-user)
   - Store ALL fetched posts in `posts` table (not just matching ones — per spec: "All posts from monitored subreddits are stored in the shared posts table, regardless of whether they match any search terms")
   - Create `user_posts` record only for posts matching search terms (conflict on `(user_id, post_id)` do nothing)
   - Create `user_post_tags` entries for matching tags
-- [ ] `listPosts`: query `user_posts` joined to `posts`, filter by `user_posts.status`, join `user_post_tags` for tag data
-- [ ] `getPost`: fetch from `posts` + `user_posts` + `user_post_tags`
-- [ ] `changePostStatus`: update `user_posts.status`, handle `responded_at` logic on `user_posts`
-- [ ] `updateResponseText`: update `user_posts.response_text`
-- [ ] `getPostCounts`: count from `user_posts` grouped by status
+- [x] `listPosts`: query `user_posts` joined to `posts`, filter by `user_posts.status`, join `user_post_tags` for tag data
+- [x] `getPost`: fetch from `posts` + `user_posts` + `user_post_tags`
+- [x] `changePostStatus`: update `user_posts.status`, handle `responded_at` logic on `user_posts`
+- [x] `updateResponseText`: update `user_posts.response_text`
+- [x] `getPostCounts`: count from `user_posts` grouped by status
 
 **Tests (derived from acceptance criteria):**
 - `fetchNewPosts` stores ALL subreddit posts in global `posts` table (not just matching)
@@ -112,18 +119,18 @@ The current implementation collapses `posts` and `user_posts` into a single `pos
 - `getPostCounts` reads from `user_posts`
 
 ### 15.3 Update React Query hooks and UI components
-- [ ] Update hook return types to match new `user_posts` + `posts` joined structure
-- [ ] Verify dashboard, post-card, post-list still work with updated data shapes
-- [ ] Update any components that reference `post.status` (now from `user_posts`)
+- [x] Update hook return types to match new `user_posts` + `posts` joined structure
+- [x] Verify dashboard, post-card, post-list still work with updated data shapes
+- [x] Update any components that reference `post.status` (now from `user_posts`)
 
 ### 15.4 Update seed script
-- [ ] `webapp/drizzle/seed.ts`: update to create posts in `posts` (global), then `user_posts` and `user_post_tags` for the seed user
+- [x] `webapp/drizzle/seed.ts`: update to create posts in `posts` (global), then `user_posts` and `user_post_tags` for the seed user
 
 ### 15.5 Update existing tests
-- [ ] Update all post-related action tests to mock `user_posts` and `user_post_tags` tables
-- [ ] Update data isolation tests for new three-table model
-- [ ] Update hook tests if return types changed
-- [ ] Verify all 582+ existing tests still pass
+- [x] Update all post-related action tests to mock `user_posts` and `user_post_tags` tables
+- [x] Update data isolation tests for new three-table model
+- [x] Update hook tests if return types changed
+- [x] Verify all 583 existing tests still pass
 
 ---
 
@@ -273,14 +280,14 @@ The landing page is missing three sections required by the spec: Roadmap, Pricin
 | Phase | Description | Tasks | Status | Dependencies | Priority |
 |-------|-------------|-------|--------|--------------|----------|
 | 1-14 | All Previous Phases | 55 | **COMPLETE** | Various | Various |
-| 15 | Shared Posts Architecture | 5 | **NOT STARTED** | None | CRITICAL |
+| 15 | Shared Posts Architecture | 5 | **COMPLETE** | None | CRITICAL |
 | 16 | Untagged Filter | 3 | **NOT STARTED** | Phase 15 | HIGH |
 | 17 | Landing Page Sections | 4 | **NOT STARTED** | None | HIGH |
 | 18 | Pagination Page Size Fix | 1 | **NOT STARTED** | None | MODERATE |
 | 19 | Post Card Line Clamp | 0 | **VERIFIED CORRECT** | — | — |
 | 20 | Suggest-Terms HTTP Status | 1 | **NOT STARTED** | None | LOW |
 
-**Total Remaining Tasks: 14** (across phases 15-18, 20)
+**Total Remaining Tasks: 9** (across phases 16-18, 20)
 
 ### Environment Variables Required
 ```bash

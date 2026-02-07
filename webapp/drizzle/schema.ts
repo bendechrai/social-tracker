@@ -8,6 +8,7 @@ import {
   primaryKey,
   uniqueIndex,
   index,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -33,7 +34,7 @@ export const users = pgTable("users", {
 export const usersRelations = relations(users, ({ many }) => ({
   subreddits: many(subreddits),
   tags: many(tags),
-  posts: many(posts),
+  userPosts: many(userPosts),
   sessions: many(sessions),
   accounts: many(accounts),
 }));
@@ -143,7 +144,7 @@ export const tagsRelations = relations(tags, ({ one, many }) => ({
     references: [users.id],
   }),
   searchTerms: many(searchTerms),
-  postTags: many(postTags),
+  userPostTags: many(userPostTags),
 }));
 
 // Search terms table
@@ -167,15 +168,12 @@ export const searchTermsRelations = relations(searchTerms, ({ one }) => ({
   }),
 }));
 
-// Posts table
+// Posts table — global, shared across users, deduplicated by reddit_id
 export const posts = pgTable(
   "posts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    redditId: varchar("reddit_id", { length: 20 }).notNull(),
+    redditId: varchar("reddit_id", { length: 20 }).notNull().unique(),
     title: text("title").notNull(),
     body: text("body"),
     author: varchar("author", { length: 100 }).notNull(),
@@ -185,6 +183,27 @@ export const posts = pgTable(
     redditCreatedAt: timestamp("reddit_created_at").notNull(),
     score: integer("score").notNull().default(0),
     numComments: integer("num_comments").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("posts_subreddit_idx").on(table.subreddit),
+  ]
+);
+
+export const postsRelations = relations(posts, ({ many }) => ({
+  userPosts: many(userPosts),
+}));
+
+// User posts table — per-user state for shared posts
+export const userPosts = pgTable(
+  "user_posts",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
     status: varchar("status", { length: 20 }).notNull().default("new"),
     responseText: text("response_text"),
     respondedAt: timestamp("responded_at"),
@@ -195,40 +214,49 @@ export const posts = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
-    uniqueIndex("posts_user_reddit_id_idx").on(table.userId, table.redditId),
-    index("posts_user_status_idx").on(table.userId, table.status),
+    primaryKey({ columns: [table.userId, table.postId] }),
+    index("user_posts_user_status_idx").on(table.userId, table.status),
   ]
 );
 
-export const postsRelations = relations(posts, ({ one, many }) => ({
+export const userPostsRelations = relations(userPosts, ({ one, many }) => ({
   user: one(users, {
-    fields: [posts.userId],
+    fields: [userPosts.userId],
     references: [users.id],
   }),
-  postTags: many(postTags),
+  post: one(posts, {
+    fields: [userPosts.postId],
+    references: [posts.id],
+  }),
+  userPostTags: many(userPostTags),
 }));
 
-// Post tags junction table
-export const postTags = pgTable(
-  "post_tags",
+// User post tags — per-user tag associations for posts
+export const userPostTags = pgTable(
+  "user_post_tags",
   {
-    postId: uuid("post_id")
-      .notNull()
-      .references(() => posts.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull(),
+    postId: uuid("post_id").notNull(),
     tagId: uuid("tag_id")
       .notNull()
       .references(() => tags.id, { onDelete: "cascade" }),
   },
-  (table) => [primaryKey({ columns: [table.postId, table.tagId] })]
+  (table) => [
+    primaryKey({ columns: [table.userId, table.postId, table.tagId] }),
+    foreignKey({
+      columns: [table.userId, table.postId],
+      foreignColumns: [userPosts.userId, userPosts.postId],
+    }).onDelete("cascade"),
+  ]
 );
 
-export const postTagsRelations = relations(postTags, ({ one }) => ({
-  post: one(posts, {
-    fields: [postTags.postId],
-    references: [posts.id],
+export const userPostTagsRelations = relations(userPostTags, ({ one }) => ({
+  userPost: one(userPosts, {
+    fields: [userPostTags.userId, userPostTags.postId],
+    references: [userPosts.userId, userPosts.postId],
   }),
   tag: one(tags, {
-    fields: [postTags.tagId],
+    fields: [userPostTags.tagId],
     references: [tags.id],
   }),
 }));
@@ -249,8 +277,11 @@ export type NewSearchTerm = typeof searchTerms.$inferInsert;
 export type Post = typeof posts.$inferSelect;
 export type NewPost = typeof posts.$inferInsert;
 
-export type PostTag = typeof postTags.$inferSelect;
-export type NewPostTag = typeof postTags.$inferInsert;
+export type UserPost = typeof userPosts.$inferSelect;
+export type NewUserPost = typeof userPosts.$inferInsert;
+
+export type UserPostTag = typeof userPostTags.$inferSelect;
+export type NewUserPostTag = typeof userPostTags.$inferInsert;
 
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;

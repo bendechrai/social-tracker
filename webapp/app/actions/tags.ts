@@ -28,7 +28,7 @@ export async function listTags(): Promise<TagData[]> {
       searchTerms: {
         orderBy: [asc(searchTerms.term)],
       },
-      postTags: true,
+      userPostTags: true,
     },
   });
 
@@ -38,7 +38,7 @@ export async function listTags(): Promise<TagData[]> {
     color: tag.color,
     createdAt: tag.createdAt,
     terms: tag.searchTerms.map((t) => ({ id: t.id, term: t.term })),
-    postCount: tag.postTags.length,
+    postCount: tag.userPostTags.length,
   }));
 }
 
@@ -54,7 +54,7 @@ export async function getTag(
       searchTerms: {
         orderBy: [asc(searchTerms.term)],
       },
-      postTags: true,
+      userPostTags: true,
     },
   });
 
@@ -70,7 +70,7 @@ export async function getTag(
       color: tag.color,
       createdAt: tag.createdAt,
       terms: tag.searchTerms.map((t) => ({ id: t.id, term: t.term })),
-      postCount: tag.postTags.length,
+      postCount: tag.userPostTags.length,
     },
   };
 }
@@ -178,7 +178,7 @@ export async function updateTag(
     where: and(eq(tags.id, id), eq(tags.userId, userId)),
     with: {
       searchTerms: true,
-      postTags: true,
+      userPostTags: true,
     },
   });
 
@@ -230,12 +230,12 @@ export async function updateTag(
       color: updated!.color,
       createdAt: updated!.createdAt,
       terms: existing.searchTerms.map((t) => ({ id: t.id, term: t.term })),
-      postCount: existing.postTags.length,
+      postCount: existing.userPostTags.length,
     },
   };
 }
 
-// Delete a tag (cascades to search terms and post_tags)
+// Delete a tag (cascades to search terms and user_post_tags)
 export async function deleteTag(
   id: string
 ): Promise<{ success: true } | { success: false; error: string }> {
@@ -250,7 +250,7 @@ export async function deleteTag(
     return { success: false, error: "Tag not found" };
   }
 
-  // Delete the tag (cascade handles search_terms and post_tags)
+  // Delete the tag (cascade handles search_terms and user_post_tags)
   await db.delete(tags).where(eq(tags.id, id));
 
   revalidatePath("/");

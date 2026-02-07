@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { posts, postTags, tags, subreddits } from "@/drizzle/schema";
+import { posts, userPosts, userPostTags, tags, subreddits } from "@/drizzle/schema";
 import { getCurrentUserId } from "./users";
 import { postStatusSchema, type PostStatus } from "@/lib/validations";
 import { fetchRedditPosts } from "@/lib/reddit";
@@ -45,21 +45,24 @@ export async function listPosts(
 ): Promise<ListPostsResult> {
   const userId = await getCurrentUserId();
 
-  // Build the base query conditions
+  // Build the base query conditions on user_posts
   const conditions = [
-    eq(posts.userId, userId),
-    eq(posts.status, status),
+    eq(userPosts.userId, userId),
+    eq(userPosts.status, status),
   ];
 
   // Get posts with optional tag filtering
   let filteredPostIds: string[] | null = null;
 
   if (tagIds && tagIds.length > 0) {
-    // Get post IDs that have ANY of the selected tags
+    // Get post IDs that have ANY of the selected tags for this user
     const postIdsWithTags = await db
-      .selectDistinct({ postId: postTags.postId })
-      .from(postTags)
-      .where(inArray(postTags.tagId, tagIds));
+      .selectDistinct({ postId: userPostTags.postId })
+      .from(userPostTags)
+      .where(and(
+        eq(userPostTags.userId, userId),
+        inArray(userPostTags.tagId, tagIds),
+      ));
 
     filteredPostIds = postIdsWithTags.map((p) => p.postId);
 
@@ -78,10 +81,10 @@ export async function listPosts(
   // Count total matching posts
   const countQuery = db
     .select({ count: sql<number>`count(*)` })
-    .from(posts)
+    .from(userPosts)
     .where(
       filteredPostIds
-        ? and(...conditions, inArray(posts.id, filteredPostIds))
+        ? and(...conditions, inArray(userPosts.postId, filteredPostIds))
         : and(...conditions)
     );
 
@@ -89,18 +92,19 @@ export async function listPosts(
   const total = Number(countResult?.count ?? 0);
   const totalPages = Math.ceil(total / limit);
 
-  // Get paginated posts
+  // Get paginated user_posts joined with posts
   const offset = (page - 1) * limit;
 
-  const postsQuery = db.query.posts.findMany({
+  const results = await db.query.userPosts.findMany({
     where: filteredPostIds
-      ? and(...conditions, inArray(posts.id, filteredPostIds))
+      ? and(...conditions, inArray(userPosts.postId, filteredPostIds))
       : and(...conditions),
-    orderBy: [desc(posts.redditCreatedAt)],
+    orderBy: [desc(userPosts.createdAt)],
     limit,
     offset,
     with: {
-      postTags: {
+      post: true,
+      userPostTags: {
         with: {
           tag: true,
         },
@@ -108,29 +112,27 @@ export async function listPosts(
     },
   });
 
-  const results = await postsQuery;
-
-  const postsData: PostData[] = results.map((post) => ({
-    id: post.id,
-    redditId: post.redditId,
-    title: post.title,
-    body: post.body,
-    author: post.author,
-    subreddit: post.subreddit,
-    permalink: post.permalink,
-    url: post.url,
-    redditCreatedAt: post.redditCreatedAt,
-    score: post.score,
-    numComments: post.numComments,
-    status: post.status as PostStatus,
-    responseText: post.responseText,
-    respondedAt: post.respondedAt,
-    createdAt: post.createdAt,
-    updatedAt: post.updatedAt,
-    tags: post.postTags.map((pt) => ({
-      id: pt.tag.id,
-      name: pt.tag.name,
-      color: pt.tag.color,
+  const postsData: PostData[] = results.map((up) => ({
+    id: up.post.id,
+    redditId: up.post.redditId,
+    title: up.post.title,
+    body: up.post.body,
+    author: up.post.author,
+    subreddit: up.post.subreddit,
+    permalink: up.post.permalink,
+    url: up.post.url,
+    redditCreatedAt: up.post.redditCreatedAt,
+    score: up.post.score,
+    numComments: up.post.numComments,
+    status: up.status as PostStatus,
+    responseText: up.responseText,
+    respondedAt: up.respondedAt,
+    createdAt: up.createdAt,
+    updatedAt: up.updatedAt,
+    tags: up.userPostTags.map((upt) => ({
+      id: upt.tag.id,
+      name: upt.tag.name,
+      color: upt.tag.color,
     })),
   }));
 
@@ -149,10 +151,12 @@ export async function getPost(
 ): Promise<{ success: true; post: PostData } | { success: false; error: string }> {
   const userId = await getCurrentUserId();
 
-  const post = await db.query.posts.findFirst({
-    where: and(eq(posts.id, id), eq(posts.userId, userId)),
+  // Find the user_post for this post
+  const userPost = await db.query.userPosts.findFirst({
+    where: and(eq(userPosts.postId, id), eq(userPosts.userId, userId)),
     with: {
-      postTags: {
+      post: true,
+      userPostTags: {
         with: {
           tag: true,
         },
@@ -160,33 +164,33 @@ export async function getPost(
     },
   });
 
-  if (!post) {
+  if (!userPost) {
     return { success: false, error: "Post not found" };
   }
 
   return {
     success: true,
     post: {
-      id: post.id,
-      redditId: post.redditId,
-      title: post.title,
-      body: post.body,
-      author: post.author,
-      subreddit: post.subreddit,
-      permalink: post.permalink,
-      url: post.url,
-      redditCreatedAt: post.redditCreatedAt,
-      score: post.score,
-      numComments: post.numComments,
-      status: post.status as PostStatus,
-      responseText: post.responseText,
-      respondedAt: post.respondedAt,
-      createdAt: post.createdAt,
-      updatedAt: post.updatedAt,
-      tags: post.postTags.map((pt) => ({
-        id: pt.tag.id,
-        name: pt.tag.name,
-        color: pt.tag.color,
+      id: userPost.post.id,
+      redditId: userPost.post.redditId,
+      title: userPost.post.title,
+      body: userPost.post.body,
+      author: userPost.post.author,
+      subreddit: userPost.post.subreddit,
+      permalink: userPost.post.permalink,
+      url: userPost.post.url,
+      redditCreatedAt: userPost.post.redditCreatedAt,
+      score: userPost.post.score,
+      numComments: userPost.post.numComments,
+      status: userPost.status as PostStatus,
+      responseText: userPost.responseText,
+      respondedAt: userPost.respondedAt,
+      createdAt: userPost.createdAt,
+      updatedAt: userPost.updatedAt,
+      tags: userPost.userPostTags.map((upt) => ({
+        id: upt.tag.id,
+        name: upt.tag.name,
+        color: upt.tag.color,
       })),
     },
   };
@@ -206,11 +210,12 @@ export async function changePostStatus(
     return { success: false, error: "Invalid status" };
   }
 
-  // Verify post exists and belongs to user
-  const existing = await db.query.posts.findFirst({
-    where: and(eq(posts.id, id), eq(posts.userId, userId)),
+  // Verify user_post exists and belongs to user
+  const existing = await db.query.userPosts.findFirst({
+    where: and(eq(userPosts.postId, id), eq(userPosts.userId, userId)),
     with: {
-      postTags: {
+      post: true,
+      userPostTags: {
         with: {
           tag: true,
         },
@@ -246,9 +251,9 @@ export async function changePostStatus(
   }
 
   const [updated] = await db
-    .update(posts)
+    .update(userPosts)
     .set(updates)
-    .where(eq(posts.id, id))
+    .where(and(eq(userPosts.postId, id), eq(userPosts.userId, userId)))
     .returning();
 
   revalidatePath("/");
@@ -256,26 +261,26 @@ export async function changePostStatus(
   return {
     success: true,
     post: {
-      id: updated!.id,
-      redditId: updated!.redditId,
-      title: updated!.title,
-      body: updated!.body,
-      author: updated!.author,
-      subreddit: updated!.subreddit,
-      permalink: updated!.permalink,
-      url: updated!.url,
-      redditCreatedAt: updated!.redditCreatedAt,
-      score: updated!.score,
-      numComments: updated!.numComments,
+      id: existing.post.id,
+      redditId: existing.post.redditId,
+      title: existing.post.title,
+      body: existing.post.body,
+      author: existing.post.author,
+      subreddit: existing.post.subreddit,
+      permalink: existing.post.permalink,
+      url: existing.post.url,
+      redditCreatedAt: existing.post.redditCreatedAt,
+      score: existing.post.score,
+      numComments: existing.post.numComments,
       status: updated!.status as PostStatus,
       responseText: updated!.responseText,
       respondedAt: updated!.respondedAt,
       createdAt: updated!.createdAt,
       updatedAt: updated!.updatedAt,
-      tags: existing.postTags.map((pt) => ({
-        id: pt.tag.id,
-        name: pt.tag.name,
-        color: pt.tag.color,
+      tags: existing.userPostTags.map((upt) => ({
+        id: upt.tag.id,
+        name: upt.tag.name,
+        color: upt.tag.color,
       })),
     },
   };
@@ -288,23 +293,23 @@ export async function updateResponseText(
 ): Promise<{ success: true } | { success: false; error: string }> {
   const userId = await getCurrentUserId();
 
-  // Verify post exists and belongs to user
-  const existing = await db.query.posts.findFirst({
-    where: and(eq(posts.id, id), eq(posts.userId, userId)),
+  // Verify user_post exists and belongs to user
+  const existing = await db.query.userPosts.findFirst({
+    where: and(eq(userPosts.postId, id), eq(userPosts.userId, userId)),
   });
 
   if (!existing) {
     return { success: false, error: "Post not found" };
   }
 
-  // Update the response text
+  // Update the response text on user_posts
   await db
-    .update(posts)
+    .update(userPosts)
     .set({
       responseText,
       respondedAt: existing.status === "done" ? new Date() : existing.respondedAt,
     })
-    .where(eq(posts.id, id));
+    .where(and(eq(userPosts.postId, id), eq(userPosts.userId, userId)));
 
   revalidatePath("/");
 
@@ -321,12 +326,12 @@ export async function getPostCounts(): Promise<{
 
   const results = await db
     .select({
-      status: posts.status,
+      status: userPosts.status,
       count: sql<number>`count(*)`,
     })
-    .from(posts)
-    .where(eq(posts.userId, userId))
-    .groupBy(posts.status);
+    .from(userPosts)
+    .where(eq(userPosts.userId, userId))
+    .groupBy(userPosts.status);
 
   const counts = {
     new: 0,
@@ -403,7 +408,38 @@ export async function fetchNewPosts(): Promise<{
   let newCount = 0;
 
   for (const fetchedPost of fetchedPosts) {
-    // Match tags locally before storing — only keep posts that match at least one term
+    // Upsert into global posts table (conflict on reddit_id globally)
+    const postResult = await db
+      .insert(posts)
+      .values({
+        redditId: fetchedPost.redditId,
+        title: fetchedPost.title,
+        body: fetchedPost.body,
+        author: fetchedPost.author,
+        subreddit: fetchedPost.subreddit,
+        permalink: fetchedPost.permalink,
+        url: fetchedPost.url,
+        redditCreatedAt: fetchedPost.redditCreatedAt,
+        score: fetchedPost.score,
+        numComments: fetchedPost.numComments,
+      })
+      .onConflictDoNothing({ target: posts.redditId })
+      .returning();
+
+    // Get the post ID — either newly inserted or existing
+    let postId: string;
+    if (postResult[0]) {
+      postId = postResult[0].id;
+    } else {
+      // Post already exists — look it up
+      const existingPost = await db.query.posts.findFirst({
+        where: eq(posts.redditId, fetchedPost.redditId),
+      });
+      if (!existingPost) continue;
+      postId = existingPost.id;
+    }
+
+    // Match tags locally — check if title/body contains any search terms
     const matchedTagIds = new Set<string>();
     const postText = `${fetchedPost.title} ${fetchedPost.body ?? ""}`.toLowerCase();
 
@@ -415,43 +451,37 @@ export async function fetchNewPosts(): Promise<{
       }
     }
 
-    // Skip posts that don't match any search terms
+    // Only create user_posts for posts matching search terms
     if (matchedTagIds.size === 0) {
       continue;
     }
 
-    // Upsert: insert on conflict do nothing (race-condition safe deduplication)
-    const result = await db
-      .insert(posts)
+    // Create user_post record (conflict on (user_id, post_id) do nothing)
+    const userPostResult = await db
+      .insert(userPosts)
       .values({
         userId,
-        redditId: fetchedPost.redditId,
-        title: fetchedPost.title,
-        body: fetchedPost.body,
-        author: fetchedPost.author,
-        subreddit: fetchedPost.subreddit,
-        permalink: fetchedPost.permalink,
-        url: fetchedPost.url,
-        redditCreatedAt: fetchedPost.redditCreatedAt,
-        score: fetchedPost.score,
-        numComments: fetchedPost.numComments,
+        postId,
         status: "new",
       })
-      .onConflictDoNothing({ target: [posts.userId, posts.redditId] })
+      .onConflictDoNothing()
       .returning();
 
-    // If no rows returned, the post already existed — skip tag assignment
-    const newPost = result[0];
-    if (!newPost) {
+    // If user_post already existed, skip tag assignment
+    if (!userPostResult[0]) {
       continue;
     }
 
-    // Create post_tag associations
+    // Create user_post_tags entries for matching tags
     for (const tagId of matchedTagIds) {
-      await db.insert(postTags).values({
-        postId: newPost.id,
-        tagId,
-      });
+      await db
+        .insert(userPostTags)
+        .values({
+          userId,
+          postId,
+          tagId,
+        })
+        .onConflictDoNothing();
     }
 
     newCount++;

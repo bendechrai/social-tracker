@@ -13,15 +13,8 @@ CREATE TABLE "accounts" (
 	"session_state" text
 );
 --> statement-breakpoint
-CREATE TABLE "post_tags" (
-	"post_id" uuid NOT NULL,
-	"tag_id" uuid NOT NULL,
-	CONSTRAINT "post_tags_post_id_tag_id_pk" PRIMARY KEY("post_id","tag_id")
-);
---> statement-breakpoint
 CREATE TABLE "posts" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"user_id" uuid NOT NULL,
 	"reddit_id" varchar(20) NOT NULL,
 	"title" text NOT NULL,
 	"body" text,
@@ -32,11 +25,8 @@ CREATE TABLE "posts" (
 	"reddit_created_at" timestamp NOT NULL,
 	"score" integer DEFAULT 0 NOT NULL,
 	"num_comments" integer DEFAULT 0 NOT NULL,
-	"status" varchar(20) DEFAULT 'new' NOT NULL,
-	"response_text" text,
-	"responded_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
+	CONSTRAINT "posts_reddit_id_unique" UNIQUE("reddit_id")
 );
 --> statement-breakpoint
 CREATE TABLE "search_terms" (
@@ -67,6 +57,24 @@ CREATE TABLE "tags" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "user_post_tags" (
+	"user_id" uuid NOT NULL,
+	"post_id" uuid NOT NULL,
+	"tag_id" uuid NOT NULL,
+	CONSTRAINT "user_post_tags_user_id_post_id_tag_id_pk" PRIMARY KEY("user_id","post_id","tag_id")
+);
+--> statement-breakpoint
+CREATE TABLE "user_posts" (
+	"user_id" uuid NOT NULL,
+	"post_id" uuid NOT NULL,
+	"status" varchar(20) DEFAULT 'new' NOT NULL,
+	"response_text" text,
+	"responded_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "user_posts_user_id_post_id_pk" PRIMARY KEY("user_id","post_id")
+);
+--> statement-breakpoint
 CREATE TABLE "users" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"email" varchar(255) NOT NULL,
@@ -89,16 +97,17 @@ CREATE TABLE "verification_tokens" (
 );
 --> statement-breakpoint
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "post_tags" ADD CONSTRAINT "post_tags_post_id_posts_id_fk" FOREIGN KEY ("post_id") REFERENCES "public"."posts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "post_tags" ADD CONSTRAINT "post_tags_tag_id_tags_id_fk" FOREIGN KEY ("tag_id") REFERENCES "public"."tags"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "posts" ADD CONSTRAINT "posts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "search_terms" ADD CONSTRAINT "search_terms_tag_id_tags_id_fk" FOREIGN KEY ("tag_id") REFERENCES "public"."tags"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "subreddits" ADD CONSTRAINT "subreddits_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tags" ADD CONSTRAINT "tags_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_post_tags" ADD CONSTRAINT "user_post_tags_tag_id_tags_id_fk" FOREIGN KEY ("tag_id") REFERENCES "public"."tags"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_post_tags" ADD CONSTRAINT "user_post_tags_user_id_post_id_user_posts_user_id_post_id_fk" FOREIGN KEY ("user_id","post_id") REFERENCES "public"."user_posts"("user_id","post_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_posts" ADD CONSTRAINT "user_posts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_posts" ADD CONSTRAINT "user_posts_post_id_posts_id_fk" FOREIGN KEY ("post_id") REFERENCES "public"."posts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "accounts_provider_account_id_idx" ON "accounts" USING btree ("provider","provider_account_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "posts_user_reddit_id_idx" ON "posts" USING btree ("user_id","reddit_id");--> statement-breakpoint
-CREATE INDEX "posts_user_status_idx" ON "posts" USING btree ("user_id","status");--> statement-breakpoint
+CREATE INDEX "posts_subreddit_idx" ON "posts" USING btree ("subreddit");--> statement-breakpoint
 CREATE UNIQUE INDEX "search_terms_tag_term_idx" ON "search_terms" USING btree ("tag_id","term");--> statement-breakpoint
 CREATE UNIQUE INDEX "subreddits_user_name_idx" ON "subreddits" USING btree ("user_id","name");--> statement-breakpoint
-CREATE UNIQUE INDEX "tags_user_name_idx" ON "tags" USING btree ("user_id","name");
+CREATE UNIQUE INDEX "tags_user_name_idx" ON "tags" USING btree ("user_id","name");--> statement-breakpoint
+CREATE INDEX "user_posts_user_status_idx" ON "user_posts" USING btree ("user_id","status");
