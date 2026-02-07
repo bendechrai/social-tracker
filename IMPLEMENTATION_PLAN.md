@@ -157,9 +157,9 @@ Replace the manual "Fetch New" button with an automatic cron-based fetch system.
 
 ---
 
-## Phase 24: Tag Search Term Constraints — IN PROGRESS
+## Phase 24: Tag Search Term Constraints — COMPLETE
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 **Priority: HIGH — Spec violation in tag system**
 **Dependencies: None**
 **Spec: `specs/tag-system.md` — Acceptance criteria 9, 10**
@@ -185,19 +185,17 @@ The tag-system spec requires two constraints that are not enforced:
   - Acceptance: `removeSearchTerm` returns `{ success: false, error: "Cannot remove the last search term" }` when the tag has exactly one term remaining
   - Tests: 3 new tests (reject last term removal, allow removal with 2 terms, allow removal with 3+ terms); updated 2 existing tests with count mock
 
-### In Progress
-
-- [ ] **Add UI validation for tag creation requiring at least one search term**
+- [x] **Add UI validation for tag creation requiring at least one search term**
   - Files: `webapp/components/settings/tag-settings.tsx`
   - Spec: `specs/tag-system.md` acceptance criterion 9
   - Acceptance: "Create" button is disabled when the terms input is empty; attempting to create shows an error message
-  - Tests: Add component test rendering tag creation form with empty terms and verifying button is disabled or error shown
+  - Tests: 2 new component tests (Create button disabled with name but no terms, enabled with both name and terms); updated 2 existing tests to include terms
 
-- [ ] **Add UI prevention for removing last search term from a tag**
+- [x] **Add UI prevention for removing last search term from a tag**
   - Files: `webapp/components/settings/tag-settings.tsx`
   - Spec: `specs/tag-system.md` acceptance criterion 10
-  - Acceptance: Remove button is disabled (or hidden) when a tag has exactly one search term; attempting removal shows an error
-  - Tests: Add component test rendering a tag with one term and verifying remove button is disabled
+  - Acceptance: Remove button is disabled when a tag has exactly one search term; enabled when tag has multiple terms
+  - Tests: 2 new component tests (remove button disabled with one term, enabled with multiple terms)
 
 ---
 
@@ -215,9 +213,9 @@ The tag-system spec requires two constraints that are not enforced:
 | 21 | Post Ordering & Data Delay | 2 | **COMPLETE** | None | HIGH |
 | 22 | Per-Subreddit Incremental Fetching | 3 | **COMPLETE** | None | HIGH |
 | 23 | Auto-Fetch Cron | 9 | **COMPLETE** | Phase 22 | HIGH |
-| 24 | Tag Search Term Constraints | 4 | **IN PROGRESS** | None | HIGH |
+| 24 | Tag Search Term Constraints | 4 | **COMPLETE** | None | HIGH |
 
-**Total Remaining Tasks: 2** — Phase 24 in progress
+**Total Remaining Tasks: 0** — All phases complete
 
 ### Environment Variables Required
 ```bash

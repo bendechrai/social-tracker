@@ -223,7 +223,7 @@ export function TagSettings({
             <Button
               size="sm"
               onClick={handleCreate}
-              disabled={isSaving || !newName.trim()}
+              disabled={isSaving || !newName.trim() || !newTerms.split(",").some((t) => t.trim().length > 0)}
             >
               {isSaving ? <Loader2Icon className="h-4 w-4 animate-spin" /> : "Create"}
             </Button>
@@ -315,8 +315,9 @@ export function TagSettings({
                             <button
                               type="button"
                               onClick={() => handleRemoveTerm(term.id)}
-                              className="hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-sm"
+                              className="hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-sm disabled:opacity-50 disabled:pointer-events-none"
                               aria-label={`Remove term ${term.term}`}
+                              disabled={tag.terms.length <= 1}
                             >
                               <XIcon className="h-3 w-3" />
                             </button>

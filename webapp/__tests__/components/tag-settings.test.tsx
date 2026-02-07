@@ -204,6 +204,10 @@ describe("TagSettings component", () => {
 
       await user.click(screen.getByText("Add Tag"));
       await user.type(screen.getByPlaceholderText("Tag name"), "NewTag");
+      await user.type(
+        screen.getByPlaceholderText("Search terms (comma-separated)"),
+        "term1"
+      );
       await user.click(screen.getByText("Create"));
 
       await waitFor(() => {
@@ -220,6 +224,10 @@ describe("TagSettings component", () => {
 
       await user.click(screen.getByText("Add Tag"));
       await user.type(screen.getByPlaceholderText("Tag name"), "Existing");
+      await user.type(
+        screen.getByPlaceholderText("Search terms (comma-separated)"),
+        "term1"
+      );
       await user.click(screen.getByText("Create"));
 
       await waitFor(() => {
@@ -235,6 +243,31 @@ describe("TagSettings component", () => {
       // Create button should be disabled when name is empty
       const createBtn = screen.getByText("Create");
       expect(createBtn.closest("button")).toBeDisabled();
+    });
+
+    it("disables Create button when search terms input is empty", async () => {
+      const user = userEvent.setup();
+      render(<TagSettings {...defaultProps} />);
+
+      await user.click(screen.getByText("Add Tag"));
+      await user.type(screen.getByPlaceholderText("Tag name"), "NewTag");
+      // No terms entered — Create button should be disabled
+      const createBtn = screen.getByText("Create");
+      expect(createBtn.closest("button")).toBeDisabled();
+    });
+
+    it("enables Create button when both name and terms are provided", async () => {
+      const user = userEvent.setup();
+      render(<TagSettings {...defaultProps} />);
+
+      await user.click(screen.getByText("Add Tag"));
+      await user.type(screen.getByPlaceholderText("Tag name"), "NewTag");
+      await user.type(
+        screen.getByPlaceholderText("Search terms (comma-separated)"),
+        "term1"
+      );
+      const createBtn = screen.getByText("Create");
+      expect(createBtn.closest("button")).not.toBeDisabled();
     });
 
     it("cancels create form", async () => {
@@ -491,6 +524,53 @@ describe("TagSettings component", () => {
       expect(
         screen.getByRole("button", { name: "Remove term yugabytedb" })
       ).toBeInTheDocument();
+    });
+
+    it("disables remove button when tag has only one term", async () => {
+      const user = userEvent.setup();
+      const tagsWithOneTerm = [
+        {
+          id: "tag-2",
+          name: "Distributed PG",
+          color: "#10b981",
+          terms: [{ id: "term-3", term: "distributed postgres" }],
+          postCount: 3,
+        },
+      ];
+      render(<TagSettings {...defaultProps} tags={tagsWithOneTerm} />);
+
+      // Expand the tag
+      const tagHeaders = screen.getAllByRole("button", { expanded: false });
+      const header = tagHeaders.find((btn) =>
+        btn.textContent?.includes("Distributed PG")
+      );
+      await user.click(header!);
+
+      const removeBtn = screen.getByRole("button", {
+        name: "Remove term distributed postgres",
+      });
+      expect(removeBtn).toBeDisabled();
+    });
+
+    it("enables remove buttons when tag has multiple terms", async () => {
+      const user = userEvent.setup();
+      render(<TagSettings {...defaultProps} />);
+
+      // Expand the first tag (has 2 terms)
+      const tagHeaders = screen.getAllByRole("button", { expanded: false });
+      const yugabyteHeader = tagHeaders.find((btn) =>
+        btn.textContent?.includes("Yugabyte")
+      );
+      await user.click(yugabyteHeader!);
+
+      const removeBtn1 = screen.getByRole("button", {
+        name: "Remove term yugabyte",
+      });
+      const removeBtn2 = screen.getByRole("button", {
+        name: "Remove term yugabytedb",
+      });
+      expect(removeBtn1).not.toBeDisabled();
+      expect(removeBtn2).not.toBeDisabled();
     });
 
     it("shows empty terms message", async () => {
