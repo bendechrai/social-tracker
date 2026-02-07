@@ -43,19 +43,22 @@ export function Header({ onFetch, isFetching = false }: HeaderProps) {
           {message && (
             <span className="text-sm text-muted-foreground">{message}</span>
           )}
-          <Button onClick={handleFetch} disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2Icon className="h-4 w-4 mr-2 animate-spin" />
-                Fetching...
-              </>
-            ) : (
-              <>
-                <RefreshCwIcon className="h-4 w-4 mr-2" />
-                Fetch New
-              </>
-            )}
-          </Button>
+          <div className="flex flex-col items-end gap-0.5">
+            <Button onClick={handleFetch} disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2Icon className="h-4 w-4 mr-2 animate-spin" />
+                  Fetching...
+                </>
+              ) : (
+                <>
+                  <RefreshCwIcon className="h-4 w-4 mr-2" />
+                  Fetch New
+                </>
+              )}
+            </Button>
+            <span className="text-[10px] text-muted-foreground">Data has ~36h delay</span>
+          </div>
           <Button variant="outline" size="icon" asChild>
             <Link href="/settings">
               <SettingsIcon className="h-4 w-4" />

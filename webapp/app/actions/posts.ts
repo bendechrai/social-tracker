@@ -136,25 +136,64 @@ export async function listPosts(
   const total = Number(countResult?.count ?? 0);
   const totalPages = Math.ceil(total / limit);
 
-  // Get paginated user_posts joined with posts
+  // Get paginated post IDs ordered by Reddit creation time (newest first)
+  // Uses query builder (not relational API) to order by posts.redditCreatedAt
   const offset = (page - 1) * limit;
 
-  const results = await db.query.userPosts.findMany({
-    where: filteredPostIds
-      ? and(...conditions, inArray(userPosts.postId, filteredPostIds))
-      : and(...conditions),
-    orderBy: [desc(userPosts.createdAt)],
-    limit,
-    offset,
-    with: {
-      post: true,
-      userPostTags: {
-        with: {
-          tag: true,
+  const paginatedRows = await db
+    .select({
+      postId: userPosts.postId,
+      redditCreatedAt: posts.redditCreatedAt,
+    })
+    .from(userPosts)
+    .innerJoin(posts, eq(userPosts.postId, posts.id))
+    .where(
+      filteredPostIds
+        ? and(...conditions, inArray(userPosts.postId, filteredPostIds))
+        : and(...conditions)
+    )
+    .orderBy(desc(posts.redditCreatedAt))
+    .limit(limit)
+    .offset(offset);
+
+  const paginatedPostIds = paginatedRows.map((r) => r.postId);
+
+  // Load full data with tags for the paginated post IDs
+  let results: Array<{
+    post: typeof posts.$inferSelect;
+    userId: string;
+    postId: string;
+    status: string;
+    responseText: string | null;
+    respondedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    userPostTags: Array<{
+      tag: typeof tags.$inferSelect;
+    }>;
+  }> = [];
+
+  if (paginatedPostIds.length > 0) {
+    const loaded = await db.query.userPosts.findMany({
+      where: and(
+        eq(userPosts.userId, userId),
+        inArray(userPosts.postId, paginatedPostIds),
+      ),
+      with: {
+        post: true,
+        userPostTags: {
+          with: {
+            tag: true,
+          },
         },
       },
-    },
-  });
+    });
+    results = loaded as typeof results;
+  }
+
+  // Sort results to match the paginated order (by redditCreatedAt desc)
+  const postIdOrder = new Map(paginatedPostIds.map((id, i) => [id, i]));
+  results.sort((a, b) => (postIdOrder.get(a.postId) ?? 0) - (postIdOrder.get(b.postId) ?? 0));
 
   const postsData: PostData[] = results.map((up) => ({
     id: up.post.id,

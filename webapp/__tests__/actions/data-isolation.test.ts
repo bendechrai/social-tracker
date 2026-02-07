@@ -125,6 +125,15 @@ vi.mock("@/lib/db", () => ({
           (promise as Promise<unknown[]> & { groupBy: () => Promise<unknown[]> }).groupBy = () => mockGroupByResult();
           return promise;
         },
+        innerJoin: () => ({
+          where: () => ({
+            orderBy: () => ({
+              limit: () => ({
+                offset: () => Promise.resolve([]),
+              }),
+            }),
+          }),
+        }),
       }),
     }),
     selectDistinct: () => ({

@@ -63,6 +63,11 @@ describe("Header component", () => {
       render(<Header {...defaultProps} />);
       expect(screen.getByTestId("user-menu")).toBeInTheDocument();
     });
+
+    it("shows data delay hint near Fetch button", () => {
+      render(<Header {...defaultProps} />);
+      expect(screen.getByText(/~36h delay/)).toBeInTheDocument();
+    });
   });
 
   describe("fetch loading state", () => {

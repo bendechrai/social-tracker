@@ -34,6 +34,7 @@ const mockSet = vi.fn();
 const mockCountResult = vi.fn();
 const mockGroupByResult = vi.fn();
 const mockSelectDistinctResult = vi.fn();
+const mockPaginatedSelectResult = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -87,6 +88,15 @@ vi.mock("@/lib/db", () => ({
           (promise as Promise<unknown[]> & { groupBy: () => Promise<unknown[]> }).groupBy = () => mockGroupByResult();
           return promise;
         },
+        innerJoin: () => ({
+          where: () => ({
+            orderBy: () => ({
+              limit: () => ({
+                offset: () => mockPaginatedSelectResult(),
+              }),
+            }),
+          }),
+        }),
       }),
     }),
     selectDistinct: () => ({
@@ -191,8 +201,9 @@ describe("post server actions", () => {
 
   describe("listPosts", () => {
     it("returns empty result when no posts match", async () => {
-      mockUserPostsFindMany.mockResolvedValue([]);
       mockCountResult.mockResolvedValue([{ count: 0 }]);
+      mockPaginatedSelectResult.mockResolvedValue([]);
+      mockUserPostsFindMany.mockResolvedValue([]);
 
       const result = await listPosts("new");
 
@@ -210,8 +221,12 @@ describe("post server actions", () => {
         createMockUserPost({ postId: "post-1", status: "new" }),
         createMockUserPost({ postId: "post-2", status: "new", post: createMockPost({ id: "post-2" }) }),
       ];
-      mockUserPostsFindMany.mockResolvedValue(mockResults);
       mockCountResult.mockResolvedValue([{ count: 2 }]);
+      mockPaginatedSelectResult.mockResolvedValue([
+        { postId: "post-1", redditCreatedAt: new Date("2024-01-15T10:00:00Z") },
+        { postId: "post-2", redditCreatedAt: new Date("2024-01-15T09:00:00Z") },
+      ]);
+      mockUserPostsFindMany.mockResolvedValue(mockResults);
 
       const result = await listPosts("new");
 
@@ -240,8 +255,11 @@ describe("post server actions", () => {
           ],
         }),
       ];
-      mockUserPostsFindMany.mockResolvedValue(mockResults);
       mockCountResult.mockResolvedValue([{ count: 1 }]);
+      mockPaginatedSelectResult.mockResolvedValue([
+        { postId: "post-1", redditCreatedAt: new Date("2024-01-15T10:00:00Z") },
+      ]);
+      mockUserPostsFindMany.mockResolvedValue(mockResults);
 
       const result = await listPosts("new");
 
@@ -253,8 +271,11 @@ describe("post server actions", () => {
     });
 
     it("handles pagination correctly", async () => {
-      mockUserPostsFindMany.mockResolvedValue([createMockUserPost()]);
       mockCountResult.mockResolvedValue([{ count: 50 }]);
+      mockPaginatedSelectResult.mockResolvedValue([
+        { postId: "post-1", redditCreatedAt: new Date("2024-01-15T10:00:00Z") },
+      ]);
+      mockUserPostsFindMany.mockResolvedValue([createMockUserPost()]);
 
       const result = await listPosts("new", undefined, 2, 10);
 
@@ -262,6 +283,39 @@ describe("post server actions", () => {
       expect(result.limit).toBe(10);
       expect(result.total).toBe(50);
       expect(result.totalPages).toBe(5);
+    });
+
+    it("orders posts by Reddit creation time descending (newest first)", async () => {
+      // Posts have different redditCreatedAt and createdAt to verify correct ordering
+      const olderRedditPost = createMockPost({
+        id: "post-old",
+        redditCreatedAt: new Date("2024-01-10T10:00:00Z"),
+        createdAt: new Date("2024-01-15T10:00:00Z"), // added to DB later
+      });
+      const newerRedditPost = createMockPost({
+        id: "post-new",
+        redditCreatedAt: new Date("2024-01-14T10:00:00Z"),
+        createdAt: new Date("2024-01-14T10:00:00Z"), // added to DB earlier
+      });
+
+      mockCountResult.mockResolvedValue([{ count: 2 }]);
+      // Paginated select returns posts ordered by redditCreatedAt desc
+      mockPaginatedSelectResult.mockResolvedValue([
+        { postId: "post-new", redditCreatedAt: newerRedditPost.redditCreatedAt },
+        { postId: "post-old", redditCreatedAt: olderRedditPost.redditCreatedAt },
+      ]);
+      // findMany returns in arbitrary order; implementation re-sorts by paginated order
+      mockUserPostsFindMany.mockResolvedValue([
+        createMockUserPost({ postId: "post-old", post: olderRedditPost }),
+        createMockUserPost({ postId: "post-new", post: newerRedditPost }),
+      ]);
+
+      const result = await listPosts("new");
+
+      expect(result.posts).toHaveLength(2);
+      // Newest Reddit post should appear first
+      expect(result.posts[0]?.id).toBe("post-new");
+      expect(result.posts[1]?.id).toBe("post-old");
     });
 
     it("returns empty when tag filter matches no posts", async () => {
@@ -285,13 +339,16 @@ describe("post server actions", () => {
         .mockResolvedValueOnce([{ postId: "post-1" }]) // posts with any tag
         .mockResolvedValueOnce([{ postId: "post-2" }]); // untagged user_posts
 
+      mockCountResult.mockResolvedValue([{ count: 1 }]);
+      mockPaginatedSelectResult.mockResolvedValue([
+        { postId: "post-2", redditCreatedAt: new Date("2024-01-15T10:00:00Z") },
+      ]);
       mockUserPostsFindMany.mockResolvedValue([
         createMockUserPost({
           postId: "post-2",
           post: createMockPost({ id: "post-2" }),
         }),
       ]);
-      mockCountResult.mockResolvedValue([{ count: 1 }]);
 
       const result = await listPosts("new", ["untagged"]);
 
@@ -308,6 +365,11 @@ describe("post server actions", () => {
         .mockResolvedValueOnce([{ postId: "post-1" }]) // all tagged posts
         .mockResolvedValueOnce([{ postId: "post-2" }]); // untagged user_posts
 
+      mockCountResult.mockResolvedValue([{ count: 2 }]);
+      mockPaginatedSelectResult.mockResolvedValue([
+        { postId: "post-1", redditCreatedAt: new Date("2024-01-15T10:00:00Z") },
+        { postId: "post-2", redditCreatedAt: new Date("2024-01-15T09:00:00Z") },
+      ]);
       mockUserPostsFindMany.mockResolvedValue([
         createMockUserPost({
           postId: "post-1",
@@ -321,7 +383,6 @@ describe("post server actions", () => {
           post: createMockPost({ id: "post-2" }),
         }),
       ]);
-      mockCountResult.mockResolvedValue([{ count: 2 }]);
 
       const result = await listPosts("new", ["tag-1", "untagged"]);
 
