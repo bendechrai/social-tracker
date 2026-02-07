@@ -166,7 +166,7 @@ describe("POST /api/suggest-terms", () => {
       const res = await POST(req);
       const data = await res.json();
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(422);
       expect(data.code).toBe("MISSING_API_KEY");
       expect(data.error).toContain("not configured");
     });
@@ -360,7 +360,7 @@ describe("POST /api/suggest-terms", () => {
       const res = await POST(req);
       const data = await res.json();
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(401);
       expect(data.code).toBe("INVALID_API_KEY");
       expect(data.error).toContain("Invalid API key");
     });
@@ -372,7 +372,7 @@ describe("POST /api/suggest-terms", () => {
       const res = await POST(req);
       const data = await res.json();
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(401);
       expect(data.code).toBe("INVALID_API_KEY");
       expect(data.error).toContain("Invalid API key");
     });

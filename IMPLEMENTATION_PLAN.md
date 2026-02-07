@@ -2,7 +2,7 @@
 
 This document outlines the implementation status and remaining tasks for completing the social media tracker application. Tasks are organized by priority and dependency order.
 
-**Last Verified:** 2026-02-07 (Phase 18 Complete - Pagination Page Size Fix)
+**Last Verified:** 2026-02-07 (Phase 20 Complete - All Phases Done)
 **Verification Method:** Opus-level codebase analysis comparing every spec acceptance criterion against source code
 
 ---
@@ -241,21 +241,23 @@ The spec requires an "Untagged" filter option that shows posts with zero tag ass
 
 ---
 
-## Phase 20: Suggest-Terms HTTP Status Codes — NOT STARTED
+## Phase 20: Suggest-Terms HTTP Status Codes — COMPLETE
 
-**Status: NOT STARTED**
+**Status: COMPLETE**
 **Priority: LOW — Error responses return 200 OK instead of semantic HTTP status codes**
 **Dependencies: None**
 
-### 20.1 Return proper HTTP status for MISSING_API_KEY
-- [ ] `webapp/app/api/suggest-terms/route.ts`: When no API key is found, return 422 instead of 200
-- [ ] When API key is invalid, return 401 instead of 200
+**Implementation Summary:**
+- `MISSING_API_KEY` now returns HTTP 422 instead of 200
+- `INVALID_API_KEY` now returns HTTP 401 instead of 200
+- Frontend already reads `data.code` from JSON body (not `response.ok`), so no frontend changes needed
+- Updated API tests to assert correct HTTP status codes
+- Updated frontend mock tests to return matching status codes
+- All 610 tests passing
 
-**Tests:**
-- MISSING_API_KEY response has HTTP 422 status
-- INVALID_API_KEY response has HTTP 401 status
-- Successful response still returns HTTP 200
-- Frontend `suggest-terms` component handles non-200 responses correctly
+### 20.1 Return proper HTTP status for MISSING_API_KEY
+- [x] `webapp/app/api/suggest-terms/route.ts`: MISSING_API_KEY returns 422
+- [x] INVALID_API_KEY returns 401
 
 ---
 
@@ -269,9 +271,9 @@ The spec requires an "Untagged" filter option that shows posts with zero tag ass
 | 17 | Landing Page Sections | 4 | **COMPLETE** | None | HIGH |
 | 18 | Pagination Page Size Fix | 1 | **COMPLETE** | None | MODERATE |
 | 19 | Post Card Line Clamp | 0 | **VERIFIED CORRECT** | — | — |
-| 20 | Suggest-Terms HTTP Status | 1 | **NOT STARTED** | None | LOW |
+| 20 | Suggest-Terms HTTP Status | 1 | **COMPLETE** | None | LOW |
 
-**Total Remaining Tasks: 1** (phase 20)
+**Total Remaining Tasks: 0** — All phases complete
 
 ### Environment Variables Required
 ```bash

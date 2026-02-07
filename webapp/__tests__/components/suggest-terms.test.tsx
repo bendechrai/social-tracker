@@ -368,7 +368,7 @@ describe("SuggestTerms component", () => {
           return HttpResponse.json({
             error: "No API key configured",
             code: "MISSING_API_KEY",
-          });
+          }, { status: 422 });
         })
       );
 
@@ -387,7 +387,7 @@ describe("SuggestTerms component", () => {
           return HttpResponse.json({
             error: "Your Groq API key is invalid",
             code: "INVALID_API_KEY",
-          });
+          }, { status: 401 });
         })
       );
 

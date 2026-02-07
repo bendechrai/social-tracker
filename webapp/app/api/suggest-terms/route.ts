@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         error: "Groq API key not configured",
         code: "MISSING_API_KEY",
-      });
+      }, { status: 422 });
     }
 
     // Call Groq LLM for suggestions
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({
             error: "Invalid API key. Check your Groq API key in Settings.",
             code: "INVALID_API_KEY",
-          });
+          }, { status: 401 });
         }
         console.error(`Attempt ${attempts}: Error parsing LLM response:`, parseError);
       }
