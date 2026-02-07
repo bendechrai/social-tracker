@@ -17,7 +17,7 @@ This document outlines the implementation status and remaining tasks for complet
 - **UI Components** - 23 components total (12 UI primitives including Label + 11 app components: post-list, post-card, tag-filter, tag-badge, status-tabs, header with Settings button, user-menu, settings pages with subreddit/tag management, providers)
 - **React Query Hooks** - 20 hooks for all CRUD operations with proper cache invalidation and optimistic updates for status changes (19 in index.ts + use-toast)
 - **Zod Validations** - Schemas for subreddits, tags, search terms, post status, suggest terms, password, email
-- **Unit Tests** - 23 test files (530 tests total) — see Phase 12 for latest additions
+- **Unit Tests** - 25 test files (582 tests total) — see Phase 13 for latest additions
 - **Encryption System** - AES-256-GCM encryption utilities (encrypt/decrypt with iv:authTag:ciphertext format)
 - **Password Utilities** - bcrypt hashing with cost factor 12
 - **User API Keys (BYOK)** - Groq API key management with encrypted storage, functional settings UI, LLM integration with user key fallback
@@ -85,6 +85,32 @@ Deep audit of all 10 spec files against test files revealed multiple acceptance 
 
 ---
 
+## Phase 13: Accessibility & Responsive Polish — COMPLETE (3/3)
+
+**Status: COMPLETE**
+**Priority: HIGH — Closes spec compliance gaps for responsive design and keyboard accessibility**
+
+### 13.1 Viewport Metadata — COMPLETE
+- [x] Added `export const viewport: Viewport` to `webapp/app/layout.tsx`
+- Required for proper mobile rendering (spec: ui-components.md "Mobile responsive")
+
+### 13.2 Tag Settings Accessibility — COMPLETE
+- [x] Changed clickable `<div>` tag header to proper `<button>` with `aria-expanded` attribute
+- [x] Separated expand/collapse button from edit/delete buttons to avoid nested `<button>` HTML violations
+- [x] Added `focus-visible:ring-2` styles to color picker buttons
+- [x] Added `focus-visible:ring-2` styles and `aria-label` to remove term buttons
+- [x] Added `aria-label` to color picker buttons (`Select color #hex`)
+- [x] Added `aria-label` to chevron expand/collapse button
+- Required for spec: ui-components.md "Keyboard accessible"
+
+### 13.3 Settings Component Tests — COMPLETE (52 tests)
+- [x] `webapp/__tests__/components/subreddit-settings.test.tsx` (19 tests)
+  - Rendering (4), empty state (2), adding subreddits (8), removing subreddits (3), loading states (2)
+- [x] `webapp/__tests__/components/tag-settings.test.tsx` (33 tests)
+  - Rendering (4), empty state (1), expand/collapse (5), creating tags (7), editing tags (2), deleting tags (3), term management (7), color picker accessibility (2), error handling (3)
+
+---
+
 ## Summary
 
 | Phase | Description | Tasks | Status | Dependencies | Priority |
@@ -94,10 +120,11 @@ Deep audit of all 10 spec files against test files revealed multiple acceptance 
 | 10 | Settings Unification & API Key Cache Fix | 3 | **COMPLETE (3/3)** | Phase 4, 9 | HIGH |
 | 11 | Spec Compliance — UX Polish & Error Handling | 7 | **COMPLETE (7/7)** | Phase 10 | HIGH |
 | 12 | Acceptance Criteria Test Coverage | 4 | **COMPLETE (4/4)** | Phase 11 | HIGH |
+| 13 | Accessibility & Responsive Polish | 3 | **COMPLETE (3/3)** | Phase 12 | HIGH |
 
 **Total Remaining Tasks: 0**
 
-Current test coverage: 530 tests across 23 files:
+Current test coverage: 582 tests across 25 files:
 - `webapp/__tests__/validations.test.ts` (72 tests)
 - `webapp/__tests__/reddit.test.ts` (27 tests)
 - `webapp/__tests__/actions/subreddits.test.ts` (26 tests)
@@ -115,9 +142,11 @@ Current test coverage: 530 tests across 23 files:
 - `webapp/__tests__/components/status-tabs.test.tsx` (9 tests)
 - `webapp/__tests__/components/post-card.test.tsx` (32 tests)
 - `webapp/__tests__/components/post-list.test.tsx` (6 tests)
-- `webapp/__tests__/components/suggest-terms.test.tsx` (26 tests — NEW)
-- `webapp/__tests__/components/user-menu.test.tsx` (9 tests — NEW)
-- `webapp/__tests__/components/header.test.tsx` (14 tests — NEW)
+- `webapp/__tests__/components/suggest-terms.test.tsx` (26 tests)
+- `webapp/__tests__/components/user-menu.test.tsx` (9 tests)
+- `webapp/__tests__/components/header.test.tsx` (14 tests)
+- `webapp/__tests__/components/subreddit-settings.test.tsx` (19 tests — NEW)
+- `webapp/__tests__/components/tag-settings.test.tsx` (33 tests — NEW)
 - `webapp/__tests__/utils.test.ts` (12 tests)
 - `webapp/__tests__/api/suggest-terms.test.ts` (24 tests)
 - `webapp/__tests__/hooks/index.test.tsx` (36 tests)

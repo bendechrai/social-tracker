@@ -205,9 +205,10 @@ export function TagSettings({
                   key={color}
                   type="button"
                   onClick={() => setNewColor(color)}
-                  className={`w-8 h-8 rounded-full border-2 ${
+                  className={`w-8 h-8 rounded-full border-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none ${
                     newColor === color ? "border-foreground" : "border-transparent"
                   }`}
+                  aria-label={`Select color ${color}`}
                   style={{ backgroundColor: color }}
                 />
               ))}
@@ -252,43 +253,46 @@ export function TagSettings({
           {tags.map((tag) => (
             <div key={tag.id} className="border rounded-lg">
               {/* Tag header */}
-              <div
-                className="flex items-center justify-between p-3 cursor-pointer"
-                onClick={() => setExpandedId(expandedId === tag.id ? null : tag.id)}
-              >
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between p-3">
+                <button
+                  type="button"
+                  className="flex items-center gap-3 flex-1 text-left cursor-pointer"
+                  onClick={() => setExpandedId(expandedId === tag.id ? null : tag.id)}
+                  aria-expanded={expandedId === tag.id}
+                >
                   <TagBadge name={tag.name} color={tag.color} />
                   <span className="text-sm text-muted-foreground">
                     {tag.terms.length} term{tag.terms.length !== 1 ? "s" : ""} &bull;{" "}
                     {tag.postCount} post{tag.postCount !== 1 ? "s" : ""}
                   </span>
-                </div>
+                </button>
                 <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleStartEdit(tag);
-                    }}
+                    onClick={() => handleStartEdit(tag)}
                   >
                     <PencilIcon className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeleteConfirmId(tag.id);
-                    }}
+                    onClick={() => setDeleteConfirmId(tag.id)}
                   >
                     <TrashIcon className="h-4 w-4" />
                   </Button>
-                  {expandedId === tag.id ? (
-                    <ChevronUpIcon className="h-4 w-4" />
-                  ) : (
-                    <ChevronDownIcon className="h-4 w-4" />
-                  )}
+                  <button
+                    type="button"
+                    className="cursor-pointer"
+                    onClick={() => setExpandedId(expandedId === tag.id ? null : tag.id)}
+                    aria-label={expandedId === tag.id ? "Collapse" : "Expand"}
+                  >
+                    {expandedId === tag.id ? (
+                      <ChevronUpIcon className="h-4 w-4" />
+                    ) : (
+                      <ChevronDownIcon className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -309,8 +313,10 @@ export function TagSettings({
                           >
                             {term.term}
                             <button
+                              type="button"
                               onClick={() => handleRemoveTerm(term.id)}
-                              className="hover:text-destructive"
+                              className="hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-sm"
+                              aria-label={`Remove term ${term.term}`}
                             >
                               <XIcon className="h-3 w-3" />
                             </button>
