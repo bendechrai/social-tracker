@@ -39,5 +39,8 @@ test-results/
 # Drizzle
 drizzle/meta/
 
+# Ralph
+.ralph-stop
+
 # Misc
 *.tgz
