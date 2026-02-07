@@ -690,18 +690,19 @@ describe("post server actions", () => {
       }
     });
 
-    it("returns message when no search terms configured", async () => {
+    it("returns zero new posts when no search terms configured", async () => {
       mockSubredditsFindMany.mockResolvedValue([
         { id: "sub-1", name: "postgresql", userId: MOCK_USER_ID, createdAt: new Date() },
       ]);
       mockTagsFindMany.mockResolvedValue([]);
+      mockFetchRedditPosts.mockResolvedValue([]);
 
       const result = await fetchNewPosts();
 
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.count).toBe(0);
-        expect(result.message).toContain("No search terms configured");
+        expect(result.message).toContain("0 new posts");
       }
     });
 
@@ -754,7 +755,14 @@ describe("post server actions", () => {
         expect(result.count).toBe(1);
         expect(result.message).toBe("Found 1 new post.");
       }
-      expect(mockFetchRedditPosts).toHaveBeenCalledWith(["postgresql"]);
+      // fetchRedditPosts now receives a Map<string, number> (subreddit → after-timestamp)
+      const calledWith = mockFetchRedditPosts.mock.calls[0]![0] as Map<string, number>;
+      expect(calledWith).toBeInstanceOf(Map);
+      expect([...calledWith.keys()]).toEqual(["postgresql"]);
+      // Timestamp should be roughly 48 hours ago
+      const ts = calledWith.get("postgresql")!;
+      const expectedTs = Math.floor(Date.now() / 1000) - 48 * 60 * 60;
+      expect(Math.abs(ts - expectedTs)).toBeLessThan(5);
     });
 
     it("handles global deduplication — looks up existing post on conflict", async () => {
@@ -1093,13 +1101,13 @@ describe("post server actions", () => {
 
       const result = await fetchNewPosts();
 
-      // Only matching post creates user_post, but both go into global posts table
+      // All posts create user_posts (count reflects new user_post records), both go into global posts table
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.count).toBe(1);
+        expect(result.count).toBe(2);
       }
       // Both posts inserted into global posts table
-      // Order: matching post insert [0], user_posts insert [1], user_post_tags insert [2], non-matching post insert [3]
+      // Order: matching post insert [0], user_posts insert [1], user_post_tags insert [2], non-matching post insert [3], user_posts insert [4]
       const valuesCallArgs = mockValues.mock.calls;
       expect(valuesCallArgs[0]?.[0]).toEqual(
         expect.objectContaining({ redditId: "matching-post" })

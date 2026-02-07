@@ -476,9 +476,14 @@ export async function fetchNewPosts(): Promise<{
     }
   }
 
-  // Fetch all recent posts from configured subreddits
-  const subredditNames = userSubreddits.map((s) => s.name);
-  const fetchedPosts = await fetchRedditPosts(subredditNames);
+  // Build per-subreddit timestamp map (default: 48 hours ago)
+  // TODO: Phase 22 task 3 will replace this with DB-based per-subreddit timestamps
+  const defaultAfter = Math.floor(Date.now() / 1000) - 48 * 60 * 60;
+  const subredditTimestamps = new Map<string, number>();
+  for (const sub of userSubreddits) {
+    subredditTimestamps.set(sub.name, defaultAfter);
+  }
+  const fetchedPosts = await fetchRedditPosts(subredditTimestamps);
 
   let newCount = 0;
 

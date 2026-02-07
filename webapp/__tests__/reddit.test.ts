@@ -9,6 +9,7 @@
  * - Respects rate limit headers
  * - Returns empty results for empty inputs
  * - Sorts results by creation time
+ * - Accepts per-subreddit timestamps
  *
  * Uses MSW to mock Arctic Shift API endpoints.
  */
@@ -17,6 +18,12 @@ import { http, HttpResponse } from "msw";
 import { server } from "@/mocks/server";
 import { fetchRedditPosts, resetRateLimitState, verifySubredditExists } from "@/lib/reddit";
 
+/** Helper: build a Map from subreddit names using a shared after-timestamp. */
+function toMap(subreddits: string[], afterTimestamp?: number): Map<string, number> {
+  const ts = afterTimestamp ?? Math.floor(Date.now() / 1000) - 48 * 60 * 60;
+  return new Map(subreddits.map((s) => [s, ts]));
+}
+
 describe("fetchRedditPosts", () => {
   beforeEach(() => {
     resetRateLimitState();
@@ -24,7 +31,7 @@ describe("fetchRedditPosts", () => {
 
   describe("input validation", () => {
     it("returns empty array when no subreddits provided", async () => {
-      const result = await fetchRedditPosts([]);
+      const result = await fetchRedditPosts(new Map());
       expect(result).toEqual([]);
     });
   });
@@ -42,17 +49,17 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      await fetchRedditPosts(["postgresql"], 48);
+      const afterTs = Math.floor(Date.now() / 1000) - 48 * 60 * 60;
+      await fetchRedditPosts(new Map([["postgresql", afterTs]]));
 
       const url = new URL(capturedUrl);
       expect(url.searchParams.get("subreddit")).toBe("postgresql");
       expect(url.searchParams.has("query")).toBe(false);
       expect(url.searchParams.get("sort")).toBe("desc");
       expect(url.searchParams.get("limit")).toBe("auto");
-      // after should be a Unix timestamp roughly 48 hours ago
-      const afterTs = parseInt(url.searchParams.get("after")!);
-      const expectedTs = Math.floor(Date.now() / 1000) - 48 * 60 * 60;
-      expect(Math.abs(afterTs - expectedTs)).toBeLessThan(5); // within 5 seconds
+      // after should match the provided timestamp
+      const capturedAfterTs = parseInt(url.searchParams.get("after")!);
+      expect(capturedAfterTs).toBe(afterTs);
     });
 
     it("makes one request per subreddit", async () => {
@@ -68,7 +75,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      await fetchRedditPosts(["sub1", "sub2"]);
+      await fetchRedditPosts(toMap(["sub1", "sub2"]));
 
       expect(requests).toEqual(["sub1", "sub2"]);
     });
@@ -76,7 +83,7 @@ describe("fetchRedditPosts", () => {
 
   describe("response parsing", () => {
     it("fetches posts from Arctic Shift API", async () => {
-      const result = await fetchRedditPosts(["postgresql"]);
+      const result = await fetchRedditPosts(toMap(["postgresql"]));
       expect(result.length).toBeGreaterThan(0);
     });
 
@@ -107,7 +114,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(["postgresql"]);
+      const result = await fetchRedditPosts(toMap(["postgresql"]));
       expect(result.length).toBe(1);
 
       const post = result[0]!;
@@ -150,7 +157,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(["test"]);
+      const result = await fetchRedditPosts(toMap(["test"]));
       expect(result[0]!.redditId).toBe("t3_xyz789");
     });
 
@@ -180,7 +187,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(["test"]);
+      const result = await fetchRedditPosts(toMap(["test"]));
       expect(result[0]!.body).toBeNull();
     });
 
@@ -210,7 +217,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(["test"]);
+      const result = await fetchRedditPosts(toMap(["test"]));
       expect(result[0]!.body).toBeNull();
     });
 
@@ -224,7 +231,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(["test"]);
+      const result = await fetchRedditPosts(toMap(["test"]));
       expect(result).toEqual([]);
     });
   });
@@ -258,7 +265,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(["postgresql", "database"]);
+      const result = await fetchRedditPosts(toMap(["postgresql", "database"]));
       expect(result.length).toBe(2);
       expect(result.map((p) => p.subreddit).sort()).toEqual([
         "database",
@@ -294,7 +301,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(["postgresql", "database"]);
+      const result = await fetchRedditPosts(toMap(["postgresql", "database"]));
       expect(result.length).toBe(1);
     });
 
@@ -341,7 +348,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(["test"]);
+      const result = await fetchRedditPosts(toMap(["test"]));
       expect(result.length).toBe(2);
       expect(result[0]!.redditId).toBe("t3_newer");
       expect(result[1]!.redditId).toBe("t3_older");
@@ -384,7 +391,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      const result = await fetchRedditPosts(["failing", "working"]);
+      const result = await fetchRedditPosts(toMap(["failing", "working"]));
       expect(result.length).toBe(1);
       expect(result[0]!.subreddit).toBe("working");
     }, 15000);
@@ -400,7 +407,7 @@ describe("fetchRedditPosts", () => {
       );
 
       // Should not throw
-      const result = await fetchRedditPosts(["test"]);
+      const result = await fetchRedditPosts(toMap(["test"]));
       expect(result).toEqual([]);
     }, 15000);
 
@@ -416,7 +423,7 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      await fetchRedditPosts(["test"]);
+      await fetchRedditPosts(toMap(["test"]));
 
       // No Authorization header should be sent
       expect(requestHeaders!.get("Authorization")).toBeNull();
@@ -445,13 +452,13 @@ describe("fetchRedditPosts", () => {
       );
 
       // Should succeed without issues
-      const result = await fetchRedditPosts(["test"]);
+      const result = await fetchRedditPosts(toMap(["test"]));
       expect(result).toEqual([]);
     });
   });
 
-  describe("time window", () => {
-    it("uses default 48-hour time window", async () => {
+  describe("per-subreddit timestamps", () => {
+    it("uses the provided after-timestamp for each subreddit", async () => {
       let capturedAfter = "";
       server.use(
         http.get(
@@ -464,31 +471,39 @@ describe("fetchRedditPosts", () => {
         )
       );
 
-      await fetchRedditPosts(["test"]);
+      const specificTs = Math.floor(Date.now() / 1000) - 48 * 60 * 60;
+      await fetchRedditPosts(new Map([["test", specificTs]]));
 
       const afterTs = parseInt(capturedAfter);
-      const expectedTs = Math.floor(Date.now() / 1000) - 48 * 60 * 60;
-      expect(Math.abs(afterTs - expectedTs)).toBeLessThan(5);
+      expect(afterTs).toBe(specificTs);
     });
 
-    it("respects custom time window", async () => {
-      let capturedAfter = "";
+    it("uses different after-timestamps for different subreddits", async () => {
+      const capturedTimestamps = new Map<string, number>();
       server.use(
         http.get(
           "https://arctic-shift.photon-reddit.com/api/posts/search",
           ({ request }) => {
             const url = new URL(request.url);
-            capturedAfter = url.searchParams.get("after")!;
+            const subreddit = url.searchParams.get("subreddit")!;
+            const after = parseInt(url.searchParams.get("after")!);
+            capturedTimestamps.set(subreddit, after);
             return HttpResponse.json({ data: [] });
           }
         )
       );
 
-      await fetchRedditPosts(["test"], 24);
+      const now = Math.floor(Date.now() / 1000);
+      const recentTs = now - 3600; // 1 hour ago (subreddit with recent posts)
+      const oldTs = now - 7 * 24 * 60 * 60; // 7 days ago (initial backfill)
 
-      const afterTs = parseInt(capturedAfter);
-      const expectedTs = Math.floor(Date.now() / 1000) - 24 * 60 * 60;
-      expect(Math.abs(afterTs - expectedTs)).toBeLessThan(5);
+      await fetchRedditPosts(new Map([
+        ["postgresql", recentTs],
+        ["database", oldTs],
+      ]));
+
+      expect(capturedTimestamps.get("postgresql")).toBe(recentTs);
+      expect(capturedTimestamps.get("database")).toBe(oldTs);
     });
   });
 });

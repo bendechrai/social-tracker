@@ -5,9 +5,6 @@
 const ARCTIC_SHIFT_POSTS_URL =
   "https://arctic-shift.photon-reddit.com/api/posts/search";
 
-// Default time window: 48 hours
-const DEFAULT_TIME_WINDOW_HOURS = 48;
-
 // Rate limit tracking from response headers
 let rateLimitRemaining: number | null = null;
 let rateLimitReset: number | null = null; // Unix timestamp when limit resets
@@ -166,30 +163,26 @@ function parsePost(post: ArcticShiftPost): FetchedPost {
 /**
  * Fetch all recent Reddit posts from Arctic Shift API.
  *
- * Fetches all posts from configured subreddits within a time window.
- * One API call per subreddit (no query filtering). Tag matching is
- * done locally by the caller. No authentication required.
+ * Fetches all posts from configured subreddits, each with its own
+ * `after` timestamp for incremental fetching. One API call per
+ * subreddit (no query filtering). Tag matching is done locally by
+ * the caller. No authentication required.
  *
- * @param subreddits - List of subreddit names (without r/ prefix)
- * @param timeWindowHours - How far back to search (default: 48 hours)
+ * @param subredditTimestamps - Map of subreddit name → Unix after-timestamp (seconds)
  * @returns Deduplicated, sorted list of fetched posts
  */
 export async function fetchRedditPosts(
-  subreddits: string[],
-  timeWindowHours = DEFAULT_TIME_WINDOW_HOURS
+  subredditTimestamps: Map<string, number>
 ): Promise<FetchedPost[]> {
-  if (subreddits.length === 0) {
+  if (subredditTimestamps.size === 0) {
     return [];
   }
 
   const posts: FetchedPost[] = [];
   const seenIds = new Set<string>();
 
-  // Calculate time threshold as Unix timestamp
-  const afterTimestamp = Math.floor(Date.now() / 1000) - timeWindowHours * 60 * 60;
-
-  // One request per subreddit — fetch all recent posts
-  for (const subreddit of subreddits) {
+  // One request per subreddit — fetch posts newer than its after-timestamp
+  for (const [subreddit, afterTimestamp] of subredditTimestamps) {
     try {
       const url = buildSearchUrl(subreddit, afterTimestamp);
       const response = await fetchWithRetry(url);
