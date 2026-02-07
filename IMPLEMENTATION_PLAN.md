@@ -94,14 +94,6 @@ The current implementation uses a fixed 48-hour global time window for all subre
 
 ### In Progress
 
-- [ ] **Add `getLastPostTimestampPerSubreddit` query helper**
-  - Files: `webapp/app/actions/posts.ts`
-  - Spec: `specs/reddit-integration.md` — Fetching Strategy step 1
-  - Acceptance: New exported function queries `posts` table grouped by `subreddit`, returning the max `reddit_created_at` per subreddit name. Returns `Map<string, Date>`. Only queries subreddits the user has configured (accepts a list of subreddit names).
-  - Tests: Add unit test in `webapp/__tests__/actions/posts.test.ts` — mock DB to return known timestamps for 2 subreddits, verify the returned Map has correct entries. Test empty result returns empty Map.
-
-### Backlog
-
 - [ ] **Update `fetchNewPosts` to build per-subreddit timestamps with 7-day initial backfill**
   - Files: `webapp/app/actions/posts.ts`
   - Spec: `specs/reddit-integration.md` — Fetching Strategy steps 1-4
@@ -109,6 +101,9 @@ The current implementation uses a fixed 48-hour global time window for all subre
   - Tests: Add test in `webapp/__tests__/actions/posts.test.ts` — mock `getLastPostTimestampPerSubreddit` to return timestamps for some subreddits and empty for others. Verify `fetchRedditPosts` is called with correct per-subreddit timestamps (existing subreddits use DB timestamp, new subreddits use 7 days ago).
 
 ### Completed (Phase 22)
+
+- [x] **Add `getLastPostTimestampPerSubreddit` query helper**
+  - New exported function in `webapp/app/actions/posts.ts` queries `posts` table grouped by `subreddit`, returns `Map<string, Date>` with max `reddit_created_at`. Accepts list of subreddit names. 4 unit tests added (2 subreddits with timestamps, empty result, empty input, null handling).
 
 - [x] **Change `fetchRedditPosts` to accept per-subreddit timestamps instead of a global time window**
   - `fetchRedditPosts` now accepts `Map<string, number>` (subreddit → Unix after-timestamp). Removed `DEFAULT_TIME_WINDOW_HOURS`. `fetchNewPosts` builds the map with 48h default (temporary — task 3 will replace with DB timestamps). Also fixed 2 pre-existing broken tests in `posts.test.ts`.
@@ -129,7 +124,7 @@ The current implementation uses a fixed 48-hour global time window for all subre
 | 21 | Post Ordering & Data Delay | 2 | **COMPLETE** | None | HIGH |
 | 22 | Per-Subreddit Incremental Fetching | 3 | **IN PROGRESS** | None | HIGH |
 
-**Total Remaining Tasks: 2** — Phase 22 in progress
+**Total Remaining Tasks: 1** — Phase 22 in progress
 
 ### Environment Variables Required
 ```bash

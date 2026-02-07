@@ -133,6 +133,7 @@ import {
   changePostStatus,
   updateResponseText,
   getPostCounts,
+  getLastPostTimestampPerSubreddit,
   fetchNewPosts,
 } from "@/app/actions/posts";
 
@@ -674,6 +675,56 @@ describe("post server actions", () => {
         ignored: 0,
         done: 0,
       });
+    });
+  });
+
+  describe("getLastPostTimestampPerSubreddit", () => {
+    it("returns max reddit_created_at per subreddit for given names", async () => {
+      const date1 = new Date("2024-06-15T12:00:00Z");
+      const date2 = new Date("2024-06-10T08:00:00Z");
+
+      mockGroupByResult.mockResolvedValue([
+        { subreddit: "postgresql", maxRedditCreatedAt: date1 },
+        { subreddit: "node", maxRedditCreatedAt: date2 },
+      ]);
+
+      const result = await getLastPostTimestampPerSubreddit(["postgresql", "node"]);
+
+      expect(result).toBeInstanceOf(Map);
+      expect(result.size).toBe(2);
+      expect(result.get("postgresql")).toEqual(date1);
+      expect(result.get("node")).toEqual(date2);
+    });
+
+    it("returns empty Map when no posts exist for given subreddits", async () => {
+      mockGroupByResult.mockResolvedValue([]);
+
+      const result = await getLastPostTimestampPerSubreddit(["postgresql", "node"]);
+
+      expect(result).toBeInstanceOf(Map);
+      expect(result.size).toBe(0);
+    });
+
+    it("returns empty Map when given empty subreddit list", async () => {
+      const result = await getLastPostTimestampPerSubreddit([]);
+
+      expect(result).toBeInstanceOf(Map);
+      expect(result.size).toBe(0);
+      // Should not query DB at all
+      expect(mockGroupByResult).not.toHaveBeenCalled();
+    });
+
+    it("excludes subreddits with null maxRedditCreatedAt", async () => {
+      mockGroupByResult.mockResolvedValue([
+        { subreddit: "postgresql", maxRedditCreatedAt: new Date("2024-06-15T12:00:00Z") },
+        { subreddit: "node", maxRedditCreatedAt: null },
+      ]);
+
+      const result = await getLastPostTimestampPerSubreddit(["postgresql", "node"]);
+
+      expect(result.size).toBe(1);
+      expect(result.has("postgresql")).toBe(true);
+      expect(result.has("node")).toBe(false);
     });
   });
 

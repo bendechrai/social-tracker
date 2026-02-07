@@ -431,6 +431,33 @@ export async function getPostCounts(): Promise<{
   return counts;
 }
 
+// Get the most recent reddit_created_at per subreddit from the posts table.
+// Only considers the given subreddit names. Returns a Map<string, Date>.
+export async function getLastPostTimestampPerSubreddit(
+  subredditNames: string[]
+): Promise<Map<string, Date>> {
+  if (subredditNames.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db
+    .select({
+      subreddit: posts.subreddit,
+      maxRedditCreatedAt: sql<Date>`max(${posts.redditCreatedAt})`,
+    })
+    .from(posts)
+    .where(inArray(posts.subreddit, subredditNames))
+    .groupBy(posts.subreddit);
+
+  const result = new Map<string, Date>();
+  for (const row of rows) {
+    if (row.maxRedditCreatedAt) {
+      result.set(row.subreddit, new Date(row.maxRedditCreatedAt));
+    }
+  }
+  return result;
+}
+
 // Fetch new posts from Reddit
 export async function fetchNewPosts(): Promise<{
   success: true;
