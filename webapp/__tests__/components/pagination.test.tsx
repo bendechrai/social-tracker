@@ -54,6 +54,17 @@ describe("Pagination component", () => {
       expect(select).toHaveValue("10");
     });
 
+    it("default page size options include dashboard default of 20", () => {
+      render(<Pagination {...defaultProps} pageSize={20} />);
+
+      const select = screen.getByRole("combobox");
+      expect(select).toHaveValue("20");
+      expect(screen.getByRole("option", { name: "10" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "20" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "25" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "50" })).toBeInTheDocument();
+    });
+
     it("renders custom page size options", () => {
       render(
         <Pagination

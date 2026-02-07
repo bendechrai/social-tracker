@@ -2,7 +2,7 @@
 
 This document outlines the implementation status and remaining tasks for completing the social media tracker application. Tasks are organized by priority and dependency order.
 
-**Last Verified:** 2026-02-07 (Phase 17 Complete - Landing Page Sections)
+**Last Verified:** 2026-02-07 (Phase 18 Complete - Pagination Page Size Fix)
 **Verification Method:** Opus-level codebase analysis comparing every spec acceptance criterion against source code
 
 ---
@@ -25,7 +25,7 @@ This document outlines the implementation status and remaining tasks for complet
 - **Settings Pages** - 4 sections (Account, API Keys, Subreddits, Tags) with sidebar navigation
 - **Dashboard UX** - Configuration banners, status tabs, tag filter, post cards
 - **Pagination** - Previous/Next buttons, page indicator, page size selector
-- **Unit Tests** - 27 test files (609 tests), no skipped or flaky tests
+- **Unit Tests** - 27 test files (610 tests), no skipped or flaky tests
 - **E2E Tests** - 3 spec files (auth, posts, settings) with Playwright
 - **Seed Script** - Creates test user with sample data
 
@@ -208,24 +208,19 @@ The spec requires an "Untagged" filter option that shows posts with zero tag ass
 
 ---
 
-## Phase 18: Pagination Page Size Fix — NOT STARTED
+## Phase 18: Pagination Page Size Fix — COMPLETE
 
-**Status: NOT STARTED**
+**Status: COMPLETE**
 **Priority: MODERATE — UI inconsistency between dashboard default and pagination options**
 **Dependencies: None**
 
-### Spec Reference
-- ui-components.md: dashboard defaults to 20 posts per page
-- Current pagination `pageSizeOptions` default is `[10, 25, 50]` but dashboard sets `pageSize=20`
+**Implementation Summary:**
+- Changed default `pageSizeOptions` from `[10, 25, 50]` to `[10, 20, 25, 50]` in pagination component
+- Dashboard's default `pageSize=20` is now a selectable option in the dropdown
+- Added test verifying default options include 20, all 610 tests passing
 
 ### 18.1 Fix page size options
-- [ ] Either: change `webapp/components/ui/pagination.tsx` default `pageSizeOptions` to `[10, 20, 25, 50]`
-- [ ] Or: change `webapp/app/dashboard/page.tsx` default `pageSize` to match one of the existing options (10 or 25)
-- [ ] Either approach is acceptable; adding 20 to the options is more aligned with the current behavior
-
-**Tests:**
-- Pagination dropdown includes the dashboard's default page size as a selectable option
-- Selected page size matches displayed option in dropdown
+- [x] Change `webapp/components/ui/pagination.tsx` default `pageSizeOptions` to `[10, 20, 25, 50]`
 
 ---
 
@@ -272,11 +267,11 @@ The spec requires an "Untagged" filter option that shows posts with zero tag ass
 | 15 | Shared Posts Architecture | 5 | **COMPLETE** | None | CRITICAL |
 | 16 | Untagged Filter | 3 | **COMPLETE** | Phase 15 | HIGH |
 | 17 | Landing Page Sections | 4 | **COMPLETE** | None | HIGH |
-| 18 | Pagination Page Size Fix | 1 | **NOT STARTED** | None | MODERATE |
+| 18 | Pagination Page Size Fix | 1 | **COMPLETE** | None | MODERATE |
 | 19 | Post Card Line Clamp | 0 | **VERIFIED CORRECT** | — | — |
 | 20 | Suggest-Terms HTTP Status | 1 | **NOT STARTED** | None | LOW |
 
-**Total Remaining Tasks: 2** (across phases 18, 20)
+**Total Remaining Tasks: 1** (phase 20)
 
 ### Environment Variables Required
 ```bash

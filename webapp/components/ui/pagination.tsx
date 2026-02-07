@@ -31,7 +31,7 @@ export interface PaginationProps {
  * Features:
  * - Previous/Next navigation buttons
  * - Current page indicator with total pages
- * - Page size selector (10, 25, 50)
+ * - Page size selector (10, 20, 25, 50)
  * - Disabled states at boundaries
  * - Keyboard accessible
  */
@@ -40,7 +40,7 @@ export function Pagination({
   totalPages,
   total,
   pageSize,
-  pageSizeOptions = [10, 25, 50],
+  pageSizeOptions = [10, 20, 25, 50],
   onPageChange,
   onPageSizeChange,
   disabled = false,
