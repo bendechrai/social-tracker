@@ -1,5 +1,7 @@
 "use client";
 
+import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -18,8 +20,10 @@ import {
   useHasGroqApiKey,
 } from "@/lib/hooks";
 import { Loader2Icon } from "lucide-react";
+import { OnboardingOverlay } from "@/components/onboarding-overlay";
 
 export default function TagsSettingsPage() {
+  const router = useRouter();
   const { data: tags, isLoading } = useTags();
   const { data: hasGroqKey } = useHasGroqApiKey();
   const createTag = useCreateTag();
@@ -57,6 +61,24 @@ export default function TagsSettingsPage() {
   }
 
   return (
+    <div className="space-y-6">
+      <OnboardingOverlay
+        step={4}
+        totalSteps={4}
+        heading="Organize with Tags"
+        description="Tags help you categorize posts. Each tag has search terms — posts matching those terms are automatically tagged. For example, a tag called 'Performance' with search terms 'slow', 'latency', 'benchmark' will auto-tag matching posts."
+        actions={[
+          {
+            label: "Skip",
+            variant: "outline",
+            onClick: () => router.push("/dashboard"),
+          },
+          {
+            label: "Done",
+            onClick: () => router.push("/dashboard"),
+          },
+        ]}
+      />
     <Card>
       <CardHeader>
         <CardTitle>Tags</CardTitle>
@@ -76,5 +98,6 @@ export default function TagsSettingsPage() {
         />
       </CardContent>
     </Card>
+    </div>
   );
 }

@@ -565,9 +565,9 @@ Dedicated page for viewing a Reddit post with comments and AI chat. Adds `commen
 
 ---
 
-## Phase 31: Welcome Wizard — IN PROGRESS
+## Phase 31: Welcome Wizard — COMPLETE
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 **Priority: MODERATE — New spec**
 **Dependencies: None**
 **Spec: `specs/welcome-wizard.md`**
@@ -576,7 +576,7 @@ Dedicated page for viewing a Reddit post with comments and AI chat. Adds `commen
 
 Step-by-step onboarding wizard for new users with overlay prompts on actual settings pages. Data-driven: shows when user has zero subreddits.
 
-### Backlog (Phase 31)
+### Completed (Phase 31)
 
 - [x] **Create `OnboardingOverlay` reusable component**
   - Files: `webapp/components/onboarding-overlay.tsx`, `webapp/__tests__/components/onboarding-overlay.test.tsx`
@@ -602,17 +602,17 @@ Step-by-step onboarding wizard for new users with overlay prompts on actual sett
   - Acceptance: When `?onboarding=3`, show skippable overlay about Groq API key with Groq console link; "Skip" and "Next" buttons both navigate to `/settings/tags?onboarding=4`
   - Tests: 5 component tests (overlay shown with param, hidden without param, Groq console link, Skip navigates, Next navigates). All 915 tests pass.
 
-- [ ] **Add Step 4 overlay to tag settings page** ← NEXT
-  - Files: `webapp/app/settings/tags/page.tsx`
+- [x] **Add Step 4 overlay to tag settings page**
+  - Files: `webapp/app/settings/tags/page.tsx`, `webapp/__tests__/components/tags-onboarding.test.tsx`
   - Spec: `specs/welcome-wizard.md` — Step 4
   - Acceptance: When `?onboarding=4`, show skippable overlay explaining tags with example; "Skip" and "Done" buttons navigate to `/dashboard`
-  - Tests: Component test for overlay, tag explanation content, skip and done buttons
+  - Tests: 5 component tests (overlay shown with param, hidden without param, tag explanation with example, Skip navigates to /dashboard, Done navigates to /dashboard). All 920 tests pass.
 
 ---
 
-## Phase 32: Arcjet Security — BACKLOG
+## Phase 32: Arcjet Security — IN PROGRESS
 
-**Status: BACKLOG**
+**Status: IN PROGRESS**
 **Priority: HIGH — New spec**
 **Dependencies: Phases 25-27, 30 (all routes that need protection must exist first)**
 **Spec: `specs/arcjet-security.md`**
@@ -621,9 +621,9 @@ Step-by-step onboarding wizard for new users with overlay prompts on actual sett
 
 Application-wide security using Arcjet for rate limiting, bot detection, email validation, and attack protection. Replaces hand-rolled rate limiters.
 
-### Backlog (Phase 32)
+### In Progress (Phase 32)
 
-- [ ] **Install `@arcjet/next` and create shared Arcjet client**
+- [ ] **Install `@arcjet/next` and create shared Arcjet client** ← NEXT
   - Files: `webapp/lib/arcjet.ts`, `webapp/package.json`
   - Spec: `specs/arcjet-security.md` — Shared Client
   - Acceptance: Base client configured with `ARCJET_KEY` env var and global Shield rule in LIVE mode
@@ -706,8 +706,8 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 | 28 | Account Deletion | 2 | **COMPLETE** | None | HIGH |
 | 29 | NSFW Content Handling | 4 | **COMPLETE** | None | MODERATE |
 | 30 | Post Detail Page | 10 | **COMPLETE** | Phase 29 | HIGH |
-| 31 | Welcome Wizard | 5 | **BACKLOG** | None | MODERATE |
-| 32 | Arcjet Security | 10 | **BACKLOG** | Phases 25-27, 30 | HIGH |
+| 31 | Welcome Wizard | 5 | **COMPLETE** | None | MODERATE |
+| 32 | Arcjet Security | 10 | **IN PROGRESS** | Phases 25-27, 30 | HIGH |
 
 **Total Remaining Tasks: 48**
 
