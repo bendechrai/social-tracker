@@ -345,9 +345,9 @@ Send a welcome email with quick-start tips and verification link on signup. Add 
 
 ---
 
-## Phase 27: Password Reset — IN PROGRESS
+## Phase 27: Password Reset — COMPLETE
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 **Priority: HIGH — New spec**
 **Dependencies: Phase 25 (email infrastructure)**
 **Spec: `specs/password-reset.md`**
@@ -376,7 +376,7 @@ Allow users to reset their password via a tokenized email link. Add `passwordCha
   - Acceptance: `buildPasswordResetEmail` returns `{ subject, html, text }` with "Social Tracker — Reset Your Password" subject, reset button link, 1-hour expiry note, security note, plain text fallback
   - Tests: 6 unit tests — subject, reset link with token, 1-hour expiry note, security note, plain text fallback, footer
 
-### In Progress (Phase 27)
+### Completed (Phase 27 cont.)
 
 - [x] **Create `POST /api/auth/execute-reset` endpoint**
   - Files: `webapp/app/api/auth/execute-reset/route.ts`
@@ -408,23 +408,23 @@ Allow users to reset their password via a tokenized email link. Add `passwordCha
   - Acceptance: `/forgot-password` and `/reset-password` are accessible without authentication; matcher pattern excludes both routes
   - Tests: 2 new middleware tests verifying matcher pattern contains `forgot-password` and `reset-password`
 
-- [ ] **Add JWT callback session invalidation on password change** ← NEXT
-  - Files: `webapp/lib/auth.ts`
+- [x] **Add JWT callback session invalidation on password change**
+  - Files: `webapp/lib/auth.ts`, `webapp/lib/auth-utils.ts`
   - Spec: `specs/password-reset.md` — Session Invalidation
-  - Acceptance: JWT callback checks `passwordChangedAt` against token `iat` on refresh (not initial sign-in); if password was changed after token issued, returns null to invalidate session
-  - Tests: Unit tests for: session valid when no passwordChangedAt, session invalidated when passwordChangedAt > iat, session valid on initial sign-in
+  - Acceptance: JWT callback checks `passwordChangedAt` against token `iat` on refresh (not initial sign-in); if password was changed after token issued, clears token fields to invalidate session
+  - Tests: 6 unit tests — persists user on sign-in, unchanged when no passwordChangedAt, invalidated when passwordChangedAt > iat, valid when passwordChangedAt < iat, no DB check on sign-in, unchanged when user not found
 
-- [ ] **Update `changePassword` action to set `passwordChangedAt`**
+- [x] **Update `changePassword` action to set `passwordChangedAt`**
   - Files: `webapp/app/actions/auth.ts`
   - Spec: `specs/password-reset.md` — Change Password Action Update
   - Acceptance: Existing `changePassword` also sets `passwordChangedAt = new Date()` when updating the password
-  - Tests: Existing changePassword tests updated to verify `passwordChangedAt` is set
+  - Tests: Existing changePassword test updated to verify `passwordChangedAt` is set
 
 ---
 
-## Phase 28: Account Deletion — BACKLOG
+## Phase 28: Account Deletion — IN PROGRESS
 
-**Status: BACKLOG**
+**Status: IN PROGRESS**
 **Priority: HIGH — New spec**
 **Dependencies: None**
 **Spec: `specs/account-deletion.md`**
@@ -700,14 +700,14 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 | 24 | Tag Search Term Constraints | 4 | **COMPLETE** | None | HIGH |
 | 25 | Email Infrastructure & Notifications | 9 | **COMPLETE** | None | HIGH |
 | 26 | Welcome Email & Verification | 7 | **COMPLETE** | Phase 25 | HIGH |
-| 27 | Password Reset | 8 | **IN PROGRESS** | Phase 25 | HIGH |
-| 28 | Account Deletion | 2 | **BACKLOG** | None | HIGH |
+| 27 | Password Reset | 8 | **COMPLETE** | Phase 25 | HIGH |
+| 28 | Account Deletion | 2 | **IN PROGRESS** | None | HIGH |
 | 29 | NSFW Content Handling | 4 | **BACKLOG** | None | MODERATE |
 | 30 | Post Detail Page | 10 | **BACKLOG** | Phase 29 | HIGH |
 | 31 | Welcome Wizard | 5 | **BACKLOG** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **BACKLOG** | Phases 25-27, 30 | HIGH |
 
-**Total Remaining Tasks: 53**
+**Total Remaining Tasks: 51**
 
 ### Environment Variables Required
 ```bash

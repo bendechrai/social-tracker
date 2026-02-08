@@ -15,11 +15,12 @@ import { db } from "@/lib/db";
 import { users, accounts, sessions, verificationTokens } from "@/drizzle/schema";
 import {
   authorizeCredentials,
+  handleJwtCallback,
   SESSION_MAX_AGE,
 } from "@/lib/auth-utils";
 
 // Re-export from auth-utils for consumers
-export { emailSchema, SESSION_MAX_AGE, authorizeCredentials } from "@/lib/auth-utils";
+export { emailSchema, SESSION_MAX_AGE, authorizeCredentials, handleJwtCallback } from "@/lib/auth-utils";
 export type { CredentialsInput, AuthorizeResult } from "@/lib/auth-utils";
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
@@ -50,12 +51,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user }) {
-      // On sign-in, persist user id and email into the JWT
-      if (user) {
-        token.id = user.id;
-        token.email = user.email;
-      }
-      return token;
+      return await handleJwtCallback({ token, user });
     },
     async session({ session, token }) {
       // Populate session from JWT token

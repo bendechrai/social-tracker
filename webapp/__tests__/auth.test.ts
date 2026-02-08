@@ -31,9 +31,11 @@ vi.mock("@/lib/db", () => ({
 // Import from auth-utils directly to avoid NextAuth initialization
 import {
   authorizeCredentials,
+  handleJwtCallback,
   emailSchema,
   SESSION_MAX_AGE,
 } from "@/lib/auth-utils";
+import type { JWT } from "next-auth/jwt";
 
 describe("auth configuration", () => {
   describe("SESSION_MAX_AGE", () => {
@@ -293,6 +295,81 @@ describe("auth configuration", () => {
         // Invalid email should return quickly (< 10ms typically)
         expect(invalidEmailDuration).toBeLessThan(50);
       });
+    });
+  });
+
+  describe("handleJwtCallback", () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it("persists user id and email on initial sign-in", async () => {
+      const token: JWT = { iat: 1000 };
+      const user = { id: "user-123", email: "user@example.com" };
+
+      const result = await handleJwtCallback({ token, user });
+
+      expect(result.id).toBe("user-123");
+      expect(result.email).toBe("user@example.com");
+      expect(mockFindFirst).not.toHaveBeenCalled();
+    });
+
+    it("returns token unchanged when no passwordChangedAt is set", async () => {
+      const token: JWT = { id: "user-123", email: "user@example.com", iat: 1000 };
+      mockFindFirst.mockResolvedValueOnce({ passwordChangedAt: null });
+
+      const result = await handleJwtCallback({ token });
+
+      expect(result.id).toBe("user-123");
+      expect(result.email).toBe("user@example.com");
+    });
+
+    it("invalidates session when passwordChangedAt is after token iat", async () => {
+      // Token issued at Unix 1000 (Jan 1 1970 00:16:40)
+      const token: JWT = { id: "user-123", email: "user@example.com", iat: 1000 };
+      // Password changed after token was issued
+      const passwordChangedAt = new Date(2000 * 1000); // Unix 2000
+
+      mockFindFirst.mockResolvedValueOnce({ passwordChangedAt });
+
+      const result = await handleJwtCallback({ token });
+
+      expect(result.id).toBeUndefined();
+      expect(result.email).toBeUndefined();
+    });
+
+    it("keeps session valid when passwordChangedAt is before token iat", async () => {
+      // Token issued at Unix 2000
+      const token: JWT = { id: "user-123", email: "user@example.com", iat: 2000 };
+      // Password changed before token was issued
+      const passwordChangedAt = new Date(1000 * 1000); // Unix 1000
+
+      mockFindFirst.mockResolvedValueOnce({ passwordChangedAt });
+
+      const result = await handleJwtCallback({ token });
+
+      expect(result.id).toBe("user-123");
+      expect(result.email).toBe("user@example.com");
+    });
+
+    it("does not check password on initial sign-in even if passwordChangedAt exists", async () => {
+      const token: JWT = { iat: 1000 };
+      const user = { id: "user-123", email: "user@example.com" };
+
+      const result = await handleJwtCallback({ token, user });
+
+      expect(result.id).toBe("user-123");
+      expect(mockFindFirst).not.toHaveBeenCalled();
+    });
+
+    it("returns token unchanged when user not found in database", async () => {
+      const token: JWT = { id: "user-123", email: "user@example.com", iat: 1000 };
+      mockFindFirst.mockResolvedValueOnce(undefined);
+
+      const result = await handleJwtCallback({ token });
+
+      expect(result.id).toBe("user-123");
+      expect(result.email).toBe("user@example.com");
     });
   });
 });

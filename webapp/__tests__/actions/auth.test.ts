@@ -449,7 +449,7 @@ describe("auth server actions", () => {
     });
 
     describe("successful password change", () => {
-      it("updates password hash", async () => {
+      it("updates password hash and sets passwordChangedAt", async () => {
         mockAuth.mockResolvedValueOnce({
           user: { id: "user-id", email: "user@example.com" },
         });
@@ -470,6 +470,7 @@ describe("auth server actions", () => {
         expect(mockSet).toHaveBeenCalledWith(
           expect.objectContaining({
             passwordHash: expect.any(String),
+            passwordChangedAt: expect.any(Date),
             updatedAt: expect.any(Date),
           })
         );

@@ -9,6 +9,7 @@ import { users } from "@/drizzle/schema";
 import { verifyPassword } from "@/lib/password";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import type { JWT } from "next-auth/jwt";
 
 // Email validation schema - exported for testing
 export const emailSchema = z.string().email("Invalid email format");
@@ -73,4 +74,60 @@ export async function authorizeCredentials(
     id: user.id,
     email: user.email,
   };
+}
+
+/**
+ * Check if a user's password was changed after the JWT was issued.
+ * Returns true if the session should be invalidated (password changed after token issued).
+ *
+ * Only checks on token refresh (not initial sign-in, when `user` is present).
+ */
+export async function isSessionInvalidatedByPasswordChange(
+  userId: string
+): Promise<Date | null> {
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: { passwordChangedAt: true },
+  });
+  return user?.passwordChangedAt ?? null;
+}
+
+/**
+ * JWT callback handler that checks passwordChangedAt on refresh.
+ * On initial sign-in (user present), persists user info into token.
+ * On refresh (no user), checks if password was changed after token issued.
+ * Returns token with id/email cleared to invalidate the session.
+ */
+export async function handleJwtCallback({
+  token,
+  user,
+}: {
+  token: JWT;
+  user?: { id?: string; email?: string | null };
+}): Promise<JWT> {
+  // On sign-in, persist user id and email into the JWT
+  if (user) {
+    token.id = user.id;
+    token.email = user.email;
+    return token;
+  }
+
+  // On refresh, check if password was changed after token was issued
+  if (token.id && token.iat) {
+    const passwordChangedAt = await isSessionInvalidatedByPasswordChange(
+      String(token.id)
+    );
+    if (passwordChangedAt) {
+      const iatDate = new Date(Number(token.iat) * 1000);
+      if (passwordChangedAt > iatDate) {
+        // Password was changed after this token was issued — invalidate
+        // Clear user fields so the session becomes unauthenticated
+        delete token.id;
+        delete token.email;
+        return token;
+      }
+    }
+  }
+
+  return token;
 }

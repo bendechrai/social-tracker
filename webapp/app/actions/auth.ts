@@ -129,11 +129,12 @@ export async function changePassword(
   // Hash new password
   const newPasswordHash = await hashPassword(newPassword);
 
-  // Update password
+  // Update password and set passwordChangedAt for session invalidation
   await db
     .update(users)
     .set({
       passwordHash: newPasswordHash,
+      passwordChangedAt: new Date(),
       updatedAt: new Date(),
     })
     .where(eq(users.id, session.user.id));
