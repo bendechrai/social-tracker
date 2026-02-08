@@ -2,7 +2,7 @@
 
 This document outlines the implementation status and remaining tasks for completing the social media tracker application. Tasks are organized by priority and dependency order.
 
-**Last Verified:** 2026-02-08 (Phases 25-32 planned)
+**Last Verified:** 2026-02-08 (Phases 33-34 planned)
 **Verification Method:** Opus-level codebase analysis comparing every spec acceptance criterion against source code
 
 ---
@@ -685,6 +685,218 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 
 ---
 
+## Phase 33: AI Assistant Improvements — PLANNED
+
+**Status: PLANNED**
+**Priority: HIGH — New spec**
+**Dependencies: Phase 30 (chat route and chat panel must exist)**
+**Spec: `specs/ai-assistant-improvements.md`**
+
+### Overview
+
+Four incremental improvements to the AI chat assistant: anti-hallucination guardrails, tone calibration, user profile with system prompt integration, and draft reply quick-action chips.
+
+### In Progress
+
+- [ ] **Add anti-hallucination guardrails to `buildSystemPrompt`**
+  - Files: `webapp/app/api/chat/route.ts`
+  - Spec: `specs/ai-assistant-improvements.md` — Improvement 1
+  - Acceptance: `buildSystemPrompt` output includes the "Important rules" block with anti-fabrication instructions, URL/web-research disclosure, and hedged-claims guidance; existing prompt structure (post context, comments) is unchanged
+  - Tests: 1 unit test verifying the returned prompt string contains the anti-hallucination rules block (e.g., "NEVER fabricate", "I can only work with the post", "Web research is a feature")
+
+### Backlog
+
+- [ ] **Update `buildSystemPrompt` closing instructions for tone calibration**
+  - Files: `webapp/app/api/chat/route.ts`
+  - Spec: `specs/ai-assistant-improvements.md` — Improvement 2
+  - Acceptance: The closing paragraph of the system prompt is replaced with the tone-calibrated version: "Write like a real person on Reddit", "No flowery language", "Keep it short", etc.; the old "identify key points, and draft thoughtful responses" text is removed
+  - Tests: 1 unit test verifying the prompt contains "Write like a real person on Reddit" and does NOT contain "identify key points, and draft thoughtful responses"
+
+- [ ] **Add `profile_*` columns to users table and generate migration**
+  - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/` (new migration file)
+  - Spec: `specs/ai-assistant-improvements.md` — Improvement 3, Database Changes
+  - Acceptance: `users` table has 5 new nullable columns: `profile_role` (varchar 255), `profile_company` (varchar 255), `profile_goal` (text), `profile_tone` (varchar 20), `profile_context` (text); migration applies cleanly
+  - Tests: Typecheck passes; all existing tests pass; build passes
+
+- [ ] **Create `getProfile` and `updateProfile` server actions**
+  - Files: `webapp/app/actions/profile.ts`
+  - Spec: `specs/ai-assistant-improvements.md` — Improvement 3, Server Actions
+  - Acceptance: `getProfile()` returns `{ role, company, goal, tone, context }` for authenticated user; `updateProfile(data)` validates inputs (role/company max 255, goal max 1000, tone must be casual/professional/technical/friendly or null, context max 2000), trims whitespace, updates DB, returns `{ success }` or `{ success: false, error }`
+  - Tests: 10+ unit tests — getProfile returns fields, getProfile unauthenticated throws, updateProfile saves all fields, updateProfile trims whitespace, updateProfile validates tone enum, updateProfile rejects invalid tone, updateProfile validates max lengths, updateProfile unauthenticated throws, updateProfile clears fields with empty strings, partial update preserves other fields
+
+- [ ] **Add `useProfile` and `useUpdateProfile` React Query hooks**
+  - Files: `webapp/lib/hooks/index.ts`
+  - Spec: `specs/ai-assistant-improvements.md` — Improvement 3, React Query Hooks
+  - Acceptance: `useProfile()` returns query for profile data; `useUpdateProfile()` returns mutation that invalidates `["profile"]` cache on success
+  - Tests: 2 hook tests — useProfile calls getProfile, useUpdateProfile invalidates cache on success
+
+- [ ] **Create AI Profile settings page**
+  - Files: `webapp/app/settings/ai-profile/page.tsx`
+  - Spec: `specs/ai-assistant-improvements.md` — Improvement 3, Settings Page
+  - Acceptance: "use client" page with form fields (Role input, Company input, Goal textarea, Tone select dropdown, Context textarea); Save button; loads existing data on mount via `useProfile()`; calls `updateProfile()` on save; toast on success/error; all fields optional with helper text
+  - Tests: 8+ component tests — renders all fields with placeholders, loads existing profile data, Save button disabled while saving, successful save shows toast, error shows destructive toast, tone dropdown has 4 options plus empty, fields are optional (can save empty), max length attributes on textareas
+
+- [ ] **Add "AI Profile" to settings sidebar navigation**
+  - Files: `webapp/app/settings/layout.tsx`
+  - Spec: `specs/ai-assistant-improvements.md` — Improvement 3, Navigation
+  - Acceptance: "AI Profile" nav item with BrainCircuit icon appears after "API Keys" and before "Subreddits" in the sidebar; links to `/settings/ai-profile`
+  - Tests: 1 test verifying settings nav contains "AI Profile" link between "API Keys" and "Subreddits"
+
+- [ ] **Integrate user profile into `buildSystemPrompt`**
+  - Files: `webapp/app/api/chat/route.ts`
+  - Spec: `specs/ai-assistant-improvements.md` — Improvement 3, System Prompt Integration
+  - Acceptance: `buildSystemPrompt` accepts optional profile parameter; when profile fields are non-null, inserts "About the user:" section between comments and rules; combines role+company as "Role: {role} at {company}"; omits section entirely when no profile fields set; POST handler loads user profile and passes to `buildSystemPrompt`
+  - Tests: 5 unit tests — no profile omits section, full profile includes all fields, role+company combined, partial profile only shows non-null fields, tone preference included; 1 integration test verifying POST handler loads and passes profile
+
+- [ ] **Add Step 3.5 (AI Profile) to welcome wizard and update step count to 5**
+  - Files: `webapp/app/settings/ai-profile/page.tsx`, `webapp/app/settings/api-keys/page.tsx`, `webapp/app/dashboard/page.tsx`, `webapp/app/settings/subreddits/page.tsx`, `webapp/app/settings/tags/page.tsx`, `webapp/components/onboarding-overlay.tsx`
+  - Spec: `specs/ai-assistant-improvements.md` — Improvement 3, Onboarding Wizard Integration
+  - Acceptance: New Step 3.5 overlay on AI Profile page when `?onboarding=3.5`; Step 3 "Next" navigates to `?onboarding=3.5` instead of `?onboarding=4`; all step progress indicators updated from "of 4" to "of 5"; Step 3.5 is skippable, both buttons navigate to `/settings/tags?onboarding=4`
+  - Tests: 5 component tests — overlay shown on AI Profile with ?onboarding=3.5, hidden without param, Skip navigates to tags, Next navigates to tags, Step 3 Next goes to 3.5; update existing onboarding tests for "of 5"
+
+- [ ] **Add draft reply quick-action chips to ChatPanel**
+  - Files: `webapp/components/chat-panel.tsx`
+  - Spec: `specs/ai-assistant-improvements.md` — Improvement 4
+  - Acceptance: Most recent assistant message shows quick-action buttons (Shorter, More casual, More technical, Less marketing) when preceding user message contains draft/reply/respond/response/write/comment keywords AND response doesn't end with `?`; clicking a chip sends the corresponding prompt; chips only on latest assistant message; chips hidden during streaming
+  - Tests: 6 component tests — chips shown on draft reply, chips hidden when no keywords, chips hidden on non-latest message, chips hidden during loading, chip click sends prompt, chips hidden when response ends with question mark
+
+---
+
+## Phase 34: AI Credits System — PLANNED
+
+**Status: PLANNED**
+**Priority: HIGH — New spec**
+**Dependencies: Phase 33 (chat route changes in Phase 33 must land first to avoid conflicts)**
+**Spec: `specs/ai-credits.md`**
+
+### Overview
+
+Purchasable token credit packs via Stripe Checkout for premium AI models via OpenRouter, replacing donation-based pricing. Users can use BYOK (Groq, free) or credits (OpenRouter, paid). Three new DB tables, Stripe webhook, OpenRouter integration, model selector in chat, credits settings page.
+
+### Backlog
+
+- [ ] **Add `credit_balances`, `credit_purchases`, and `ai_usage_log` tables to schema and generate migration**
+  - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/` (new migration file)
+  - Spec: `specs/ai-credits.md` — Database Tables
+  - Acceptance: Three new tables with all columns/constraints/indexes per spec; `credit_purchases.stripe_session_id` has unique constraint; `ai_usage_log` indexed on `(user_id, created_at)`; `credit_balances.user_id` is PK with FK cascade; migration applies cleanly
+  - Tests: Typecheck passes; all existing tests pass; build passes
+
+- [ ] **Install `stripe` and `@openrouter/ai-sdk-provider` npm packages**
+  - Files: `webapp/package.json`
+  - Spec: `specs/ai-credits.md` — New Dependencies
+  - Acceptance: Both packages installed and importable; `npm run typecheck` passes
+  - Tests: Typecheck passes; build passes
+
+- [ ] **Create `getCreditBalance` server action**
+  - Files: `webapp/app/actions/credits.ts`
+  - Spec: `specs/ai-credits.md` — Server Actions
+  - Acceptance: Returns integer balance in cents for authenticated user; returns 0 if no `credit_balances` row exists
+  - Tests: 3 unit tests — returns balance, returns 0 when no row, unauthenticated throws
+
+- [ ] **Create `getAiAccessInfo` server action**
+  - Files: `webapp/app/actions/credits.ts`
+  - Spec: `specs/ai-credits.md` — Server Actions
+  - Acceptance: Returns `{ hasGroqKey, creditBalanceCents, mode }` where mode is "byok" if Groq key exists, "credits" if balance > 0, "none" otherwise; checks Groq key via `hasGroqApiKey` pattern
+  - Tests: 4 unit tests — byok mode when Groq key set, credits mode when balance > 0, none mode when neither, byok preferred over credits when both exist
+
+- [ ] **Create `createCheckoutSession` server action**
+  - Files: `webapp/app/actions/credits.ts`
+  - Spec: `specs/ai-credits.md` — Checkout Flow
+  - Acceptance: Validates packCents is one of 500/1000/2000; creates Stripe Checkout Session in `payment` mode with `userId` and `credits_cents` in metadata; returns `{ url }` or `{ error }`
+  - Tests: 4 unit tests — valid session creation returns URL, invalid pack amount rejected, unauthenticated throws, Stripe error returns error message
+
+- [ ] **Create `POST /api/webhooks/stripe` endpoint**
+  - Files: `webapp/app/api/webhooks/stripe/route.ts`
+  - Spec: `specs/ai-credits.md` — Webhook
+  - Acceptance: Verifies Stripe signature; handles `checkout.session.completed`; in DB transaction: inserts `credit_purchases` (ON CONFLICT DO NOTHING for idempotency) and upserts `credit_balances` (increment); returns 200
+  - Tests: 6 unit tests — valid webhook processes correctly, invalid signature returns 400, idempotent (duplicate session_id no double-credit), balance incremented, purchase record created, non-checkout event ignored
+
+- [ ] **Add `/api/webhooks` to proxy.ts public route exclusions**
+  - Files: `webapp/proxy.ts`
+  - Spec: `specs/ai-credits.md` — Proxy Changes
+  - Acceptance: `/api/webhooks/stripe` accessible without authentication
+  - Tests: 2 middleware tests — no 401 for /api/webhooks/stripe, matcher contains api/webhooks
+
+- [ ] **Create curated model list constant and `GET /api/models` endpoint**
+  - Files: `webapp/app/api/models/route.ts`
+  - Spec: `specs/ai-credits.md` — Curated Model List, Model Pricing Endpoint
+  - Acceptance: Static allowlist of ~9 models; endpoint fetches pricing from OpenRouter `GET /api/v1/models`, filters to allowlist, returns models with per-1M-token pricing; in-memory cache for 1 hour
+  - Tests: 4 unit tests — returns filtered model list, caches for 1 hour, handles OpenRouter API error, only returns allowlisted models
+
+- [ ] **Update `POST /api/chat` to support OpenRouter credits path**
+  - Files: `webapp/app/api/chat/route.ts`
+  - Spec: `specs/ai-credits.md` — Chat Route Changes
+  - Acceptance: Accepts optional `modelId` field in request body; when `modelId` provided and user has credits, uses OpenRouter with that model; when no `modelId`, falls back to BYOK Groq; when neither available, returns error with code `NO_AI_ACCESS`; after OpenRouter streaming completes, reads cost from provider metadata, deducts from balance (minimum 1 cent), inserts `ai_usage_log` row
+  - Tests: 8 unit tests — OpenRouter path with valid modelId and credits, Groq fallback when no modelId, NO_AI_ACCESS error when neither, invalid modelId rejected, zero balance rejects credits path, cost deducted from balance, minimum 1 cent cost, usage log entry created
+
+- [ ] **Create `getUsageHistory` server action (paginated)**
+  - Files: `webapp/app/actions/credits.ts`
+  - Spec: `specs/ai-credits.md` — Server Actions
+  - Acceptance: Returns paginated `ai_usage_log` entries with date, model, tokens, cost; accepts page and limit parameters
+  - Tests: 3 unit tests — returns paginated results, empty history returns empty array, unauthenticated throws
+
+- [ ] **Create `getUsageSummary` server action (daily aggregates)**
+  - Files: `webapp/app/actions/credits.ts`
+  - Spec: `specs/ai-credits.md` — Server Actions
+  - Acceptance: Returns daily cost aggregates for last 30 days for authenticated user
+  - Tests: 3 unit tests — returns daily aggregates, empty days included as 0, unauthenticated throws
+
+- [ ] **Create `getPurchaseHistory` server action**
+  - Files: `webapp/app/actions/credits.ts`
+  - Spec: `specs/ai-credits.md` — Server Actions
+  - Acceptance: Returns list of `credit_purchases` for authenticated user ordered by created_at desc
+  - Tests: 3 unit tests — returns purchases, empty returns empty array, unauthenticated throws
+
+- [ ] **Create Credits & Usage settings page with balance card and buy section**
+  - Files: `webapp/app/settings/credits/page.tsx`
+  - Spec: `specs/ai-credits.md` — UI Settings: Credits & Usage Page
+  - Acceptance: New "use client" page at `/settings/credits`; shows balance formatted as dollars; three credit pack cards with Buy buttons; Buy button calls `createCheckoutSession()` and redirects to Stripe; on return with `?result=success`, shows success toast and refetches balance
+  - Tests: 7 component tests — renders balance, three pack cards, Buy button calls action, success toast on return, balance formatted as dollars, loading state, error handling
+
+- [ ] **Add usage chart and usage history table to credits settings page**
+  - Files: `webapp/app/settings/credits/page.tsx`
+  - Spec: `specs/ai-credits.md` — Usage Chart, Usage History Table
+  - Acceptance: CSS-based bar chart showing daily spend for last 30 days; paginated table with Date, Model, Tokens, Cost columns using existing Pagination component
+  - Tests: 4 component tests — chart renders with data, empty chart shows no bars, table renders rows, pagination works
+
+- [ ] **Add purchase history section to credits settings page**
+  - Files: `webapp/app/settings/credits/page.tsx`
+  - Spec: `specs/ai-credits.md` — Purchase History
+  - Acceptance: List of past purchases showing Date, Amount, Status
+  - Tests: 2 component tests — renders purchases, empty state
+
+- [ ] **Add "Credits & Usage" to settings sidebar navigation**
+  - Files: `webapp/app/settings/layout.tsx`
+  - Spec: `specs/ai-credits.md` — UI Navigation
+  - Acceptance: "Credits & Usage" nav item with CreditCard icon appears in settings sidebar
+  - Tests: 1 test verifying settings nav contains "Credits & Usage" link
+
+- [ ] **Update ChatPanel to accept `AiAccess` prop with model selector for credits mode**
+  - Files: `webapp/components/chat-panel.tsx`
+  - Spec: `specs/ai-credits.md` — UI Chat Panel Changes
+  - Acceptance: Replace `hasApiKey: boolean` prop with `aiAccess: { mode, creditBalanceCents? }`; "byok" mode unchanged; "credits" mode shows model selector dropdown + balance in header, sends `modelId` with chat requests; "none" mode shows links to both API keys and credits settings
+  - Tests: 6 component tests — byok mode no model selector, credits mode shows selector and balance, none mode shows both links, model selection sent with request, balance display formatted, selector disabled during streaming
+
+- [ ] **Update post detail page to use `getAiAccessInfo` instead of `hasGroqApiKey`**
+  - Files: `webapp/app/dashboard/posts/[id]/page.tsx`
+  - Spec: `specs/ai-credits.md` — Post Detail Page
+  - Acceptance: Calls `getAiAccessInfo()` instead of `hasGroqApiKey()`; passes `aiAccess` prop to ChatPanel instead of `hasApiKey` boolean
+  - Tests: 2 component tests — aiAccess prop passed correctly, page loads with credits mode
+
+- [ ] **Update landing page pricing section for credits model**
+  - Files: `webapp/app/(marketing)/page.tsx` (or equivalent landing page file)
+  - Spec: `specs/ai-credits.md` — Landing Page Changes
+  - Acceptance: Replace donation-based pricing with three cards: Free (BYOK), AI Credits ($5/$10/$20 packs), Teams (coming soon); update tagline
+  - Tests: 3 component tests — BYOK card shown, credits card with prices, Teams coming soon card
+
+- [ ] **Add Arcjet protection to Stripe webhook endpoint**
+  - Files: `webapp/app/api/webhooks/stripe/route.ts`
+  - Spec: `specs/arcjet-security.md` pattern (Shield + rate limit for new endpoints)
+  - Acceptance: Shield + rate limit on webhook endpoint to prevent abuse
+  - Tests: 2 unit tests — rate limit 429, non-rate-limit denial 403
+
+---
+
 ## Summary
 
 | Phase | Description | Tasks | Status | Dependencies | Priority |
@@ -708,8 +920,10 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 | 30 | Post Detail Page | 10 | **COMPLETE** | Phase 29 | HIGH |
 | 31 | Welcome Wizard | 5 | **COMPLETE** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **COMPLETE** | Phases 25-27, 30 | HIGH |
+| 33 | AI Assistant Improvements | 10 | **PLANNED** | Phase 30 | HIGH |
+| 34 | AI Credits System | 20 | **PLANNED** | Phase 33 | HIGH |
 
-**Total Remaining Tasks: 0**
+**Total Remaining Tasks: 30**
 
 ### Environment Variables Required
 ```bash
@@ -732,6 +946,12 @@ SMTP_FROM=                       # e.g., notifications@social-tracker.example.co
 
 # Security (required for Phase 32)
 ARCJET_KEY=                      # Site key from app.arcjet.com
+
+# AI Credits (required for Phase 34)
+STRIPE_SECRET_KEY=               # Stripe secret API key
+STRIPE_WEBHOOK_SECRET=           # Webhook endpoint signing secret
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=  # Client-side publishable key
+OPENROUTER_API_KEY=              # App owner's OpenRouter API key
 
 # No Reddit credentials needed — data fetched via Arctic Shift API (public, no auth)
 ```

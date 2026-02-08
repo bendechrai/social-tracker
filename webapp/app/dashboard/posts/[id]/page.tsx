@@ -21,7 +21,8 @@ import {
 } from "lucide-react";
 import { getPost, changePostStatus, updateResponseText, getChatMessages } from "@/app/actions/posts";
 import { getShowNsfw } from "@/app/actions/users";
-import { hasGroqApiKey } from "@/app/actions/api-keys";
+import { getAiAccessInfo } from "@/app/actions/credits";
+import type { AiAccess } from "@/components/chat-panel";
 import { ChatPanel } from "@/components/chat-panel";
 import { useToast } from "@/lib/hooks/use-toast";
 import type { PostStatus } from "@/lib/validations";
@@ -85,7 +86,7 @@ export default function PostDetailPage() {
   const [responseText, setResponseText] = React.useState("");
   const [isSaved, setIsSaved] = React.useState(false);
   const [saveTimeout, setSaveTimeout] = React.useState<NodeJS.Timeout | null>(null);
-  const [apiKeyConfigured, setApiKeyConfigured] = React.useState(false);
+  const [aiAccess, setAiAccess] = React.useState<AiAccess>({ hasGroqKey: false, creditBalanceCents: 0, mode: "none" });
   const [initialChatMessages, setInitialChatMessages] = React.useState<ChatMessageData[]>([]);
 
   const isBlurred = post?.isNsfw && !showNsfw && !revealed;
@@ -95,11 +96,11 @@ export default function PostDetailPage() {
       const [result, nsfwPref, hasKey, chatMsgs] = await Promise.all([
         getPost(params.id),
         getShowNsfw(),
-        hasGroqApiKey(),
+        getAiAccessInfo(),
         getChatMessages(params.id),
       ]);
       setShowNsfw(nsfwPref);
-      setApiKeyConfigured(hasKey);
+      setAiAccess(hasKey);
       setInitialChatMessages(chatMsgs);
       if (result.success) {
         setPost(result.post);
@@ -504,7 +505,7 @@ export default function PostDetailPage() {
           <div className="lg:col-span-2">
             <ChatPanel
               postId={post.id}
-              hasApiKey={apiKeyConfigured}
+              aiAccess={aiAccess}
               initialMessages={initialChatMessages.map((m) => ({
                 id: m.id,
                 role: m.role as "user" | "assistant",

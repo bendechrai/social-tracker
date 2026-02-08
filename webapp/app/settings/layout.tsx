@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { User, Key, Radio, TagIcon, ChevronLeft } from "lucide-react";
+import { User, Key, Radio, TagIcon, CreditCard, ChevronLeft } from "lucide-react";
 import { UserMenu } from "@/components/user-menu";
 
 const settingsNavItems = [
@@ -31,6 +31,12 @@ const settingsNavItems = [
     label: "Tags",
     icon: TagIcon,
     description: "Tags and search terms",
+  },
+  {
+    href: "/settings/credits",
+    label: "Credits & Usage",
+    icon: CreditCard,
+    description: "AI credits and usage",
   },
 ];
 

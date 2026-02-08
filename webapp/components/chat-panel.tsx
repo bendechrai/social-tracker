@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +13,8 @@ import {
   Loader2Icon,
   CopyIcon,
   KeyIcon,
+  CreditCardIcon,
+  ChevronDownIcon,
 } from "lucide-react";
 
 interface ChatMessage {
@@ -20,13 +23,25 @@ interface ChatMessage {
   content: string;
 }
 
+export interface AiAccess {
+  hasGroqKey: boolean;
+  creditBalanceCents: number;
+  mode: "byok" | "credits" | "none";
+}
+
+interface ModelOption {
+  id: string;
+  name: string;
+  vendor: string;
+}
+
 interface ChatPanelProps {
   postId: string;
-  hasApiKey: boolean;
+  aiAccess: AiAccess;
   initialMessages?: ChatMessage[];
 }
 
-export function ChatPanel({ postId, hasApiKey, initialMessages = [] }: ChatPanelProps) {
+export function ChatPanel({ postId, aiAccess, initialMessages = [] }: ChatPanelProps) {
   const { toast } = useToast();
   const [messages, setMessages] = React.useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = React.useState("");
@@ -34,6 +49,28 @@ export function ChatPanel({ postId, hasApiKey, initialMessages = [] }: ChatPanel
   const [streamingContent, setStreamingContent] = React.useState("");
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const messagesContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Model selector state for credits mode
+  const [models, setModels] = React.useState<ModelOption[]>([]);
+  const [selectedModelId, setSelectedModelId] = React.useState<string>("");
+  const [modelMenuOpen, setModelMenuOpen] = React.useState(false);
+
+  // Fetch available models when in credits mode
+  React.useEffect(() => {
+    if (aiAccess.mode === "credits" || (aiAccess.creditBalanceCents > 0 && !aiAccess.hasGroqKey)) {
+      fetch("/api/models")
+        .then((res) => res.json())
+        .then((data: { models: ModelOption[] }) => {
+          setModels(data.models);
+          if (data.models.length > 0 && data.models[0] && !selectedModelId) {
+            setSelectedModelId(data.models[0].id);
+          }
+        })
+        .catch(() => {
+          // Silently fail
+        });
+    }
+  }, [aiAccess.mode, aiAccess.creditBalanceCents, aiAccess.hasGroqKey, selectedModelId]);
 
   const scrollToBottom = React.useCallback(() => {
     if (typeof messagesEndRef.current?.scrollIntoView === "function") {
@@ -61,18 +98,23 @@ export function ChatPanel({ postId, hasApiKey, initialMessages = [] }: ChatPanel
     setStreamingContent("");
 
     try {
+      const bodyPayload: Record<string, string> = { postId, message: trimmed };
+      if (aiAccess.mode === "credits" && selectedModelId) {
+        bodyPayload.modelId = selectedModelId;
+      }
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, message: trimmed }),
+        body: JSON.stringify(bodyPayload),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        if (errorData.code === "MISSING_API_KEY") {
+        if (errorData.code === "NO_AI_ACCESS") {
           toast({
-            title: "API key required",
-            description: "Add a Groq API key in Settings to use AI chat.",
+            title: "No AI access",
+            description: "Add a Groq API key or purchase credits to use AI chat.",
             variant: "destructive",
           });
         } else {
@@ -86,7 +128,6 @@ export function ChatPanel({ postId, hasApiKey, initialMessages = [] }: ChatPanel
         return;
       }
 
-      // Stream the response
       const reader = response.body?.getReader();
       if (!reader) {
         setIsLoading(false);
@@ -150,14 +191,12 @@ export function ChatPanel({ postId, hasApiKey, initialMessages = [] }: ChatPanel
   };
 
   const handleUseAsResponse = async (content: string) => {
-    // Copy to clipboard first — must happen before any async work
-    // to preserve the browser's user activation context
     let copied = false;
     try {
       await navigator.clipboard.writeText(content);
       copied = true;
     } catch {
-      // clipboard requires user activation, will fail if delayed
+      // clipboard requires user activation
     }
 
     const result = await updateResponseText(postId, content);
@@ -179,7 +218,7 @@ export function ChatPanel({ postId, hasApiKey, initialMessages = [] }: ChatPanel
     }
   };
 
-  if (!hasApiKey) {
+  if (aiAccess.mode === "none") {
     return (
       <Card className="lg:sticky lg:top-6">
         <CardContent className="p-6">
@@ -187,20 +226,43 @@ export function ChatPanel({ postId, hasApiKey, initialMessages = [] }: ChatPanel
           <div className="flex flex-col items-center gap-3 py-8 text-center">
             <KeyIcon className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              Add a Groq API key in Settings to use AI chat
+              Set up AI to start chatting
             </p>
+            <div className="flex gap-2">
+              <Link href="/settings/api-keys">
+                <Button variant="outline" size="sm">
+                  <KeyIcon className="h-3 w-3 mr-1" />
+                  Add API Key
+                </Button>
+              </Link>
+              <Link href="/settings/credits">
+                <Button variant="outline" size="sm">
+                  <CreditCardIcon className="h-3 w-3 mr-1" />
+                  Buy Credits
+                </Button>
+              </Link>
+            </div>
           </div>
         </CardContent>
       </Card>
     );
   }
 
+  const selectedModel = models.find((m) => m.id === selectedModelId);
+
   return (
     <Card className="lg:sticky lg:top-6 flex flex-col" style={{ maxHeight: "calc(100vh - 6rem)" }}>
       <CardContent className="p-6 flex flex-col h-full min-h-0">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 shrink-0">
-          <h3 className="text-lg font-semibold">AI Assistant</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold">AI Assistant</h3>
+            {aiAccess.mode === "credits" && (
+              <span className="text-xs text-muted-foreground">
+                ${(aiAccess.creditBalanceCents / 100).toFixed(2)}
+              </span>
+            )}
+          </div>
           {messages.length > 0 && (
             <Button
               variant="ghost"
@@ -213,6 +275,41 @@ export function ChatPanel({ postId, hasApiKey, initialMessages = [] }: ChatPanel
             </Button>
           )}
         </div>
+
+        {/* Model selector for credits mode */}
+        {aiAccess.mode === "credits" && models.length > 0 && (
+          <div className="relative mb-4 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-between"
+              onClick={() => setModelMenuOpen(!modelMenuOpen)}
+              data-testid="model-selector"
+            >
+              <span className="truncate">
+                {selectedModel ? `${selectedModel.name} (${selectedModel.vendor})` : "Select model..."}
+              </span>
+              <ChevronDownIcon className="h-4 w-4 ml-2 shrink-0" />
+            </Button>
+            {modelMenuOpen && (
+              <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto">
+                {models.map((model) => (
+                  <button
+                    key={model.id}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
+                    onClick={() => {
+                      setSelectedModelId(model.id);
+                      setModelMenuOpen(false);
+                    }}
+                  >
+                    <span className="font-medium">{model.name}</span>
+                    <span className="text-muted-foreground ml-1">({model.vendor})</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Messages */}
         <div
