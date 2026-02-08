@@ -11,6 +11,8 @@ import {
   GlobeIcon,
   BrainIcon,
   UsersIcon,
+  KeyIcon,
+  CreditCardIcon,
 } from "lucide-react";
 
 export default async function LandingPage() {
@@ -144,26 +146,36 @@ export default async function LandingPage() {
           Pricing
         </h2>
         <p className="text-center text-sm text-muted-foreground mb-10 max-w-lg mx-auto">
-          Use it for free. Support it if you find it valuable.
+          Free to use with your own API key, or buy credits for premium AI models.
         </p>
-        <div className="mx-auto max-w-2xl grid gap-6 sm:grid-cols-2">
+        <div className="mx-auto max-w-4xl grid gap-6 sm:grid-cols-3">
           <Card>
             <CardContent className="pt-6 text-center space-y-3">
-              <h3 className="font-semibold text-lg">Individuals</h3>
-              <p className="text-3xl font-bold">$0+</p>
+              <KeyIcon className="mx-auto h-10 w-10 text-muted-foreground" />
+              <h3 className="font-semibold text-lg">Free (BYOK)</h3>
+              <p className="text-3xl font-bold">$0</p>
               <p className="text-sm text-muted-foreground">
-                Free to use, donation-based. Pay what you want if it
-                helps you.
+                Bring your own Groq API key. Unlimited usage, no credit card needed.
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6 text-center space-y-3">
+              <CreditCardIcon className="mx-auto h-10 w-10 text-muted-foreground" />
+              <h3 className="font-semibold text-lg">AI Credits</h3>
+              <p className="text-3xl font-bold">$5 / $10 / $20</p>
+              <p className="text-sm text-muted-foreground">
+                Choose from premium models. Buy credit packs starting at $5.
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 text-center space-y-3">
+              <UsersIcon className="mx-auto h-10 w-10 text-muted-foreground" />
               <h3 className="font-semibold text-lg">Teams &amp; Enterprise</h3>
               <p className="text-3xl font-bold text-muted-foreground">Coming soon</p>
               <p className="text-sm text-muted-foreground">
                 Shared dashboards, team management, and priority support.
-                Details coming later.
               </p>
             </CardContent>
           </Card>

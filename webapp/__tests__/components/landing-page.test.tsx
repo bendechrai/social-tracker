@@ -152,15 +152,25 @@ describe("Landing Page", () => {
       expect(screen.getByText("Pricing")).toBeInTheDocument();
     });
 
-    it("shows individual donation-based pricing", async () => {
+    it("shows BYOK free card", async () => {
       const page = await LandingPage();
       render(page);
 
-      expect(screen.getByText("Individuals")).toBeInTheDocument();
-      expect(screen.getByText("$0+")).toBeInTheDocument();
+      expect(screen.getByText("Free (BYOK)")).toBeInTheDocument();
+      expect(screen.getByText("$0")).toBeInTheDocument();
+      expect(screen.getByText(/Bring your own Groq API key/)).toBeInTheDocument();
     });
 
-    it("shows teams coming soon", async () => {
+    it("shows AI credits card with prices", async () => {
+      const page = await LandingPage();
+      render(page);
+
+      expect(screen.getByText("AI Credits")).toBeInTheDocument();
+      expect(screen.getByText("$5 / $10 / $20")).toBeInTheDocument();
+      expect(screen.getByText(/Choose from premium models/)).toBeInTheDocument();
+    });
+
+    it("shows teams coming soon card", async () => {
       const page = await LandingPage();
       render(page);
 

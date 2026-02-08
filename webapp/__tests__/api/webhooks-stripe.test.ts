@@ -8,6 +8,8 @@
  * - Balance incremented via upsert
  * - Purchase record created with correct fields
  * - Non-checkout event is ignored (returns 200)
+ * - Arcjet rate limit denial returns 429
+ * - Arcjet non-rate-limit denial returns 403
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -42,6 +44,19 @@ vi.mock("drizzle-orm", async (importOriginal) => {
     sql: actual.sql,
   };
 });
+
+// --- Arcjet mock ---
+const mockProtect = vi.fn();
+vi.mock("@/lib/arcjet", () => ({
+  default: {
+    withRule: () => ({ protect: (...args: unknown[]) => mockProtect(...args) }),
+  },
+  ajMode: "DRY_RUN",
+}));
+
+vi.mock("@arcjet/next", () => ({
+  slidingWindow: vi.fn().mockReturnValue([]),
+}));
 
 // Import after mocks
 import { POST } from "@/app/api/webhooks/stripe/route";
@@ -85,6 +100,8 @@ describe("POST /api/webhooks/stripe", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_test_secret";
+    // Default: Arcjet allows request
+    mockProtect.mockResolvedValue({ isDenied: () => false });
 
     // Default: transaction executes its callback
     mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) => {
@@ -253,5 +270,37 @@ describe("POST /api/webhooks/stripe", () => {
     expect(response.status).toBe(400);
     const body = await response.json();
     expect(body.error).toBe("Missing stripe-signature header");
+  });
+
+  it("returns 429 when Arcjet rate limit is denied", async () => {
+    mockProtect.mockResolvedValueOnce({
+      isDenied: () => true,
+      reason: { isRateLimit: () => true },
+    });
+
+    const request = createRequest('{"test":"body"}');
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(body.error).toBe("Too many requests");
+    expect(mockConstructEvent).not.toHaveBeenCalled();
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when Arcjet denies for non-rate-limit reason", async () => {
+    mockProtect.mockResolvedValueOnce({
+      isDenied: () => true,
+      reason: { isRateLimit: () => false },
+    });
+
+    const request = createRequest('{"test":"body"}');
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error).toBe("Forbidden");
+    expect(mockConstructEvent).not.toHaveBeenCalled();
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 });

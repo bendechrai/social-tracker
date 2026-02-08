@@ -4,8 +4,23 @@ import { db } from "@/lib/db";
 import { creditPurchases, creditBalances } from "@/drizzle/schema";
 import { sql } from "drizzle-orm";
 import type Stripe from "stripe";
+import aj, { ajMode } from "@/lib/arcjet";
+import { slidingWindow } from "@arcjet/next";
+
+const webhookAj = aj.withRule(
+  slidingWindow({ mode: ajMode, interval: "1m", max: 10 })
+);
 
 export async function POST(request: NextRequest) {
+  // Arcjet rate limit check
+  const decision = await webhookAj.protect(request);
+  if (decision.isDenied()) {
+    if (decision.reason.isRateLimit()) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
 

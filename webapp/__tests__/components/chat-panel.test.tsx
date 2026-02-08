@@ -30,6 +30,7 @@ import { ChatPanel, type AiAccess } from "@/components/chat-panel";
 
 const byokAccess: AiAccess = { hasGroqKey: true, creditBalanceCents: 0, mode: "byok" };
 const noAccess: AiAccess = { hasGroqKey: false, creditBalanceCents: 0, mode: "none" };
+const creditsAccess: AiAccess = { hasGroqKey: false, creditBalanceCents: 1250, mode: "credits" };
 
 describe("ChatPanel", () => {
   beforeEach(() => {
@@ -259,6 +260,145 @@ describe("ChatPanel", () => {
         description: "Something went wrong",
         variant: "destructive",
       });
+    });
+  });
+
+  it("does not show model selector in byok mode", () => {
+    render(<ChatPanel postId="post-1" aiAccess={byokAccess} />);
+
+    expect(screen.queryByTestId("model-selector")).not.toBeInTheDocument();
+  });
+
+  it("shows model selector and balance in credits mode", async () => {
+    const mockModels = [
+      { id: "openai/gpt-4o-mini", name: "GPT-4o Mini", vendor: "OpenAI" },
+      { id: "openai/gpt-4o", name: "GPT-4o", vendor: "OpenAI" },
+    ];
+
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ models: mockModels }),
+    });
+
+    render(<ChatPanel postId="post-1" aiAccess={creditsAccess} />);
+
+    // Balance should be formatted as dollars
+    expect(screen.getByText("$12.50")).toBeInTheDocument();
+
+    // Model selector should appear after models are fetched
+    await waitFor(() => {
+      expect(screen.getByTestId("model-selector")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/GPT-4o Mini/)).toBeInTheDocument();
+  });
+
+  it("shows both links in none mode", () => {
+    render(<ChatPanel postId="post-1" aiAccess={noAccess} />);
+
+    const apiKeyLink = screen.getByRole("link", { name: /Add API Key/i });
+    expect(apiKeyLink).toHaveAttribute("href", "/settings/api-keys");
+
+    const creditsLink = screen.getByRole("link", { name: /Buy Credits/i });
+    expect(creditsLink).toHaveAttribute("href", "/settings/credits");
+  });
+
+  it("sends modelId with request in credits mode", async () => {
+    const user = userEvent.setup();
+    const mockModels = [
+      { id: "openai/gpt-4o-mini", name: "GPT-4o Mini", vendor: "OpenAI" },
+    ];
+
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode("Response"));
+        controller.close();
+      },
+    });
+
+    (global.fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ models: mockModels }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        body: stream,
+      });
+
+    render(<ChatPanel postId="post-1" aiAccess={creditsAccess} />);
+
+    // Wait for models to load
+    await waitFor(() => {
+      expect(screen.getByTestId("model-selector")).toBeInTheDocument();
+    });
+
+    const input = screen.getByTestId("chat-input");
+    await user.type(input, "Hello");
+    await user.click(screen.getByTestId("chat-send"));
+
+    expect(global.fetch).toHaveBeenCalledWith("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ postId: "post-1", message: "Hello", modelId: "openai/gpt-4o-mini" }),
+    });
+  });
+
+  it("formats balance display correctly", () => {
+    const access: AiAccess = { hasGroqKey: false, creditBalanceCents: 523, mode: "credits" };
+
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ models: [] }),
+    });
+
+    render(<ChatPanel postId="post-1" aiAccess={access} />);
+
+    expect(screen.getByText("$5.23")).toBeInTheDocument();
+  });
+
+  it("disables input and send button during streaming in credits mode", async () => {
+    const user = userEvent.setup();
+    const mockModels = [
+      { id: "openai/gpt-4o-mini", name: "GPT-4o Mini", vendor: "OpenAI" },
+    ];
+
+    // Create a stream that never closes to keep loading state
+    const neverEndingStream = new ReadableStream({
+      start() {
+        // Never close to keep loading
+      },
+    });
+
+    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (typeof url === "string" && url.includes("/api/models")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ models: mockModels }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        body: neverEndingStream,
+      });
+    });
+
+    render(<ChatPanel postId="post-1" aiAccess={creditsAccess} />);
+
+    // Wait for models to load
+    await waitFor(() => {
+      expect(screen.getByTestId("model-selector")).toBeInTheDocument();
+    });
+
+    const input = screen.getByTestId("chat-input");
+    await user.type(input, "Hello");
+    await user.click(screen.getByTestId("chat-send"));
+
+    // During streaming, input and send should be disabled
+    await waitFor(() => {
+      expect(screen.getByTestId("chat-input")).toBeDisabled();
+      expect(screen.getByTestId("chat-send")).toBeDisabled();
     });
   });
 

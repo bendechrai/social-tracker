@@ -303,6 +303,38 @@ describe("PostDetailPage", () => {
     expect(link.closest("a")).toHaveAttribute("href", "https://example.com/article");
   });
 
+  it("passes aiAccess prop to ChatPanel correctly", async () => {
+    mockGetPost.mockResolvedValue({
+      success: true,
+      post: makePostDetail(),
+    });
+    mockGetAiAccessInfo.mockResolvedValue({ hasGroqKey: true, creditBalanceCents: 0, mode: "byok" });
+
+    render(<PostDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("chat-panel")).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId("chat-panel")).toHaveAttribute("data-mode", "byok");
+  });
+
+  it("loads page with credits mode when user has credits", async () => {
+    mockGetPost.mockResolvedValue({
+      success: true,
+      post: makePostDetail(),
+    });
+    mockGetAiAccessInfo.mockResolvedValue({ hasGroqKey: false, creditBalanceCents: 500, mode: "credits" });
+
+    render(<PostDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("chat-panel")).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId("chat-panel")).toHaveAttribute("data-mode", "credits");
+  });
+
   describe("NSFW blur behavior", () => {
     it("shows NSFW banner with Show Content button when isNsfw and showNsfw off", async () => {
       mockGetPost.mockResolvedValue({

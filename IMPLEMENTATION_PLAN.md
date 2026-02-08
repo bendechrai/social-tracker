@@ -771,9 +771,9 @@ Four incremental improvements to the AI chat assistant: anti-hallucination guard
 
 ---
 
-## Phase 34: AI Credits System — IN PROGRESS
+## Phase 34: AI Credits System — COMPLETE
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 **Priority: HIGH — New spec**
 **Dependencies: Phase 33 (chat route changes in Phase 33 must land first to avoid conflicts)**
 **Spec: `specs/ai-credits.md`**
@@ -871,30 +871,28 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
   - Acceptance: "Credits & Usage" nav item with CreditCard icon in settings sidebar linking to `/settings/credits`
   - Tests: 1 test verifying settings nav contains "Credits & Usage" link with correct href
 
-### In Progress
-
-- [ ] **Update ChatPanel to accept `AiAccess` prop with model selector for credits mode**
-  - Files: `webapp/components/chat-panel.tsx`
+- [x] **Update ChatPanel to accept `AiAccess` prop with model selector for credits mode**
+  - Files: `webapp/components/chat-panel.tsx`, `webapp/__tests__/components/chat-panel.test.tsx`
   - Spec: `specs/ai-credits.md` — UI Chat Panel Changes
   - Acceptance: Replace `hasApiKey: boolean` prop with `aiAccess: { mode, creditBalanceCents? }`; "byok" mode unchanged; "credits" mode shows model selector dropdown + balance in header, sends `modelId` with chat requests; "none" mode shows links to both API keys and credits settings
   - Tests: 6 component tests — byok mode no model selector, credits mode shows selector and balance, none mode shows both links, model selection sent with request, balance display formatted, selector disabled during streaming
 
-- [ ] **Update post detail page to use `getAiAccessInfo` instead of `hasGroqApiKey`**
-  - Files: `webapp/app/dashboard/posts/[id]/page.tsx`
+- [x] **Update post detail page to use `getAiAccessInfo` instead of `hasGroqApiKey`**
+  - Files: `webapp/app/dashboard/posts/[id]/page.tsx`, `webapp/__tests__/components/post-detail.test.tsx`
   - Spec: `specs/ai-credits.md` — Post Detail Page
   - Acceptance: Calls `getAiAccessInfo()` instead of `hasGroqApiKey()`; passes `aiAccess` prop to ChatPanel instead of `hasApiKey` boolean
   - Tests: 2 component tests — aiAccess prop passed correctly, page loads with credits mode
 
-- [ ] **Update landing page pricing section for credits model**
-  - Files: `webapp/app/(marketing)/page.tsx` (or equivalent landing page file)
+- [x] **Update landing page pricing section for credits model**
+  - Files: `webapp/app/(marketing)/page.tsx`, `webapp/__tests__/components/landing-page.test.tsx`
   - Spec: `specs/ai-credits.md` — Landing Page Changes
   - Acceptance: Replace donation-based pricing with three cards: Free (BYOK), AI Credits ($5/$10/$20 packs), Teams (coming soon); update tagline
-  - Tests: 3 component tests — BYOK card shown, credits card with prices, Teams coming soon card
+  - Tests: 4 component tests — pricing heading, BYOK card shown, credits card with prices, Teams coming soon card
 
-- [ ] **Add Arcjet protection to Stripe webhook endpoint**
-  - Files: `webapp/app/api/webhooks/stripe/route.ts`
+- [x] **Add Arcjet protection to Stripe webhook endpoint**
+  - Files: `webapp/app/api/webhooks/stripe/route.ts`, `webapp/__tests__/api/webhooks-stripe.test.ts`
   - Spec: `specs/arcjet-security.md` pattern (Shield + rate limit for new endpoints)
-  - Acceptance: Shield + rate limit on webhook endpoint to prevent abuse
+  - Acceptance: Shield + rate limit (10 per min per IP) on webhook endpoint to prevent abuse
   - Tests: 2 unit tests — rate limit 429, non-rate-limit denial 403
 
 ---
@@ -923,9 +921,11 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
 | 31 | Welcome Wizard | 5 | **COMPLETE** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **COMPLETE** | Phases 25-27, 30 | HIGH |
 | 33 | AI Assistant Improvements | 10 | **COMPLETE** | Phase 30 | HIGH |
-| 34 | AI Credits System | 20 | **IN PROGRESS** (17/20) | Phase 33 | HIGH |
+| 34 | AI Credits System | 20 | **COMPLETE** | Phase 33 | HIGH |
 
-**Total Remaining Tasks: 3**
+**Total Remaining Tasks: 0**
+
+All phases complete.
 
 ### Environment Variables Required
 ```bash
