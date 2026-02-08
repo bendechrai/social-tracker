@@ -293,13 +293,15 @@ Set up nodemailer/SMTP email infrastructure and implement notification digests f
 
 Send a welcome email with quick-start tips and verification link on signup. Add verification endpoint, resend mechanism, dashboard banner for unverified users, and gate notification emails behind verification.
 
-### In Progress (Phase 26)
+### Completed (Phase 26)
 
-- [ ] **Build welcome email HTML/text template**
+- [x] **Build welcome email HTML/text template**
   - Files: `webapp/lib/email-templates.ts`
   - Spec: `specs/welcome-email.md` — Email Content
   - Acceptance: Function returns `{ subject, html, text }` with "Welcome to Social Tracker" subject, greeting, 3 quick-start tips, "Get Started" CTA, and "Verify Email" button with signed token link
-  - Tests: Unit test verifying subject, all 3 tips present, verify link format, plain text fallback
+  - Tests: 9 unit tests verifying subject, greeting/intro, all 3 tips in HTML and plain text, Get Started CTA, verify link with signed token, 7-day token expiry, plain text without HTML tags, footer
+
+### In Progress (Phase 26)
 
 - [ ] **Send welcome email from signup action (fire-and-forget)**
   - Files: `webapp/app/actions/auth.ts`

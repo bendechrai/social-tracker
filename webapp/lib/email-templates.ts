@@ -23,9 +23,21 @@ export interface NotificationEmailResult {
   headers: Record<string, string>;
 }
 
+export interface WelcomeEmailInput {
+  userId: string;
+  appUrl: string;
+}
+
+export interface WelcomeEmailResult {
+  subject: string;
+  html: string;
+  text: string;
+}
+
 const MAX_POSTS = 20;
 const BODY_SNIPPET_LENGTH = 150;
 const UNSUBSCRIBE_TOKEN_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const VERIFY_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function escapeHtml(str: string): string {
   return str
@@ -58,6 +70,50 @@ function groupByTag(
     }
   }
   return groups;
+}
+
+export function buildWelcomeEmail(
+  input: WelcomeEmailInput
+): WelcomeEmailResult {
+  const { userId, appUrl } = input;
+
+  const subject = "Welcome to Social Tracker";
+
+  const verifyToken = createSignedToken(userId, VERIFY_TOKEN_EXPIRY_MS);
+  const verifyUrl = `${appUrl}/api/verify-email?token=${verifyToken}`;
+  const dashboardUrl = `${appUrl}/dashboard`;
+
+  // HTML
+  let html = "";
+  html += `<p>Welcome to Social Tracker!</p>\n`;
+  html += `<p>You're all set to start tracking Reddit posts across subreddits and organizing them with tags.</p>\n`;
+  html += `<ol>\n`;
+  html += `  <li><strong>Add a subreddit</strong> — Head to Settings &gt; Subreddits and add your first subreddit to monitor. Posts from the last 7 days will be fetched automatically.</li>\n`;
+  html += `  <li><strong>Create tags</strong> — Tags help you organize posts. Each tag has search terms — posts matching those terms are auto-tagged. Go to Settings &gt; Tags to create your first tag.</li>\n`;
+  html += `  <li><strong>Add a Groq API key</strong> (optional) — Enable AI-powered features like response drafting and search term suggestions. Get a free key at console.groq.com and add it in Settings &gt; API Keys.</li>\n`;
+  html += `</ol>\n`;
+  html += `<p><a href="${escapeHtml(dashboardUrl)}" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600;">Get Started</a></p>\n`;
+  html += `<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />\n`;
+  html += `<p>Please verify your email address to enable notification emails:</p>\n`;
+  html += `<p><a href="${escapeHtml(verifyUrl)}" style="display: inline-block; padding: 10px 20px; background-color: #16a34a; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600;">Verify Email</a></p>\n`;
+  html += `<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />\n`;
+  html += `<p style="color: #9ca3af; font-size: 12px;">You're receiving this because you signed up for Social Tracker.</p>\n`;
+
+  // Plain text
+  let text = "";
+  text += `Welcome to Social Tracker!\n\n`;
+  text += `You're all set to start tracking Reddit posts across subreddits and organizing them with tags.\n\n`;
+  text += `1. Add a subreddit — Head to Settings > Subreddits and add your first subreddit to monitor. Posts from the last 7 days will be fetched automatically.\n\n`;
+  text += `2. Create tags — Tags help you organize posts. Each tag has search terms — posts matching those terms are auto-tagged. Go to Settings > Tags to create your first tag.\n\n`;
+  text += `3. Add a Groq API key (optional) — Enable AI-powered features like response drafting and search term suggestions. Get a free key at console.groq.com and add it in Settings > API Keys.\n\n`;
+  text += `Get Started: ${dashboardUrl}\n\n`;
+  text += `---\n\n`;
+  text += `Please verify your email address to enable notification emails:\n`;
+  text += `Verify Email: ${verifyUrl}\n\n`;
+  text += `---\n`;
+  text += `You're receiving this because you signed up for Social Tracker.`;
+
+  return { subject, html, text };
 }
 
 export function buildNotificationEmail(

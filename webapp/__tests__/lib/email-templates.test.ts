@@ -10,8 +10,10 @@ vi.mock("@/lib/tokens", () => ({
 
 import {
   buildNotificationEmail,
+  buildWelcomeEmail,
   type TaggedPost,
   type NotificationEmailInput,
+  type WelcomeEmailInput,
 } from "@/lib/email-templates";
 
 function makePost(overrides: Partial<TaggedPost> = {}): TaggedPost {
@@ -242,5 +244,101 @@ describe("buildNotificationEmail", () => {
     );
 
     expect(result.html).toContain("background-color: #6366f1");
+  });
+});
+
+describe("buildWelcomeEmail", () => {
+  function makeWelcomeInput(overrides: Partial<WelcomeEmailInput> = {}): WelcomeEmailInput {
+    return {
+      userId: "user-456",
+      appUrl: "https://app.example.com",
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.ENCRYPTION_KEY = "a".repeat(64);
+  });
+
+  afterEach(() => {
+    delete process.env.ENCRYPTION_KEY;
+  });
+
+  it("generates correct subject", () => {
+    const result = buildWelcomeEmail(makeWelcomeInput());
+
+    expect(result.subject).toBe("Welcome to Social Tracker");
+  });
+
+  it("includes greeting and intro in HTML", () => {
+    const result = buildWelcomeEmail(makeWelcomeInput());
+
+    expect(result.html).toContain("Welcome to Social Tracker!");
+    expect(result.html).toContain("tracking Reddit posts across subreddits");
+  });
+
+  it("includes all 3 quick-start tips in HTML", () => {
+    const result = buildWelcomeEmail(makeWelcomeInput());
+
+    expect(result.html).toContain("Add a subreddit");
+    expect(result.html).toContain("Create tags");
+    expect(result.html).toContain("Add a Groq API key");
+    expect(result.html).toContain("Settings &gt; Subreddits");
+    expect(result.html).toContain("Settings &gt; Tags");
+    expect(result.html).toContain("Settings &gt; API Keys");
+  });
+
+  it("includes all 3 quick-start tips in plain text", () => {
+    const result = buildWelcomeEmail(makeWelcomeInput());
+
+    expect(result.text).toContain("1. Add a subreddit");
+    expect(result.text).toContain("2. Create tags");
+    expect(result.text).toContain("3. Add a Groq API key");
+    expect(result.text).toContain("Settings > Subreddits");
+    expect(result.text).toContain("Settings > Tags");
+    expect(result.text).toContain("Settings > API Keys");
+  });
+
+  it("includes Get Started CTA linking to dashboard", () => {
+    const result = buildWelcomeEmail(makeWelcomeInput());
+
+    expect(result.html).toContain("Get Started");
+    expect(result.html).toContain("https://app.example.com/dashboard");
+    expect(result.text).toContain("Get Started: https://app.example.com/dashboard");
+  });
+
+  it("includes verify email link with signed token", () => {
+    const result = buildWelcomeEmail(makeWelcomeInput());
+
+    expect(result.html).toContain("Verify Email");
+    expect(result.html).toContain("https://app.example.com/api/verify-email?token=mock-signed-token");
+    expect(result.text).toContain("Verify Email: https://app.example.com/api/verify-email?token=mock-signed-token");
+  });
+
+  it("calls createSignedToken with userId and 7-day expiry", () => {
+    buildWelcomeEmail(makeWelcomeInput());
+
+    expect(mockCreateSignedToken).toHaveBeenCalledWith(
+      "user-456",
+      7 * 24 * 60 * 60 * 1000
+    );
+  });
+
+  it("includes plain text fallback with full URLs and no HTML tags", () => {
+    const result = buildWelcomeEmail(makeWelcomeInput());
+
+    expect(result.text).toContain("https://app.example.com/dashboard");
+    expect(result.text).toContain("https://app.example.com/api/verify-email");
+    expect(result.text).not.toContain("<a ");
+    expect(result.text).not.toContain("<div");
+    expect(result.text).not.toContain("<p>");
+    expect(result.text).not.toContain("<ol>");
+  });
+
+  it("includes footer in HTML", () => {
+    const result = buildWelcomeEmail(makeWelcomeInput());
+
+    expect(result.html).toContain("signed up for Social Tracker");
   });
 });
