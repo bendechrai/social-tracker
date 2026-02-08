@@ -4,8 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { User, Key, Radio, TagIcon, ChevronLeft } from "lucide-react";
+import { UserMenu } from "@/components/user-menu";
 
 const settingsNavItems = [
   {
@@ -43,19 +43,17 @@ export default function SettingsLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/dashboard">
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Back to Dashboard
-              </Link>
-            </Button>
+      <header className="border-b">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Link href="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">
+              <ChevronLeft className="h-5 w-5" />
+            </Link>
             <h1 className="text-2xl font-semibold">Settings</h1>
           </div>
+          <UserMenu />
         </div>
-      </div>
+      </header>
 
       <div className="container mx-auto px-4 py-6">
         <div className="flex flex-col md:flex-row gap-6">
