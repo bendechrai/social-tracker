@@ -22,6 +22,8 @@ function LoginForm() {
 
   // Check if user just registered
   const justRegistered = searchParams.get("registered") === "true";
+  // Check if password was just reset
+  const justReset = searchParams.get("reset") === "true";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +69,13 @@ function LoginForm() {
             <div className="p-3 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-md flex items-center gap-2">
               <CheckCircleIcon className="h-4 w-4" />
               Account created successfully! Please sign in.
+            </div>
+          )}
+
+          {justReset && (
+            <div className="p-3 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-md flex items-center gap-2">
+              <CheckCircleIcon className="h-4 w-4" />
+              Password reset successfully. Please log in with your new password.
             </div>
           )}
 
@@ -135,6 +144,12 @@ function LoginForm() {
               "Sign in"
             )}
           </Button>
+          <Link
+            href="/forgot-password"
+            className="text-sm text-muted-foreground hover:text-primary hover:underline text-center"
+          >
+            Forgot password?
+          </Link>
           <p className="text-sm text-muted-foreground text-center">
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="text-primary hover:underline">

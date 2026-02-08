@@ -396,13 +396,13 @@ Allow users to reset their password via a tokenized email link. Add `passwordCha
   - Acceptance: Reads `?token` from URL; invalid/missing token shows error with link to `/forgot-password`; valid token shows password form with requirement checklist; on success redirects to `/login?reset=true`
   - Tests: 13 component tests — missing token error, link to forgot-password, no form without token, form with checklist, button disabled/enabled, passwords match/mismatch indicators, API call, success redirect, API error, network error, forgot-password link in form
 
-- [ ] **Add "Forgot password?" link and reset success message to login page** ← NEXT
+- [x] **Add "Forgot password?" link and reset success message to login page**
   - Files: `webapp/app/login/page.tsx`
   - Spec: `specs/password-reset.md` — Login Page Update
   - Acceptance: "Forgot password?" link below login form linking to `/forgot-password`; if `?reset=true` in URL, show success message
-  - Tests: Component test for link presence; test for success message with query param
+  - Tests: 3 component tests (link presence, success message with query param, no message without param)
 
-- [ ] **Add proxy.ts exclusions for `/forgot-password` and `/reset-password`**
+- [ ] **Add proxy.ts exclusions for `/forgot-password` and `/reset-password`** ← NEXT
   - Files: `webapp/proxy.ts`
   - Spec: `specs/password-reset.md` — Route Protection
   - Acceptance: `/forgot-password` and `/reset-password` are accessible without authentication
