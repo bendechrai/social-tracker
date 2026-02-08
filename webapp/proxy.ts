@@ -6,6 +6,7 @@
  * - /login - Login page (public)
  * - /signup - Signup page (public)
  * - /api/auth/* - Auth.js API routes (public)
+ * - /api/cron/* - Cron job routes (public, idempotent)
  *
  * Behavior:
  * - Page requests: Redirect unauthenticated users to /login
@@ -18,8 +19,8 @@ export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
   const isAuthenticated = !!req.auth;
 
-  // Check if this is an API route (excluding /api/auth/*)
-  const isApiRoute = pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/");
+  // Check if this is an API route (excluding /api/auth/* and /api/cron/*)
+  const isApiRoute = pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/") && !pathname.startsWith("/api/cron/");
 
   // Landing page handles its own auth redirect
   if (pathname === "/") {
@@ -55,6 +56,7 @@ export const config = {
      * Match all paths except:
      * - /login and /signup (auth pages)
      * - /api/auth (NextAuth.js routes)
+     * - /api/cron (cron job routes)
      * - /_next (Next.js internals)
      * - /static (static files)
      * - Files with extensions (e.g., favicon.ico, robots.txt)
@@ -62,6 +64,6 @@ export const config = {
      * Note: This uses Next.js path-to-regexp syntax, not standard JavaScript regex.
      * The pattern matches paths that DON'T start with the excluded prefixes.
      */
-    "/((?!login|signup|api/auth|_next|static|.*\\..*$).*)",
+    "/((?!login|signup|api/auth|api/cron|_next|static|.*\\..*$).*)",
   ],
 };

@@ -99,9 +99,9 @@ A Railway cron service calls the endpoint every minute:
 
 ### Local Development
 
-In local dev, the cron does not run automatically. Developers can:
-- Hit `GET /api/cron/fetch-posts` manually (via browser or curl)
-- Adding a new subreddit triggers the on-demand fetch automatically
+A `cron` container in `docker-compose.yml` calls the endpoint every 60 seconds, mirroring the Railway cron service. This starts automatically with `docker compose up`.
+
+Developers can also hit `GET /api/cron/fetch-posts` manually (via browser or curl) for immediate testing.
 
 ## Acceptance Criteria
 
