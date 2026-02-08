@@ -521,13 +521,13 @@ Dedicated page for viewing a Reddit post with comments and AI chat. Adds `commen
   - Acceptance: After fetching posts for a subreddit, fetch top ~50 comments per post from Arctic Shift comments endpoint (`/api/comments/search?link_id={post_id}`); upsert into `comments` table by `reddit_id`
   - Tests: 6 fetchRedditComments tests (parse, prefix strip, limit 50, API error, missing data, top-level parent), 3 upsertComments tests (empty, insert, dedup), 3 cron integration tests (comments fetched per post, no comments for empty posts, comments passed to upsert). All 845 tests pass.
 
-- [ ] **Create `getPost` server action for post detail data** ← NEXT
+- [x] **Create `getPost` server action for post detail data**
   - Files: `webapp/app/actions/posts.ts`
   - Spec: `specs/post-detail.md` — Route (data loading)
   - Acceptance: Returns full post content + user_post status/tags + threaded comments (sorted by score) for authenticated user; returns null if post doesn't exist or user has no association
-  - Tests: Unit tests for: valid post retrieval, non-existent post returns null, no user association returns null, comments threaded correctly
+  - Tests: 5 unit tests — non-existent post returns error, no user association returns error, valid post with tags and empty comments, threaded comments sorted by score, comments flattened beyond max depth 4. All 848 tests pass.
 
-- [ ] **Create `/dashboard/posts/[id]` page layout**
+- [ ] **Create `/dashboard/posts/[id]` page layout** ← NEXT
   - Files: `webapp/app/dashboard/posts/[id]/page.tsx`
   - Spec: `specs/post-detail.md` — Page Layout
   - Acceptance: Two-column layout (60/40); left: post header (title, metadata, tags, "View on Reddit"), body, action bar (Ignore/Done), comments section (threaded, max 4 depth); right: AI chat panel; responsive (stacked on mobile); 404 for invalid posts

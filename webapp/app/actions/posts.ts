@@ -31,6 +31,21 @@ export interface PostData {
   tags: Array<{ id: string; name: string; color: string }>;
 }
 
+export interface CommentData {
+  id: string;
+  redditId: string;
+  author: string;
+  body: string;
+  score: number;
+  redditCreatedAt: Date;
+  depth: number;
+  children: CommentData[];
+}
+
+export interface PostDetailData extends PostData {
+  comments: CommentData[];
+}
+
 export interface ListPostsResult {
   posts: PostData[];
   total: number;
@@ -232,10 +247,85 @@ export async function listPosts(
   };
 }
 
-// Get a single post with tags
+// Build a threaded comment tree from flat comments.
+// Sorts by score (highest first) within each level.
+// Flattens beyond maxDepth (comments beyond maxDepth become children of the last visible parent).
+function buildCommentTree(
+  flatComments: Array<{
+    id: string;
+    redditId: string;
+    parentRedditId: string | null;
+    author: string;
+    body: string;
+    score: number;
+    redditCreatedAt: Date;
+  }>,
+  maxDepth = 4
+): CommentData[] {
+  // Index comments by redditId for parent lookups
+  const byRedditId = new Map<string, CommentData>();
+  const topLevel: CommentData[] = [];
+
+  // Create CommentData nodes
+  for (const c of flatComments) {
+    byRedditId.set(c.redditId, {
+      id: c.id,
+      redditId: c.redditId,
+      author: c.author,
+      body: c.body,
+      score: c.score,
+      redditCreatedAt: c.redditCreatedAt,
+      depth: 0,
+      children: [],
+    });
+  }
+
+  // Build tree
+  for (const c of flatComments) {
+    const node = byRedditId.get(c.redditId)!;
+    if (c.parentRedditId && byRedditId.has(c.parentRedditId)) {
+      const parent = byRedditId.get(c.parentRedditId)!;
+      node.depth = parent.depth + 1;
+      // Flatten beyond maxDepth: attach to the ancestor at maxDepth - 1
+      if (node.depth >= maxDepth) {
+        let ancestor = parent;
+        while (ancestor.depth >= maxDepth && c.parentRedditId) {
+          // Find ancestor's parent by walking up
+          const ancestorParent = flatComments.find(
+            (fc) => byRedditId.get(fc.redditId) === ancestor
+          );
+          if (ancestorParent?.parentRedditId && byRedditId.has(ancestorParent.parentRedditId)) {
+            ancestor = byRedditId.get(ancestorParent.parentRedditId)!;
+          } else {
+            break;
+          }
+        }
+        node.depth = maxDepth;
+        ancestor.children.push(node);
+      } else {
+        parent.children.push(node);
+      }
+    } else {
+      topLevel.push(node);
+    }
+  }
+
+  // Sort recursively by score descending
+  const sortByScore = (nodes: CommentData[]) => {
+    nodes.sort((a, b) => b.score - a.score);
+    for (const node of nodes) {
+      sortByScore(node.children);
+    }
+  };
+  sortByScore(topLevel);
+
+  return topLevel;
+}
+
+// Get a single post with tags and threaded comments
 export async function getPost(
   id: string
-): Promise<{ success: true; post: PostData } | { success: false; error: string }> {
+): Promise<{ success: true; post: PostDetailData } | { success: false; error: string }> {
   const userId = await getCurrentUserId();
 
   // Find the user_post for this post
@@ -254,6 +344,14 @@ export async function getPost(
   if (!userPost) {
     return { success: false, error: "Post not found" };
   }
+
+  // Fetch comments for this post by its reddit_id
+  const postComments = await db
+    .select()
+    .from(comments)
+    .where(eq(comments.postRedditId, userPost.post.redditId));
+
+  const threadedComments = buildCommentTree(postComments);
 
   return {
     success: true,
@@ -280,6 +378,7 @@ export async function getPost(
         name: upt.tag.name,
         color: upt.tag.color,
       })),
+      comments: threadedComments,
     },
   };
 }

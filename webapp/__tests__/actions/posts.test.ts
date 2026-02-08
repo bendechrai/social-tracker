@@ -35,6 +35,7 @@ const mockCountResult = vi.fn();
 const mockGroupByResult = vi.fn();
 const mockSelectDistinctResult = vi.fn();
 const mockPaginatedSelectResult = vi.fn();
+const mockCommentsSelectResult = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -81,23 +82,32 @@ vi.mock("@/lib/db", () => ({
       };
     },
     select: () => ({
-      from: () => ({
-        where: () => {
-          // Return a thenable that also has .groupBy()
-          const promise = mockCountResult();
-          (promise as Promise<unknown[]> & { groupBy: () => Promise<unknown[]> }).groupBy = () => mockGroupByResult();
-          return promise;
-        },
-        innerJoin: () => ({
-          where: () => ({
-            orderBy: () => ({
-              limit: () => ({
-                offset: () => mockPaginatedSelectResult(),
+      from: (...fromArgs: unknown[]) => {
+        // Check if querying the comments table (has postRedditId column)
+        const tableArg = fromArgs[0] as Record<string, unknown> | undefined;
+        if (tableArg && typeof tableArg === "object" && "postRedditId" in (tableArg as Record<string, unknown>)) {
+          return {
+            where: () => mockCommentsSelectResult(),
+          };
+        }
+        return {
+          where: () => {
+            // Return a thenable that also has .groupBy()
+            const promise = mockCountResult();
+            (promise as Promise<unknown[]> & { groupBy: () => Promise<unknown[]> }).groupBy = () => mockGroupByResult();
+            return promise;
+          },
+          innerJoin: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: () => ({
+                  offset: () => mockPaginatedSelectResult(),
+                }),
               }),
             }),
           }),
-        }),
-      }),
+        };
+      },
     }),
     selectDistinct: () => ({
       from: () => ({
@@ -137,6 +147,7 @@ import {
   fetchNewPosts,
   fetchPostsForAllUsers,
   upsertComments,
+  type PostDetailData,
 } from "@/app/actions/posts";
 
 // Helper to create a mock post (global, shared)
@@ -407,7 +418,19 @@ describe("post server actions", () => {
       }
     });
 
-    it("returns post with tags from user_post_tags", async () => {
+    it("returns error when user has no association with the post", async () => {
+      // user_post doesn't exist for this user+post combination
+      mockUserPostsFindFirst.mockResolvedValue(null);
+
+      const result = await getPost("post-belonging-to-other-user");
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe("Post not found");
+      }
+    });
+
+    it("returns post with tags from user_post_tags and empty comments", async () => {
       mockUserPostsFindFirst.mockResolvedValue(
         createMockUserPost({
           postId: "post-1",
@@ -421,6 +444,7 @@ describe("post server actions", () => {
           ],
         })
       );
+      mockCommentsSelectResult.mockResolvedValue([]);
 
       const result = await getPost("post-1");
 
@@ -430,6 +454,120 @@ describe("post server actions", () => {
         expect(result.post.tags).toEqual([
           { id: "tag-1", name: "Yugabyte", color: "#6366f1" },
         ]);
+        expect(result.post.comments).toEqual([]);
+      }
+    });
+
+    it("returns threaded comments sorted by score", async () => {
+      mockUserPostsFindFirst.mockResolvedValue(
+        createMockUserPost({
+          postId: "post-1",
+          post: createMockPost({ id: "post-1", redditId: "t3_abc123" }),
+        })
+      );
+
+      // Flat comments: 2 top-level, 1 reply to the first
+      mockCommentsSelectResult.mockResolvedValue([
+        {
+          id: "c1",
+          redditId: "t1_aaa",
+          postRedditId: "t3_abc123",
+          parentRedditId: null,
+          author: "user1",
+          body: "Low score top-level",
+          score: 5,
+          redditCreatedAt: new Date("2024-01-15T10:00:00Z"),
+          createdAt: new Date("2024-01-15T10:00:00Z"),
+        },
+        {
+          id: "c2",
+          redditId: "t1_bbb",
+          postRedditId: "t3_abc123",
+          parentRedditId: null,
+          author: "user2",
+          body: "High score top-level",
+          score: 20,
+          redditCreatedAt: new Date("2024-01-15T11:00:00Z"),
+          createdAt: new Date("2024-01-15T11:00:00Z"),
+        },
+        {
+          id: "c3",
+          redditId: "t1_ccc",
+          postRedditId: "t3_abc123",
+          parentRedditId: "t1_aaa",
+          author: "user3",
+          body: "Reply to first comment",
+          score: 10,
+          redditCreatedAt: new Date("2024-01-15T12:00:00Z"),
+          createdAt: new Date("2024-01-15T12:00:00Z"),
+        },
+      ]);
+
+      const result = await getPost("post-1");
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        const post = result.post as PostDetailData;
+        // Top-level comments sorted by score: high (20) first, then low (5)
+        expect(post.comments).toHaveLength(2);
+        expect(post.comments[0]!.redditId).toBe("t1_bbb");
+        expect(post.comments[0]!.score).toBe(20);
+        expect(post.comments[0]!.depth).toBe(0);
+        expect(post.comments[0]!.children).toHaveLength(0);
+
+        expect(post.comments[1]!.redditId).toBe("t1_aaa");
+        expect(post.comments[1]!.score).toBe(5);
+        expect(post.comments[1]!.depth).toBe(0);
+        // Reply nested under first top-level comment
+        expect(post.comments[1]!.children).toHaveLength(1);
+        expect(post.comments[1]!.children[0]!.redditId).toBe("t1_ccc");
+        expect(post.comments[1]!.children[0]!.depth).toBe(1);
+      }
+    });
+
+    it("flattens comments beyond max depth of 4", async () => {
+      mockUserPostsFindFirst.mockResolvedValue(
+        createMockUserPost({
+          postId: "post-1",
+          post: createMockPost({ id: "post-1", redditId: "t3_abc123" }),
+        })
+      );
+
+      // Build a chain of 6 levels deep: c0 -> c1 -> c2 -> c3 -> c4 -> c5
+      mockCommentsSelectResult.mockResolvedValue([
+        { id: "c0", redditId: "t1_d0", postRedditId: "t3_abc123", parentRedditId: null, author: "u0", body: "depth 0", score: 10, redditCreatedAt: new Date(), createdAt: new Date() },
+        { id: "c1", redditId: "t1_d1", postRedditId: "t3_abc123", parentRedditId: "t1_d0", author: "u1", body: "depth 1", score: 9, redditCreatedAt: new Date(), createdAt: new Date() },
+        { id: "c2", redditId: "t1_d2", postRedditId: "t3_abc123", parentRedditId: "t1_d1", author: "u2", body: "depth 2", score: 8, redditCreatedAt: new Date(), createdAt: new Date() },
+        { id: "c3", redditId: "t1_d3", postRedditId: "t3_abc123", parentRedditId: "t1_d2", author: "u3", body: "depth 3", score: 7, redditCreatedAt: new Date(), createdAt: new Date() },
+        { id: "c4", redditId: "t1_d4", postRedditId: "t3_abc123", parentRedditId: "t1_d3", author: "u4", body: "depth 4 (should be flattened)", score: 6, redditCreatedAt: new Date(), createdAt: new Date() },
+        { id: "c5", redditId: "t1_d5", postRedditId: "t3_abc123", parentRedditId: "t1_d4", author: "u5", body: "depth 5 (should be flattened)", score: 5, redditCreatedAt: new Date(), createdAt: new Date() },
+      ]);
+
+      const result = await getPost("post-1");
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        const post = result.post as PostDetailData;
+        // Walk down the tree
+        expect(post.comments).toHaveLength(1);
+        const d0 = post.comments[0]!;
+        expect(d0.depth).toBe(0);
+        expect(d0.children).toHaveLength(1);
+        const d1 = d0.children[0]!;
+        expect(d1.depth).toBe(1);
+        const d2 = d1.children[0]!;
+        expect(d2.depth).toBe(2);
+        const d3 = d2.children[0]!;
+        expect(d3.depth).toBe(3);
+        // Beyond depth 4: should be capped at depth 4
+        // c4 and c5 should both have depth 4 (flattened)
+        // c4 is a child of d3 (depth 3), c5 would be flattened too
+        const deepChildren = d3.children;
+        expect(deepChildren.length).toBeGreaterThanOrEqual(1);
+        // All children at depth >= 4 should have depth capped at 4
+        for (const child of deepChildren) {
+          expect(child.depth).toBe(4);
+        }
       }
     });
   });
