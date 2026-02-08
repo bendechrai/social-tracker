@@ -221,6 +221,70 @@ describe("fetchRedditPosts", () => {
       expect(result[0]!.body).toBeNull();
     });
 
+    it("maps over_18: true to isNsfw: true on fetched post", async () => {
+      const now = Math.floor(Date.now() / 1000);
+      server.use(
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          () => {
+            return HttpResponse.json({
+              data: [
+                {
+                  id: "nsfw_post",
+                  title: "NSFW Post",
+                  selftext: "nsfw content",
+                  author: "author",
+                  subreddit: "test",
+                  permalink: "/r/test/comments/nsfw_post/",
+                  url: null,
+                  created_utc: now - 1800,
+                  score: 5,
+                  num_comments: 1,
+                  is_self: true,
+                  over_18: true,
+                },
+              ],
+            });
+          }
+        )
+      );
+
+      const result = await fetchRedditPosts(toMap(["test"]));
+      expect(result[0]!.isNsfw).toBe(true);
+    });
+
+    it("maps over_18: false to isNsfw: false on fetched post", async () => {
+      const now = Math.floor(Date.now() / 1000);
+      server.use(
+        http.get(
+          "https://arctic-shift.photon-reddit.com/api/posts/search",
+          () => {
+            return HttpResponse.json({
+              data: [
+                {
+                  id: "sfw_post",
+                  title: "SFW Post",
+                  selftext: "safe content",
+                  author: "author",
+                  subreddit: "test",
+                  permalink: "/r/test/comments/sfw_post/",
+                  url: null,
+                  created_utc: now - 1800,
+                  score: 3,
+                  num_comments: 0,
+                  is_self: true,
+                  over_18: false,
+                },
+              ],
+            });
+          }
+        )
+      );
+
+      const result = await fetchRedditPosts(toMap(["test"]));
+      expect(result[0]!.isNsfw).toBe(false);
+    });
+
     it("handles missing data array gracefully", async () => {
       server.use(
         http.get(

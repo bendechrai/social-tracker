@@ -1300,6 +1300,7 @@ describe("post server actions", () => {
       redditCreatedAt: Date;
       score: number;
       numComments: number;
+      isNsfw: boolean;
     }> = {}) => ({
       redditId: "t3_abc123",
       title: "Test Post",
@@ -1312,6 +1313,7 @@ describe("post server actions", () => {
       score: 42,
       numComments: 10,
       isSelf: true,
+      isNsfw: false,
       ...overrides,
     });
 
@@ -1485,6 +1487,34 @@ describe("post server actions", () => {
 
       expect(result.newUserPostCount).toBe(1);
       expect(mockPostsFindFirst).toHaveBeenCalled();
+    });
+
+    it("stores isNsfw from fetched post into global posts table", async () => {
+      mockCountResult.mockResolvedValue([
+        { userId: MOCK_USER_ID },
+      ]);
+
+      mockTagsFindMany.mockResolvedValue([]);
+
+      let insertCallCount = 0;
+      mockReturning.mockImplementation(() => {
+        insertCallCount++;
+        if (insertCallCount === 1) {
+          return Promise.resolve([{ id: "new-db-post-id", redditId: "t3_nsfw123" }]);
+        }
+        if (insertCallCount === 2) {
+          return Promise.resolve([{ userId: MOCK_USER_ID, postId: "new-db-post-id", status: "new" }]);
+        }
+        return Promise.resolve([{}]);
+      });
+
+      await fetchPostsForAllUsers("postgresql", [
+        createFetchedPost({ redditId: "t3_nsfw123", isNsfw: true }),
+      ]);
+
+      // First mockValues call is the global post insert — verify isNsfw is included
+      const firstInsertValues = mockValues.mock.calls[0]![0];
+      expect(firstInsertValues.isNsfw).toBe(true);
     });
 
     it("does not create duplicate user_posts if already linked", async () => {

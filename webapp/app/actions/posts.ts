@@ -524,6 +524,7 @@ export async function fetchPostsForAllUsers(
         redditCreatedAt: fetchedPost.redditCreatedAt,
         score: fetchedPost.score,
         numComments: fetchedPost.numComments,
+        isNsfw: fetchedPost.isNsfw,
       })
       .onConflictDoNothing({ target: posts.redditId })
       .returning();
@@ -666,6 +667,7 @@ export async function fetchNewPosts(): Promise<{
         redditCreatedAt: fetchedPost.redditCreatedAt,
         score: fetchedPost.score,
         numComments: fetchedPost.numComments,
+        isNsfw: fetchedPost.isNsfw,
       })
       .onConflictDoNothing({ target: posts.redditId })
       .returning();

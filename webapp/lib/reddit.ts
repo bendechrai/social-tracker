@@ -21,6 +21,7 @@ interface ArcticShiftPost {
   score: number;
   num_comments: number;
   is_self: boolean;
+  over_18: boolean;
 }
 
 interface ArcticShiftResponse {
@@ -39,6 +40,7 @@ export interface FetchedPost {
   score: number;
   numComments: number;
   isSelf: boolean;
+  isNsfw: boolean;
 }
 
 /**
@@ -157,6 +159,7 @@ function parsePost(post: ArcticShiftPost): FetchedPost {
     score: post.score,
     numComments: post.num_comments,
     isSelf: post.is_self ?? false,
+    isNsfw: post.over_18 ?? false,
   };
 }
 

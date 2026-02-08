@@ -270,6 +270,7 @@ describe("GET /api/cron/fetch-posts", () => {
         score: 10,
         numComments: 5,
         isSelf: true,
+        isNsfw: false,
       },
     ];
     mockSelectDistinctFrom.mockResolvedValue([{ name: "nextjs" }]);

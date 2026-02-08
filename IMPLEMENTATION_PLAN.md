@@ -468,13 +468,13 @@ Blur NSFW post content by default with user preference to show it. Adds `is_nsfw
   - Acceptance: `posts.is_nsfw` (boolean, default false) and `users.show_nsfw` (boolean, default false) columns exist; migration applies cleanly
   - Tests: Typecheck passes; all 810 tests pass; build passes
 
-- [ ] **Populate `is_nsfw` from Arctic Shift `over_18` field during fetch** ← NEXT
+- [x] **Populate `is_nsfw` from Arctic Shift `over_18` field during fetch**
   - Files: `webapp/lib/reddit.ts`, `webapp/app/actions/posts.ts`
   - Spec: `specs/nsfw.md` — Data (populated during cron fetch)
   - Acceptance: `fetchRedditPosts` maps `over_18` to `isNsfw` on fetched posts; `fetchPostsForAllUsers` stores `is_nsfw` in posts table
-  - Tests: Unit test verifying `over_18: true` maps to `is_nsfw: true` on stored post
+  - Tests: 3 new tests — over_18 true maps to isNsfw true, over_18 false maps to isNsfw false, fetchPostsForAllUsers passes isNsfw to DB insert
 
-- [ ] **Add NSFW blur overlay to post card on dashboard**
+- [ ] **Add NSFW blur overlay to post card on dashboard** ← NEXT
   - Files: `webapp/components/post-card.tsx`
   - Spec: `specs/nsfw.md` — UI Behavior (Dashboard post card)
   - Acceptance: When `is_nsfw` is true and `show_nsfw` is off, title and body preview are blurred with CSS filter; "NSFW" badge always shown; click-to-reveal per card (client-side toggle); metadata/actions remain visible
