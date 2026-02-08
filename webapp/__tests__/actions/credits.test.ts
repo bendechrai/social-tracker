@@ -202,3 +202,55 @@ describe("getAiAccessInfo", () => {
     });
   });
 });
+
+// ============================================================
+// createCheckoutSession
+// ============================================================
+describe("createCheckoutSession", () => {
+  it("creates a valid Stripe Checkout session and returns URL", async () => {
+    mockCheckoutSessionsCreate.mockResolvedValue({
+      url: "https://checkout.stripe.com/pay/cs_test_123",
+    });
+
+    const result = await createCheckoutSession(500);
+
+    expect(result).toEqual({ url: "https://checkout.stripe.com/pay/cs_test_123" });
+    expect(mockCheckoutSessionsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: "payment",
+        metadata: {
+          userId: MOCK_USER_ID,
+          creditsCents: "500",
+        },
+        line_items: [
+          expect.objectContaining({
+            price_data: expect.objectContaining({
+              unit_amount: 500,
+            }),
+          }),
+        ],
+      })
+    );
+  });
+
+  it("rejects invalid pack amount", async () => {
+    const result = await createCheckoutSession(999);
+
+    expect(result).toEqual({ error: "Invalid credit pack amount" });
+    expect(mockCheckoutSessionsCreate).not.toHaveBeenCalled();
+  });
+
+  it("throws when unauthenticated", async () => {
+    mockAuth.mockResolvedValue(null);
+
+    await expect(createCheckoutSession(500)).rejects.toThrow("Unauthorized");
+  });
+
+  it("returns error message when Stripe fails", async () => {
+    mockCheckoutSessionsCreate.mockResolvedValue({ url: null });
+
+    const result = await createCheckoutSession(1000);
+
+    expect(result).toEqual({ error: "Failed to create checkout session" });
+  });
+});

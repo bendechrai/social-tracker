@@ -64,8 +64,8 @@ export async function createCheckoutSession(
       userId,
       creditsCents: String(pack.creditsCents),
     },
-    success_url: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/settings/credits?success=true`,
-    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/settings/credits?canceled=true`,
+    success_url: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/settings/credits?result=success`,
+    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/settings/credits?result=canceled`,
   });
 
   if (!session.url) {

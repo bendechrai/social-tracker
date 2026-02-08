@@ -806,7 +806,7 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
   - Acceptance: Returns integer balance in cents for authenticated user; returns 0 if no `credit_balances` row exists
   - Tests: 3 unit tests — returns balance, returns 0 when no row, unauthenticated throws
 
-### In Progress
+### Completed (Phase 34 cont.)
 
 - [x] **Create `getAiAccessInfo` server action**
   - Files: `webapp/app/actions/credits.ts`
@@ -814,11 +814,14 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
   - Acceptance: Returns `{ hasGroqKey, creditBalanceCents, mode }` where mode is "byok" if Groq key exists, "credits" if balance > 0, "none" otherwise; checks Groq key via `hasGroqApiKey` pattern
   - Tests: 4 unit tests — byok mode when Groq key set, credits mode when balance > 0, none mode when neither, byok preferred over credits when both exist
 
-- [ ] **Create `createCheckoutSession` server action**
+- [x] **Create `createCheckoutSession` server action**
   - Files: `webapp/app/actions/credits.ts`
   - Spec: `specs/ai-credits.md` — Checkout Flow
   - Acceptance: Validates packCents is one of 500/1000/2000; creates Stripe Checkout Session in `payment` mode with `userId` and `credits_cents` in metadata; returns `{ url }` or `{ error }`
   - Tests: 4 unit tests — valid session creation returns URL, invalid pack amount rejected, unauthenticated throws, Stripe error returns error message
+  - Also fixed: success_url/cancel_url to use `?result=success`/`?result=canceled` per spec
+
+### In Progress
 
 - [ ] **Create `POST /api/webhooks/stripe` endpoint**
   - Files: `webapp/app/api/webhooks/stripe/route.ts`
@@ -936,9 +939,9 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
 | 31 | Welcome Wizard | 5 | **COMPLETE** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **COMPLETE** | Phases 25-27, 30 | HIGH |
 | 33 | AI Assistant Improvements | 10 | **COMPLETE** | Phase 30 | HIGH |
-| 34 | AI Credits System | 20 | **IN PROGRESS** (4/20) | Phase 33 | HIGH |
+| 34 | AI Credits System | 20 | **IN PROGRESS** (6/20) | Phase 33 | HIGH |
 
-**Total Remaining Tasks: 16**
+**Total Remaining Tasks: 14**
 
 ### Environment Variables Required
 ```bash
