@@ -9,10 +9,30 @@
  * - Existing tokens deleted before new one created
  * - Invalid email format returns 400
  * - Missing email returns 400
+ * - Arcjet rate limit denial returns 429
+ * - Arcjet bot detection denial returns 403
+ * - Arcjet email validation denial returns 400
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import crypto from "crypto";
 import { NextRequest } from "next/server";
+
+// Mock Arcjet
+const { mockProtect, mockProtectSignup } = vi.hoisted(() => {
+  const mockProtect = vi.fn();
+  const mockProtectSignup = vi.fn().mockReturnValue([]);
+  return { mockProtect, mockProtectSignup };
+});
+
+vi.mock("@/lib/arcjet", () => ({
+  default: {
+    withRule: () => ({ protect: (...args: unknown[]) => mockProtect(...args) }),
+  },
+}));
+
+vi.mock("@arcjet/next", () => ({
+  protectSignup: (...args: unknown[]) => mockProtectSignup(...args),
+}));
 
 // Mock db chains
 const mockSelectLimit = vi.fn();
@@ -65,6 +85,10 @@ function makeRequest(body: Record<string, unknown>): NextRequest {
 describe("POST /api/auth/reset-password", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: Arcjet allows the request
+    mockProtect.mockResolvedValue({
+      isDenied: () => false,
+    });
   });
 
   it("sends reset email for valid request and returns 200", async () => {
@@ -234,5 +258,67 @@ describe("POST /api/auth/reset-password", () => {
     expect(res.status).toBe(400);
     expect(data.error).toBe("Invalid email address");
     expect(mockSelect).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 when Arcjet rate limits the request", async () => {
+    mockProtect.mockResolvedValueOnce({
+      isDenied: () => true,
+      reason: {
+        isRateLimit: () => true,
+        isBot: () => false,
+        isEmail: () => false,
+      },
+    });
+
+    const res = await POST(makeRequest({ email: "test@example.com" }));
+    const data = await res.json();
+
+    expect(res.status).toBe(429);
+    expect(data.error).toBe("Too many requests");
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when Arcjet detects a bot", async () => {
+    mockProtect.mockResolvedValueOnce({
+      isDenied: () => true,
+      reason: {
+        isRateLimit: () => false,
+        isBot: () => true,
+        isEmail: () => false,
+      },
+    });
+
+    const res = await POST(makeRequest({ email: "test@example.com" }));
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.error).toBe("Forbidden");
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when Arcjet email validation fails", async () => {
+    mockProtect.mockResolvedValueOnce({
+      isDenied: () => true,
+      reason: {
+        isRateLimit: () => false,
+        isBot: () => false,
+        isEmail: () => true,
+      },
+    });
+
+    const res = await POST(
+      makeRequest({ email: "user@disposable.com" })
+    );
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.error).toBe("Invalid email address");
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
   });
 });

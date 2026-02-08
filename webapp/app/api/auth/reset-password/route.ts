@@ -6,6 +6,26 @@ import { eq, and, gt } from "drizzle-orm";
 import { emailSchema } from "@/lib/validations";
 import { sendEmail } from "@/lib/email";
 import { buildPasswordResetEmail } from "@/lib/email-templates";
+import aj from "@/lib/arcjet";
+import { protectSignup } from "@arcjet/next";
+
+const resetAj = aj.withRule(
+  protectSignup({
+    email: {
+      mode: "LIVE",
+      deny: ["DISPOSABLE", "INVALID", "NO_MX_RECORDS"],
+    },
+    bots: {
+      mode: "LIVE",
+      allow: [],
+    },
+    rateLimit: {
+      mode: "LIVE",
+      interval: "15m",
+      max: 3,
+    },
+  })
+);
 
 const TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 const RATE_LIMIT_MS = 15 * 60 * 1000; // 15 minutes
@@ -38,6 +58,28 @@ export async function POST(req: NextRequest) {
   }
 
   const email = parsed.data.toLowerCase();
+
+  // Arcjet protection: shield + bot detection + email validation + rate limiting
+  const decision = await resetAj.protect(req, { email });
+
+  if (decision.isDenied()) {
+    if (decision.reason.isRateLimit()) {
+      return NextResponse.json(
+        { error: "Too many requests" },
+        { status: 429 }
+      );
+    }
+    if (decision.reason.isBot()) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (decision.reason.isEmail()) {
+      return NextResponse.json(
+        { error: "Invalid email address" },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   // Look up user by email (case-insensitive)
   const [user] = await db

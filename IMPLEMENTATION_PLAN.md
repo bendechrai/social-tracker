@@ -641,13 +641,13 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
   - Acceptance: Shield + bot detection + rate limit (10 per 5min per IP) on credentials authorize
   - Tests: 2 unit tests — rate limit denial, bot denial. All 927 tests pass.
 
-- [ ] **Add Arcjet protection to password reset endpoint** ← NEXT
+- [x] **Add Arcjet protection to password reset endpoint**
   - Files: `webapp/app/api/auth/reset-password/route.ts`
   - Spec: `specs/arcjet-security.md` — Password Reset rules
-  - Acceptance: Shield + bot detection + email validation + rate limit (3 per 15min per IP)
-  - Tests: Unit test for rate limit denial
+  - Acceptance: Shield + bot detection + email validation + rate limit (3 per 15min per IP) using `protectSignup` combined rule
+  - Tests: 3 unit tests — rate limit denial (429), bot denial (403), email validation denial (400). All 930 tests pass.
 
-- [ ] **Replace in-memory rate limiter on suggest-terms with Arcjet**
+- [ ] **Replace in-memory rate limiter on suggest-terms with Arcjet** ← NEXT
   - Files: `webapp/app/api/suggest-terms/route.ts`
   - Spec: `specs/arcjet-security.md` — Suggest Terms rules
   - Acceptance: Shield + rate limit (10 per min per user ID); remove `rateLimitMap` and `checkRateLimit`
