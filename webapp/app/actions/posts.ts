@@ -22,6 +22,7 @@ export interface PostData {
   redditCreatedAt: Date;
   score: number;
   numComments: number;
+  isNsfw: boolean;
   status: PostStatus;
   responseText: string | null;
   respondedAt: Date | null;
@@ -209,6 +210,7 @@ export async function listPosts(
     redditCreatedAt: up.post.redditCreatedAt,
     score: up.post.score,
     numComments: up.post.numComments,
+    isNsfw: up.post.isNsfw,
     status: up.status as PostStatus,
     responseText: up.responseText,
     respondedAt: up.respondedAt,
@@ -267,6 +269,7 @@ export async function getPost(
       redditCreatedAt: userPost.post.redditCreatedAt,
       score: userPost.post.score,
       numComments: userPost.post.numComments,
+      isNsfw: userPost.post.isNsfw,
       status: userPost.status as PostStatus,
       responseText: userPost.responseText,
       respondedAt: userPost.respondedAt,
@@ -357,6 +360,7 @@ export async function changePostStatus(
       redditCreatedAt: existing.post.redditCreatedAt,
       score: existing.post.score,
       numComments: existing.post.numComments,
+      isNsfw: existing.post.isNsfw,
       status: updated!.status as PostStatus,
       responseText: updated!.responseText,
       respondedAt: updated!.respondedAt,

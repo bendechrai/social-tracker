@@ -29,9 +29,11 @@ vi.mock("next/link", () => ({
 
 // Mock server actions for users
 const mockGetEmailVerified = vi.fn();
+const mockGetShowNsfw = vi.fn();
 
 vi.mock("@/app/actions/users", () => ({
   getEmailVerified: () => mockGetEmailVerified(),
+  getShowNsfw: () => mockGetShowNsfw(),
 }));
 
 // Mock hooks
@@ -83,6 +85,7 @@ import DashboardPage from "@/app/dashboard/page";
 describe("Dashboard verification banner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetShowNsfw.mockResolvedValue(false);
     mockUsePosts.mockReturnValue({
       data: { posts: [], total: 0, totalPages: 0 },
       isLoading: false,

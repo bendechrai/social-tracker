@@ -151,6 +151,7 @@ const createMockPost = (overrides: Partial<{
   redditCreatedAt: Date;
   score: number;
   numComments: number;
+  isNsfw: boolean;
   createdAt: Date;
 }> = {}) => ({
   id: "post-1",
@@ -164,6 +165,7 @@ const createMockPost = (overrides: Partial<{
   redditCreatedAt: new Date("2024-01-15T10:00:00Z"),
   score: 42,
   numComments: 10,
+  isNsfw: false,
   createdAt: new Date("2024-01-15T10:05:00Z"),
   ...overrides,
 });

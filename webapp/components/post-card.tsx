@@ -24,6 +24,7 @@ interface Post {
   redditCreatedAt: Date;
   score: number;
   numComments: number;
+  isNsfw: boolean;
   status: PostStatus;
   responseText: string | null;
   respondedAt: Date | null;
@@ -32,6 +33,7 @@ interface Post {
 
 interface PostCardProps {
   post: Post;
+  showNsfw: boolean;
   onStatusChange: (status: PostStatus, responseText?: string) => void;
   onResponseUpdate?: (text: string) => void;
 }
@@ -61,10 +63,13 @@ function truncateText(text: string, maxLength: number): string {
   return text.slice(0, maxLength).trim() + "...";
 }
 
-export function PostCard({ post, onStatusChange, onResponseUpdate }: PostCardProps) {
+export function PostCard({ post, showNsfw, onStatusChange, onResponseUpdate }: PostCardProps) {
   const [responseText, setResponseText] = React.useState(post.responseText ?? "");
   const [isSaved, setIsSaved] = React.useState(false);
   const [saveTimeout, setSaveTimeout] = React.useState<NodeJS.Timeout | null>(null);
+  const [revealed, setRevealed] = React.useState(false);
+
+  const isBlurred = post.isNsfw && !showNsfw && !revealed;
 
   // Debounced save function
   const debouncedSave = React.useCallback(
@@ -107,16 +112,27 @@ export function PostCard({ post, onStatusChange, onResponseUpdate }: PostCardPro
     <Card className="w-full">
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-4">
-          <CardTitle className="text-base font-semibold leading-tight">
-            <a
-              href={redditUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:underline"
-            >
-              {post.title}
-            </a>
-          </CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-base font-semibold leading-tight">
+              {isBlurred ? (
+                <span className="blur-sm select-none">{post.title}</span>
+              ) : (
+                <a
+                  href={redditUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                >
+                  {post.title}
+                </a>
+              )}
+            </CardTitle>
+            {post.isNsfw && (
+              <span className="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10 shrink-0">
+                NSFW
+              </span>
+            )}
+          </div>
           {post.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 shrink-0">
               {post.tags.map((tag) => (
@@ -138,10 +154,34 @@ export function PostCard({ post, onStatusChange, onResponseUpdate }: PostCardPro
         </div>
       </CardHeader>
       <CardContent className="pb-3">
-        {post.body && (
-          <p className="text-sm text-muted-foreground line-clamp-3">
-            {truncateText(post.body, 300)}
-          </p>
+        {isBlurred ? (
+          <div
+            className="relative cursor-pointer"
+            onClick={() => setRevealed(true)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") setRevealed(true);
+            }}
+            aria-label="Click to reveal NSFW content"
+          >
+            {post.body && (
+              <p className="text-sm text-muted-foreground line-clamp-3 blur-sm select-none">
+                {truncateText(post.body, 300)}
+              </p>
+            )}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-sm font-medium text-muted-foreground bg-background/80 px-3 py-1 rounded-md">
+                Click to reveal
+              </span>
+            </div>
+          </div>
+        ) : (
+          post.body && (
+            <p className="text-sm text-muted-foreground line-clamp-3">
+              {truncateText(post.body, 300)}
+            </p>
+          )
         )}
       </CardContent>
       <CardContent className="pt-0 pb-3">

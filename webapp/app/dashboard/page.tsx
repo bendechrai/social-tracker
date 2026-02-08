@@ -16,7 +16,7 @@ import {
   useTags,
 } from "@/lib/hooks";
 import { useToast } from "@/lib/hooks/use-toast";
-import { getEmailVerified } from "@/app/actions/users";
+import { getEmailVerified, getShowNsfw } from "@/app/actions/users";
 import type { PostStatus } from "@/lib/validations";
 
 export default function HomePage() {
@@ -27,11 +27,13 @@ export default function HomePage() {
   const [emailVerified, setEmailVerified] = React.useState<boolean | null>(null);
   const [verifyBannerDismissed, setVerifyBannerDismissed] = React.useState(false);
   const [resendLoading, setResendLoading] = React.useState(false);
+  const [showNsfw, setShowNsfw] = React.useState(false);
 
   const { toast } = useToast();
 
   React.useEffect(() => {
     getEmailVerified().then((verified) => setEmailVerified(verified));
+    getShowNsfw().then((show) => setShowNsfw(show));
   }, []);
 
   // Reset to page 1 when filters change
@@ -198,6 +200,7 @@ export default function HomePage() {
             redditCreatedAt: new Date(post.redditCreatedAt),
             respondedAt: post.respondedAt ? new Date(post.respondedAt) : null,
           }))}
+          showNsfw={showNsfw}
           onStatusChange={handlePostStatusChange}
           onResponseUpdate={handleResponseUpdate}
           isLoading={postsLoading}

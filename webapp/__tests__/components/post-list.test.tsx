@@ -23,6 +23,7 @@ function makePost(id: string, title: string) {
     redditCreatedAt: new Date(Date.now() - 3600 * 1000),
     score: 10,
     numComments: 5,
+    isNsfw: false,
     status: "new" as const,
     responseText: null,
     respondedAt: null,
@@ -33,6 +34,7 @@ function makePost(id: string, title: string) {
 describe("PostList component", () => {
   const defaultProps = {
     posts: [] as ReturnType<typeof makePost>[],
+    showNsfw: false,
     onStatusChange: vi.fn(),
     onResponseUpdate: vi.fn(),
     isLoading: false,

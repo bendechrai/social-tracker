@@ -57,6 +57,20 @@ export async function getEmailVerified(): Promise<boolean> {
 }
 
 /**
+ * Gets the current user's NSFW content preference.
+ */
+export async function getShowNsfw(): Promise<boolean> {
+  const userId = await getCurrentUserId();
+
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: { showNsfw: true },
+  });
+
+  return user?.showNsfw ?? false;
+}
+
+/**
  * Updates the current user's email notification preference.
  */
 export async function updateEmailNotifications(

@@ -9,6 +9,9 @@
  * - Truncate long body text
  * - Show response notes for "done" posts
  * - Handle status changes via callback
+ * - Blur NSFW content when show_nsfw is off
+ * - Show NSFW badge on NSFW posts
+ * - Reveal NSFW content on click
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
@@ -26,6 +29,7 @@ function makePost(overrides: Partial<Parameters<typeof PostCard>[0]["post"]> = {
     redditCreatedAt: new Date(Date.now() - 3600 * 1000), // 1 hour ago
     score: 42,
     numComments: 15,
+    isNsfw: false,
     status: "new" as const,
     responseText: null,
     respondedAt: null,
@@ -37,6 +41,7 @@ function makePost(overrides: Partial<Parameters<typeof PostCard>[0]["post"]> = {
 describe("PostCard component", () => {
   const defaultProps = {
     post: makePost(),
+    showNsfw: false,
     onStatusChange: vi.fn(),
     onResponseUpdate: vi.fn(),
   };
@@ -368,6 +373,138 @@ describe("PostCard component", () => {
       fireEvent.blur(textarea);
 
       expect(defaultProps.onResponseUpdate).toHaveBeenCalledWith("New response");
+    });
+  });
+
+  describe("NSFW content handling", () => {
+    it("blurs title and body when NSFW and showNsfw is off", () => {
+      render(
+        <PostCard
+          {...defaultProps}
+          post={makePost({ isNsfw: true, body: "NSFW body content" })}
+          showNsfw={false}
+        />
+      );
+
+      // Title should be in a span with blur class, not a link
+      const title = screen.getByText("Test Post Title");
+      expect(title.tagName).toBe("SPAN");
+      expect(title.className).toContain("blur-sm");
+
+      // Body should be blurred
+      const body = screen.getByText("NSFW body content");
+      expect(body.className).toContain("blur-sm");
+
+      // Click to reveal should be shown
+      expect(screen.getByText("Click to reveal")).toBeInTheDocument();
+    });
+
+    it("does not blur when showNsfw preference is on", () => {
+      render(
+        <PostCard
+          {...defaultProps}
+          post={makePost({ isNsfw: true, body: "NSFW body content" })}
+          showNsfw={true}
+        />
+      );
+
+      // Title should be a link (not blurred)
+      const title = screen.getByText("Test Post Title");
+      expect(title.closest("a")).not.toBeNull();
+
+      // Body should not be blurred
+      const body = screen.getByText("NSFW body content");
+      expect(body.className).not.toContain("blur-sm");
+
+      // No click to reveal
+      expect(screen.queryByText("Click to reveal")).not.toBeInTheDocument();
+    });
+
+    it("always shows NSFW badge on NSFW posts", () => {
+      // When showNsfw is off
+      const { unmount } = render(
+        <PostCard
+          {...defaultProps}
+          post={makePost({ isNsfw: true })}
+          showNsfw={false}
+        />
+      );
+      expect(screen.getByText("NSFW")).toBeInTheDocument();
+      unmount();
+
+      // When showNsfw is on
+      render(
+        <PostCard
+          {...defaultProps}
+          post={makePost({ isNsfw: true })}
+          showNsfw={true}
+        />
+      );
+      expect(screen.getByText("NSFW")).toBeInTheDocument();
+    });
+
+    it("does not show NSFW badge on non-NSFW posts", () => {
+      render(
+        <PostCard
+          {...defaultProps}
+          post={makePost({ isNsfw: false })}
+        />
+      );
+      expect(screen.queryByText("NSFW")).not.toBeInTheDocument();
+    });
+
+    it("reveals content on click when blurred", async () => {
+      const user = userEvent.setup();
+      render(
+        <PostCard
+          {...defaultProps}
+          post={makePost({ isNsfw: true, body: "NSFW body content" })}
+          showNsfw={false}
+        />
+      );
+
+      // Initially blurred
+      expect(screen.getByText("Click to reveal")).toBeInTheDocument();
+
+      // Click to reveal
+      await user.click(screen.getByRole("button", { name: /click to reveal nsfw content/i }));
+
+      // After clicking, title should be a link
+      const title = screen.getByText("Test Post Title");
+      expect(title.closest("a")).not.toBeNull();
+
+      // Body should not be blurred
+      const body = screen.getByText("NSFW body content");
+      expect(body.className).not.toContain("blur-sm");
+
+      // Click to reveal should be gone
+      expect(screen.queryByText("Click to reveal")).not.toBeInTheDocument();
+
+      // Badge should still show
+      expect(screen.getByText("NSFW")).toBeInTheDocument();
+    });
+
+    it("keeps metadata visible when blurred", () => {
+      render(
+        <PostCard
+          {...defaultProps}
+          post={makePost({ isNsfw: true })}
+          showNsfw={false}
+        />
+      );
+
+      // Metadata should be visible
+      expect(screen.getByText("r/reactjs")).toBeInTheDocument();
+      expect(screen.getByText("u/testuser")).toBeInTheDocument();
+      expect(screen.getByText("42 pts")).toBeInTheDocument();
+      expect(screen.getByText("15 comments")).toBeInTheDocument();
+
+      // Action buttons should be visible
+      expect(screen.getByText("Ignore")).toBeInTheDocument();
+      expect(screen.getByText("Mark Done")).toBeInTheDocument();
+
+      // View on Reddit should be visible
+      expect(screen.getByText("View on Reddit")).toBeInTheDocument();
     });
   });
 });

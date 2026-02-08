@@ -474,13 +474,13 @@ Blur NSFW post content by default with user preference to show it. Adds `is_nsfw
   - Acceptance: `fetchRedditPosts` maps `over_18` to `isNsfw` on fetched posts; `fetchPostsForAllUsers` stores `is_nsfw` in posts table
   - Tests: 3 new tests — over_18 true maps to isNsfw true, over_18 false maps to isNsfw false, fetchPostsForAllUsers passes isNsfw to DB insert
 
-- [ ] **Add NSFW blur overlay to post card on dashboard** ← NEXT
-  - Files: `webapp/components/post-card.tsx`
+- [x] **Add NSFW blur overlay to post card on dashboard**
+  - Files: `webapp/components/post-card.tsx`, `webapp/components/post-list.tsx`, `webapp/app/dashboard/page.tsx`, `webapp/app/actions/posts.ts`, `webapp/app/actions/users.ts`
   - Spec: `specs/nsfw.md` — UI Behavior (Dashboard post card)
   - Acceptance: When `is_nsfw` is true and `show_nsfw` is off, title and body preview are blurred with CSS filter; "NSFW" badge always shown; click-to-reveal per card (client-side toggle); metadata/actions remain visible
-  - Tests: Component tests for: blur applied when NSFW + preference off, no blur when preference on, NSFW badge always shown, click reveals content
+  - Tests: 6 new NSFW tests (blur when NSFW + off, no blur when on, badge always shown, no badge on non-NSFW, click reveals, metadata visible). All existing tests updated for new props. 819 total tests pass.
 
-- [ ] **Add "Show NSFW Content" toggle to account settings**
+- [ ] **Add "Show NSFW Content" toggle to account settings** ← NEXT
   - Files: `webapp/app/settings/account/page.tsx`, `webapp/app/actions/users.ts`
   - Spec: `specs/nsfw.md` — Settings Page
   - Acceptance: Toggle labeled "Show NSFW Content" in account settings; default off; updates `show_nsfw` column

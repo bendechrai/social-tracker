@@ -21,6 +21,7 @@ interface Post {
   redditCreatedAt: Date;
   score: number;
   numComments: number;
+  isNsfw: boolean;
   status: PostStatus;
   responseText: string | null;
   respondedAt: Date | null;
@@ -29,6 +30,7 @@ interface Post {
 
 interface PostListProps {
   posts: Post[];
+  showNsfw: boolean;
   onStatusChange: (postId: string, status: PostStatus, responseText?: string) => void;
   onResponseUpdate: (postId: string, text: string) => void;
   isLoading: boolean;
@@ -58,6 +60,7 @@ function PostSkeleton() {
 
 export function PostList({
   posts,
+  showNsfw,
   onStatusChange,
   onResponseUpdate,
   isLoading,
@@ -89,6 +92,7 @@ export function PostList({
         <PostCard
           key={post.id}
           post={post}
+          showNsfw={showNsfw}
           onStatusChange={(status, responseText) =>
             onStatusChange(post.id, status, responseText)
           }
