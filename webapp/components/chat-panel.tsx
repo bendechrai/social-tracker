@@ -23,6 +23,13 @@ interface ChatMessage {
   content: string;
 }
 
+const QUICK_ACTIONS = [
+  { label: "Shorter", prompt: "Make it shorter and more concise" },
+  { label: "More casual", prompt: "Rewrite this in a more casual, conversational tone" },
+  { label: "More technical", prompt: "Add more technical depth and specificity" },
+  { label: "Less marketing", prompt: "Remove anything that sounds like marketing or sales copy" },
+];
+
 export interface AiAccess {
   hasGroqKey: boolean;
   creditBalanceCents: number;
@@ -82,8 +89,8 @@ export function ChatPanel({ postId, aiAccess, initialMessages = [] }: ChatPanelP
     scrollToBottom();
   }, [messages, streamingContent, scrollToBottom]);
 
-  const handleSend = async () => {
-    const trimmed = input.trim();
+  const handleSend = async (overrideMessage?: string) => {
+    const trimmed = overrideMessage ?? input.trim();
     if (!trimmed || isLoading) return;
 
     const userMessage: ChatMessage = {
@@ -93,7 +100,9 @@ export function ChatPanel({ postId, aiAccess, initialMessages = [] }: ChatPanelP
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    setInput("");
+    if (!overrideMessage) {
+      setInput("");
+    }
     setIsLoading(true);
     setStreamingContent("");
 
@@ -323,36 +332,58 @@ export function ChatPanel({ postId, aiAccess, initialMessages = [] }: ChatPanelP
             </p>
           )}
 
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
+          {messages.map((msg, idx) => {
+            const isLatestAssistant = msg.role === "assistant" && msg.id === messages.filter(m => m.role === "assistant").at(-1)?.id;
+            const precedingUserMsg = messages[idx - 1];
+            const isDraftReply = isLatestAssistant
+              && !isLoading
+              && precedingUserMsg?.role === "user"
+              && /\b(draft|reply|respond|response|write|comment)\b/i.test(precedingUserMsg.content)
+              && !msg.content.trimEnd().endsWith("?");
+
+            return (
               <div
-                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                  msg.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted"
-                }`}
+                key={msg.id}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
-                <p className="whitespace-pre-wrap">{msg.content}</p>
-                {msg.role === "assistant" && (
-                  <div className="flex gap-1 mt-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs"
-                      onClick={() => handleUseAsResponse(msg.content)}
-                      data-testid="use-as-response"
-                    >
-                      <CopyIcon className="h-3 w-3 mr-1" />
-                      Use as Response
-                    </Button>
-                  </div>
-                )}
+                <div
+                  className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted"
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  {msg.role === "assistant" && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => handleUseAsResponse(msg.content)}
+                        data-testid="use-as-response"
+                      >
+                        <CopyIcon className="h-3 w-3 mr-1" />
+                        Use as Response
+                      </Button>
+                      {isDraftReply && QUICK_ACTIONS.map((action) => (
+                        <Button
+                          key={action.label}
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => handleSend(action.prompt)}
+                          data-testid={`quick-action-${action.label.toLowerCase().replace(/\s+/g, "-")}`}
+                        >
+                          {action.label}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Streaming message */}
           {isLoading && streamingContent && (
@@ -387,7 +418,7 @@ export function ChatPanel({ postId, aiAccess, initialMessages = [] }: ChatPanelP
           />
           <Button
             size="icon"
-            onClick={handleSend}
+            onClick={() => handleSend()}
             disabled={isLoading || !input.trim()}
             data-testid="chat-send"
           >

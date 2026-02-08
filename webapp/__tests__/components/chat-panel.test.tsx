@@ -261,4 +261,139 @@ describe("ChatPanel", () => {
       });
     });
   });
+
+  describe("Quick-action chips", () => {
+    it("shows chips on draft reply when user message contains draft keyword", () => {
+      const messages = [
+        { id: "m1", role: "user" as const, content: "Can you draft a reply?" },
+        { id: "m2", role: "assistant" as const, content: "Here is a draft for you." },
+      ];
+
+      render(
+        <ChatPanel postId="post-1" aiAccess={byokAccess} initialMessages={messages} />
+      );
+
+      expect(screen.getByTestId("quick-action-shorter")).toBeInTheDocument();
+      expect(screen.getByTestId("quick-action-more-casual")).toBeInTheDocument();
+      expect(screen.getByTestId("quick-action-more-technical")).toBeInTheDocument();
+      expect(screen.getByTestId("quick-action-less-marketing")).toBeInTheDocument();
+    });
+
+    it("hides chips when preceding user message has no draft keywords", () => {
+      const messages = [
+        { id: "m1", role: "user" as const, content: "What is this post about?" },
+        { id: "m2", role: "assistant" as const, content: "This post discusses distributed databases." },
+      ];
+
+      render(
+        <ChatPanel postId="post-1" aiAccess={byokAccess} initialMessages={messages} />
+      );
+
+      expect(screen.queryByTestId("quick-action-shorter")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("quick-action-more-casual")).not.toBeInTheDocument();
+    });
+
+    it("hides chips on non-latest assistant message", () => {
+      const messages = [
+        { id: "m1", role: "user" as const, content: "Write a reply" },
+        { id: "m2", role: "assistant" as const, content: "First draft here." },
+        { id: "m3", role: "user" as const, content: "What else?" },
+        { id: "m4", role: "assistant" as const, content: "Some analysis about the post." },
+      ];
+
+      render(
+        <ChatPanel postId="post-1" aiAccess={byokAccess} initialMessages={messages} />
+      );
+
+      // m4 is latest assistant, but "What else?" has no draft keywords, so no chips
+      expect(screen.queryByTestId("quick-action-shorter")).not.toBeInTheDocument();
+    });
+
+    it("hides chips during loading", async () => {
+      const user = userEvent.setup();
+
+      // Create a stream that never closes to keep loading state
+      const stream = new ReadableStream({
+        start() {
+          // Never close to keep loading
+        },
+      });
+
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        body: stream,
+      });
+
+      const messages = [
+        { id: "m1", role: "user" as const, content: "Draft a response" },
+        { id: "m2", role: "assistant" as const, content: "Here is the draft." },
+      ];
+
+      render(
+        <ChatPanel postId="post-1" aiAccess={byokAccess} initialMessages={messages} />
+      );
+
+      // Chips should be visible before sending
+      expect(screen.getByTestId("quick-action-shorter")).toBeInTheDocument();
+
+      // Type and send a new message to trigger loading
+      const input = screen.getByTestId("chat-input");
+      await user.type(input, "Make it better");
+      await user.click(screen.getByTestId("chat-send"));
+
+      // Chips should be hidden during loading
+      await waitFor(() => {
+        expect(screen.queryByTestId("quick-action-shorter")).not.toBeInTheDocument();
+      });
+    });
+
+    it("sends the corresponding prompt when a chip is clicked", async () => {
+      const user = userEvent.setup();
+
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode("Shorter version"));
+          controller.close();
+        },
+      });
+
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        body: stream,
+      });
+
+      const messages = [
+        { id: "m1", role: "user" as const, content: "Write a comment for this post" },
+        { id: "m2", role: "assistant" as const, content: "Here is a long draft for you." },
+      ];
+
+      render(
+        <ChatPanel postId="post-1" aiAccess={byokAccess} initialMessages={messages} />
+      );
+
+      await user.click(screen.getByTestId("quick-action-shorter"));
+
+      // Should send the chip's prompt text
+      expect(global.fetch).toHaveBeenCalledWith("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId: "post-1", message: "Make it shorter and more concise" }),
+      });
+    });
+
+    it("hides chips when assistant response ends with a question mark", () => {
+      const messages = [
+        { id: "m1", role: "user" as const, content: "Draft a reply to this" },
+        { id: "m2", role: "assistant" as const, content: "What tone would you prefer?" },
+      ];
+
+      render(
+        <ChatPanel postId="post-1" aiAccess={byokAccess} initialMessages={messages} />
+      );
+
+      expect(screen.queryByTestId("quick-action-shorter")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("quick-action-more-casual")).not.toBeInTheDocument();
+    });
+  });
 });

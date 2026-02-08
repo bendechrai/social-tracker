@@ -685,9 +685,9 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 
 ---
 
-## Phase 33: AI Assistant Improvements — PLANNED
+## Phase 33: AI Assistant Improvements — COMPLETE
 
-**Status: PLANNED**
+**Status: COMPLETE**
 **Priority: HIGH — New spec**
 **Dependencies: Phase 30 (chat route and chat panel must exist)**
 **Spec: `specs/ai-assistant-improvements.md`**
@@ -761,9 +761,9 @@ Four incremental improvements to the AI chat assistant: anti-hallucination guard
   - Acceptance: New Step 3.5 overlay on AI Profile page when `?onboarding=3.5`; Step 3 "Next" navigates to `?onboarding=3.5` instead of `?onboarding=4`; all step progress indicators updated from "of 4" to "of 5"; Step 3.5 is skippable, both buttons navigate to `/settings/tags?onboarding=4`
   - Tests: 5 component tests — overlay shown on AI Profile with ?onboarding=3.5, hidden without param, Skip navigates to tags, Next navigates to tags, step 3.5 of 5 progress indicator; updated all existing onboarding tests (6 files) for "of 5"
 
-### In Progress
+### Completed (Phase 33 cont.)
 
-- [ ] **Add draft reply quick-action chips to ChatPanel**
+- [x] **Add draft reply quick-action chips to ChatPanel**
   - Files: `webapp/components/chat-panel.tsx`
   - Spec: `specs/ai-assistant-improvements.md` — Improvement 4
   - Acceptance: Most recent assistant message shows quick-action buttons (Shorter, More casual, More technical, Less marketing) when preceding user message contains draft/reply/respond/response/write/comment keywords AND response doesn't end with `?`; clicking a chip sends the corresponding prompt; chips only on latest assistant message; chips hidden during streaming
@@ -782,7 +782,7 @@ Four incremental improvements to the AI chat assistant: anti-hallucination guard
 
 Purchasable token credit packs via Stripe Checkout for premium AI models via OpenRouter, replacing donation-based pricing. Users can use BYOK (Groq, free) or credits (OpenRouter, paid). Three new DB tables, Stripe webhook, OpenRouter integration, model selector in chat, credits settings page.
 
-### Backlog
+### In Progress
 
 - [ ] **Add `credit_balances`, `credit_purchases`, and `ai_usage_log` tables to schema and generate migration**
   - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/` (new migration file)
@@ -929,10 +929,10 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
 | 30 | Post Detail Page | 10 | **COMPLETE** | Phase 29 | HIGH |
 | 31 | Welcome Wizard | 5 | **COMPLETE** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **COMPLETE** | Phases 25-27, 30 | HIGH |
-| 33 | AI Assistant Improvements | 10 | **PLANNED** | Phase 30 | HIGH |
+| 33 | AI Assistant Improvements | 10 | **COMPLETE** | Phase 30 | HIGH |
 | 34 | AI Credits System | 20 | **PLANNED** | Phase 33 | HIGH |
 
-**Total Remaining Tasks: 30**
+**Total Remaining Tasks: 20**
 
 ### Environment Variables Required
 ```bash
