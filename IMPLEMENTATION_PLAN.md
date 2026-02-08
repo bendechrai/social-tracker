@@ -771,9 +771,9 @@ Four incremental improvements to the AI chat assistant: anti-hallucination guard
 
 ---
 
-## Phase 34: AI Credits System — PLANNED
+## Phase 34: AI Credits System — IN PROGRESS
 
-**Status: PLANNED**
+**Status: IN PROGRESS**
 **Priority: HIGH — New spec**
 **Dependencies: Phase 33 (chat route changes in Phase 33 must land first to avoid conflicts)**
 **Spec: `specs/ai-credits.md`**
@@ -782,19 +782,23 @@ Four incremental improvements to the AI chat assistant: anti-hallucination guard
 
 Purchasable token credit packs via Stripe Checkout for premium AI models via OpenRouter, replacing donation-based pricing. Users can use BYOK (Groq, free) or credits (OpenRouter, paid). Three new DB tables, Stripe webhook, OpenRouter integration, model selector in chat, credits settings page.
 
-### In Progress
+**Note:** Phase 34 code was pre-committed without tests or validation. All implementation code exists but requires tests and spec compliance fixes. Schema fixed: `credit_purchases.stripe_session_id` made NOT NULL and `(user_id)` index added per spec (migration 0009).
 
-- [ ] **Add `credit_balances`, `credit_purchases`, and `ai_usage_log` tables to schema and generate migration**
-  - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/` (new migration file)
+### Completed (Phase 34)
+
+- [x] **Add `credit_balances`, `credit_purchases`, and `ai_usage_log` tables to schema and generate migration**
+  - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/0007_ai_credits.sql`, `webapp/drizzle/migrations/0009_spotty_proteus.sql`
   - Spec: `specs/ai-credits.md` — Database Tables
-  - Acceptance: Three new tables with all columns/constraints/indexes per spec; `credit_purchases.stripe_session_id` has unique constraint; `ai_usage_log` indexed on `(user_id, created_at)`; `credit_balances.user_id` is PK with FK cascade; migration applies cleanly
-  - Tests: Typecheck passes; all existing tests pass; build passes
+  - Acceptance: Three new tables with all columns/constraints/indexes per spec; `credit_purchases.stripe_session_id` has unique+notNull constraint; `ai_usage_log` indexed on `(user_id, created_at)`; `credit_balances.user_id` is PK with FK cascade; `credit_purchases` indexed on `(user_id)`; migration applies cleanly
+  - Tests: Typecheck passes; all 991 tests pass; build passes
 
-- [ ] **Install `stripe` and `@openrouter/ai-sdk-provider` npm packages**
+- [x] **Install `stripe` and `@openrouter/ai-sdk-provider` npm packages**
   - Files: `webapp/package.json`
   - Spec: `specs/ai-credits.md` — New Dependencies
   - Acceptance: Both packages installed and importable; `npm run typecheck` passes
   - Tests: Typecheck passes; build passes
+
+### In Progress
 
 - [ ] **Create `getCreditBalance` server action**
   - Files: `webapp/app/actions/credits.ts`
@@ -930,9 +934,9 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
 | 31 | Welcome Wizard | 5 | **COMPLETE** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **COMPLETE** | Phases 25-27, 30 | HIGH |
 | 33 | AI Assistant Improvements | 10 | **COMPLETE** | Phase 30 | HIGH |
-| 34 | AI Credits System | 20 | **PLANNED** | Phase 33 | HIGH |
+| 34 | AI Credits System | 20 | **IN PROGRESS** (2/20) | Phase 33 | HIGH |
 
-**Total Remaining Tasks: 20**
+**Total Remaining Tasks: 18**
 
 ### Environment Variables Required
 ```bash

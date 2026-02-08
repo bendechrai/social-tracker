@@ -363,17 +363,23 @@ export const creditBalancesRelations = relations(creditBalances, ({ one }) => ({
 }));
 
 // Credit purchases — Stripe checkout session records
-export const creditPurchases = pgTable("credit_purchases", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  stripeSessionId: varchar("stripe_session_id", { length: 255 }).unique(),
-  amountCents: integer("amount_cents").notNull(),
-  creditsCents: integer("credits_cents").notNull(),
-  status: varchar("status", { length: 20 }).notNull().default("pending"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const creditPurchases = pgTable(
+  "credit_purchases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    stripeSessionId: varchar("stripe_session_id", { length: 255 })
+      .notNull()
+      .unique(),
+    amountCents: integer("amount_cents").notNull(),
+    creditsCents: integer("credits_cents").notNull(),
+    status: varchar("status", { length: 20 }).notNull().default("pending"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("credit_purchases_user_id_idx").on(table.userId)]
+);
 
 export const creditPurchasesRelations = relations(creditPurchases, ({ one }) => ({
   user: one(users, {
