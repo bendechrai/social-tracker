@@ -12,8 +12,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { Loader2Icon, CheckIcon, XIcon, EyeIcon, EyeOffIcon } from "lucide-react";
 import { changePassword } from "@/app/actions/auth";
+import { getEmailNotifications, updateEmailNotifications } from "@/app/actions/users";
 import { toast } from "@/lib/hooks/use-toast";
 
 // Password requirements for display (same as signup page)
@@ -39,6 +41,14 @@ export default function AccountSettingsPage() {
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = React.useState(true);
+  const [emailNotificationsLoading, setEmailNotificationsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    getEmailNotifications()
+      .then((enabled) => setEmailNotificationsEnabled(enabled))
+      .finally(() => setEmailNotificationsLoading(false));
+  }, []);
 
   // Check which password requirements are met
   const passwordChecks = PASSWORD_REQUIREMENTS.map((req) => ({
@@ -111,6 +121,46 @@ export default function AccountSettingsPage() {
             <p className="text-xs text-muted-foreground">
               Email changes are not supported in this version.
             </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Email Notifications Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Email Notifications</CardTitle>
+          <CardDescription>
+            Receive email digests when new posts match your tags (at most every 4
+            hours)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="emailNotifications"
+              checked={emailNotificationsEnabled}
+              disabled={emailNotificationsLoading}
+              onCheckedChange={async (checked) => {
+                setEmailNotificationsEnabled(checked);
+                const result = await updateEmailNotifications(checked);
+                if (result.success) {
+                  toast({
+                    title: checked
+                      ? "Email notifications enabled"
+                      : "Email notifications disabled",
+                  });
+                } else {
+                  setEmailNotificationsEnabled(!checked);
+                  toast({
+                    title: "Error",
+                    description:
+                      result.error ?? "Failed to update email notifications",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            />
+            <Label htmlFor="emailNotifications">Email notifications</Label>
           </div>
         </CardContent>
       </Card>

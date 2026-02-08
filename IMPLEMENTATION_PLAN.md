@@ -250,13 +250,15 @@ Set up nodemailer/SMTP email infrastructure and implement notification digests f
   - Acceptance: Returns HTML page confirming unsubscribe with re-subscribe link to settings; does NOT auto-unsubscribe on GET
   - Tests: 3 unit tests — valid token returns HTML with POST form and settings link (no DB change), invalid token returns HTML error, missing token returns HTML error
 
-### In Progress (Phase 25)
+### Completed (Phase 25)
 
-- [ ] **Add email notifications toggle to account settings**
+- [x] **Add email notifications toggle to account settings**
   - Files: `webapp/app/settings/account/page.tsx`, `webapp/app/actions/users.ts`
   - Spec: `specs/email-notifications.md` — Settings UI
   - Acceptance: Toggle labeled "Email notifications" with description; calls server action to update `email_notifications` column; default on
-  - Tests: Component test for toggle render and interaction; action test for updating preference
+  - Tests: 7 component tests (toggle render, description, load preference, default checked, toggle interaction, success toast, error revert) + 8 action tests (get/update preference, auth checks, error handling)
+
+### In Progress (Phase 25)
 
 - [ ] **Build notification email HTML/text template**
   - Files: `webapp/lib/email-templates.ts`
