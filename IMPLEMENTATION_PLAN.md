@@ -356,13 +356,15 @@ Send a welcome email with quick-start tips and verification link on signup. Add 
 
 Allow users to reset their password via a tokenized email link. Add `passwordChangedAt` column to users, forgot/reset password pages, two API endpoints, and session invalidation after password change.
 
-### Backlog (Phase 27)
+### Completed (Phase 27)
 
-- [ ] **Add `passwordChangedAt` column to users table**
-  - Files: `webapp/drizzle/schema.ts`, new migration
+- [x] **Add `passwordChangedAt` column to users table**
+  - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/0003_breezy_preak.sql`
   - Spec: `specs/password-reset.md` — Database Change
   - Acceptance: `users` table has `passwordChangedAt` (timestamp, nullable, default null); migration applies cleanly
-  - Tests: Typecheck passes; existing tests still pass
+  - Tests: Typecheck passes; all 749 tests pass; build passes
+
+### In Progress (Phase 27)
 
 - [ ] **Create `POST /api/auth/reset-password` request-reset endpoint**
   - Files: `webapp/app/api/auth/reset-password/route.ts`

@@ -28,6 +28,8 @@ export const users = pgTable("users", {
   // Email notification preferences
   emailNotifications: boolean("email_notifications").notNull().default(true),
   lastEmailedAt: timestamp("last_emailed_at"),
+  // Password change tracking for session invalidation
+  passwordChangedAt: timestamp("password_changed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at")
     .notNull()
