@@ -6,6 +6,12 @@ import { db } from "@/lib/db";
 import { users, userPosts, comments, chatMessages } from "@/drizzle/schema";
 import { decrypt } from "@/lib/encryption";
 import { eq, and, asc } from "drizzle-orm";
+import aj from "@/lib/arcjet";
+import { slidingWindow } from "@arcjet/next";
+
+const chatAj = aj.withRule(
+  slidingWindow({ mode: "LIVE", interval: "1m", max: 20, characteristics: ["userId"] })
+);
 
 /**
  * Gets the Groq API key for the given user.
@@ -67,6 +73,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const userId = session.user.id;
+
+    // Arcjet rate limit check
+    const decision = await chatAj.protect(request, { userId });
+    if (decision.isDenied()) {
+      if (decision.reason.isRateLimit()) {
+        return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+      }
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     // Parse request body
     const body = await request.json();

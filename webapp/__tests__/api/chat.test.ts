@@ -55,6 +55,18 @@ vi.mock("@ai-sdk/groq", () => ({
   createGroq: (...args: unknown[]) => mockCreateGroq(...(args as [])),
 }));
 
+// Mock Arcjet
+const mockProtect = vi.fn();
+vi.mock("@/lib/arcjet", () => ({
+  default: {
+    withRule: () => ({ protect: (...args: unknown[]) => mockProtect(...args) }),
+  },
+}));
+
+vi.mock("@arcjet/next", () => ({
+  slidingWindow: vi.fn().mockReturnValue([]),
+}));
+
 // Mock drizzle-orm (preserve real exports used by schema)
 vi.mock("drizzle-orm", async (importOriginal) => {
   const actual = await importOriginal<typeof import("drizzle-orm")>();
@@ -124,6 +136,10 @@ describe("POST /api/chat", () => {
     mockAuth.mockResolvedValue({ user: { id: "user-1", email: "test@example.com" } });
     mockFindFirst.mockResolvedValue({ groqApiKey: null });
     process.env.GROQ_API_KEY = "test-groq-key";
+    // Default: Arcjet allows request
+    mockProtect.mockResolvedValue({
+      isDenied: () => false,
+    });
   });
 
   it("should return 401 when not authenticated", async () => {
@@ -340,6 +356,70 @@ describe("POST /api/chat", () => {
 
     expect(mockDecrypt).toHaveBeenCalledWith("encrypted-key");
     expect(mockCreateGroq).toHaveBeenCalledWith({ apiKey: "user-groq-key" });
+  });
+
+  it("should return 429 when Arcjet rate limit is exceeded", async () => {
+    mockProtect.mockResolvedValueOnce({
+      isDenied: () => true,
+      reason: { isRateLimit: () => true },
+    });
+
+    const req = makePostRequest({ postId: "post-1", message: "Hello" });
+    const res = await POST(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(429);
+    expect(data.error).toBe("Too many requests");
+  });
+
+  it("should return 403 when Arcjet denies for non-rate-limit reason", async () => {
+    mockProtect.mockResolvedValueOnce({
+      isDenied: () => true,
+      reason: { isRateLimit: () => false },
+    });
+
+    const req = makePostRequest({ postId: "post-1", message: "Hello" });
+    const res = await POST(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.error).toBe("Forbidden");
+  });
+
+  it("should pass userId to Arcjet protect", async () => {
+    mockUserPostsFindFirst.mockResolvedValue({ post: mockPost });
+
+    let selectCallCount = 0;
+    mockSelect.mockImplementation(() => {
+      selectCallCount++;
+      if (selectCallCount === 1) {
+        return {
+          from: vi.fn().mockReturnThis(),
+          where: vi.fn().mockResolvedValue([]),
+        };
+      }
+      return {
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockResolvedValue([]),
+      };
+    });
+    setupInsertChain();
+
+    const textPromise = Promise.resolve("Response");
+    mockStreamText.mockReturnValue({
+      toTextStreamResponse: () =>
+        new Response("stream", { headers: { "Content-Type": "text/event-stream" } }),
+      text: textPromise,
+    });
+
+    const req = makePostRequest({ postId: "post-1", message: "Hello" });
+    await POST(req);
+
+    expect(mockProtect).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ userId: "user-1" })
+    );
   });
 
   it("should build system prompt with post context and comments", async () => {

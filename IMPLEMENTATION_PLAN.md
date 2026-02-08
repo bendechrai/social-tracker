@@ -653,13 +653,13 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
   - Acceptance: Shield + rate limit (10 per min per user ID); removed `rateLimitMap` and `checkRateLimit`; replaced with Arcjet `slidingWindow` with `characteristics: ["userId"]`
   - Tests: 5 Arcjet tests (allow, rate limit 429, userId passed, unauthenticated skips Arcjet, non-rate-limit denial 403). All 932 tests pass.
 
-- [ ] **Add Arcjet protection to AI chat endpoint** ← NEXT
+- [x] **Add Arcjet protection to AI chat endpoint**
   - Files: `webapp/app/api/chat/route.ts`
   - Spec: `specs/arcjet-security.md` — AI Chat rules
-  - Acceptance: Shield + rate limit (20 per min per user ID)
-  - Tests: Unit test for rate limit denial
+  - Acceptance: Shield + rate limit (20 per min per user ID) using `slidingWindow` with `characteristics: ["userId"]`
+  - Tests: 3 unit tests (rate limit 429, non-rate-limit denial 403, userId passed to protect). All 935 tests pass.
 
-- [ ] **Add Arcjet protection to cron fetch endpoint**
+- [ ] **Add Arcjet protection to cron fetch endpoint** ← NEXT
   - Files: `webapp/app/api/cron/fetch-posts/route.ts`
   - Spec: `specs/arcjet-security.md` — Cron Fetch rules
   - Acceptance: Shield + rate limit (2 per min per IP)
