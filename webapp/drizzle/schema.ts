@@ -45,6 +45,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   userPosts: many(userPosts),
   sessions: many(sessions),
   accounts: many(accounts),
+  chatMessages: many(chatMessages),
 }));
 
 // Auth.js Sessions table
@@ -201,6 +202,7 @@ export const posts = pgTable(
 
 export const postsRelations = relations(posts, ({ many }) => ({
   userPosts: many(userPosts),
+  chatMessages: many(chatMessages),
 }));
 
 // User posts table — per-user state for shared posts
@@ -289,6 +291,41 @@ export const comments = pgTable(
   ]
 );
 
+// Chat messages table — per-user, per-post AI chat history
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    role: varchar("role", { length: 20 }).notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("chat_messages_user_post_created_idx").on(
+      table.userId,
+      table.postId,
+      table.createdAt
+    ),
+  ]
+);
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  user: one(users, {
+    fields: [chatMessages.userId],
+    references: [users.id],
+  }),
+  post: one(posts, {
+    fields: [chatMessages.postId],
+    references: [posts.id],
+  }),
+}));
+
 // Subreddit fetch status — tracks per-subreddit fetch state (shared across users)
 export const subredditFetchStatus = pgTable("subreddit_fetch_status", {
   name: varchar("name", { length: 100 }).primaryKey(),
@@ -333,3 +370,6 @@ export type NewSubredditFetchStatus = typeof subredditFetchStatus.$inferInsert;
 
 export type Comment = typeof comments.$inferSelect;
 export type NewComment = typeof comments.$inferInsert;
+
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type NewChatMessage = typeof chatMessages.$inferInsert;
