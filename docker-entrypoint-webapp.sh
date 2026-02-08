@@ -20,6 +20,16 @@ tailscale up --authkey="$TAILSCALE_AUTHKEY" --hostname="$TAILSCALE_HOSTNAME" --a
 echo "Configuring Tailscale Funnel on port 3000..."
 tailscale funnel --bg 3000
 
+# Sync node_modules if package.json has changed (handles stale Docker volumes)
+if [ ! -f node_modules/.package-json-hash ] || \
+   [ "$(md5sum package.json | cut -d' ' -f1)" != "$(cat node_modules/.package-json-hash)" ]; then
+    echo "package.json changed — running npm install..."
+    npm install
+    md5sum package.json | cut -d' ' -f1 > node_modules/.package-json-hash
+else
+    echo "node_modules up to date"
+fi
+
 # Run database migrations (allow failure if already applied)
 echo "Running database migrations..."
 npx drizzle-kit migrate || echo "Migrations already applied or failed — continuing"
