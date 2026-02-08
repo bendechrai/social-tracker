@@ -798,13 +798,15 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
   - Acceptance: Both packages installed and importable; `npm run typecheck` passes
   - Tests: Typecheck passes; build passes
 
-### In Progress
+### Completed (Phase 34)
 
-- [ ] **Create `getCreditBalance` server action**
+- [x] **Create `getCreditBalance` server action**
   - Files: `webapp/app/actions/credits.ts`
   - Spec: `specs/ai-credits.md` — Server Actions
   - Acceptance: Returns integer balance in cents for authenticated user; returns 0 if no `credit_balances` row exists
   - Tests: 3 unit tests — returns balance, returns 0 when no row, unauthenticated throws
+
+### In Progress
 
 - [ ] **Create `getAiAccessInfo` server action**
   - Files: `webapp/app/actions/credits.ts`
@@ -934,9 +936,9 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
 | 31 | Welcome Wizard | 5 | **COMPLETE** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **COMPLETE** | Phases 25-27, 30 | HIGH |
 | 33 | AI Assistant Improvements | 10 | **COMPLETE** | Phase 30 | HIGH |
-| 34 | AI Credits System | 20 | **IN PROGRESS** (2/20) | Phase 33 | HIGH |
+| 34 | AI Credits System | 20 | **IN PROGRESS** (3/20) | Phase 33 | HIGH |
 
-**Total Remaining Tasks: 18**
+**Total Remaining Tasks: 17**
 
 ### Environment Variables Required
 ```bash
