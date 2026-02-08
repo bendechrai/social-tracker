@@ -6,6 +6,8 @@ import { hashPassword, verifyPassword } from "@/lib/password";
 import { passwordSchema, emailSchema } from "@/lib/validations";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { sendEmail } from "@/lib/email";
+import { buildWelcomeEmail } from "@/lib/email-templates";
 
 export type SignupResult = {
   success: boolean;
@@ -56,10 +58,24 @@ export async function signup(
   const passwordHash = await hashPassword(password);
 
   // Create user
-  await db.insert(users).values({
+  const [newUser] = await db.insert(users).values({
     email: email.toLowerCase(),
     passwordHash,
-  });
+  }).returning({ id: users.id });
+
+  // Send welcome email fire-and-forget (do not block signup)
+  if (newUser) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const welcomeEmail = buildWelcomeEmail({ userId: newUser.id, appUrl });
+    sendEmail({
+      to: email.toLowerCase(),
+      subject: welcomeEmail.subject,
+      html: welcomeEmail.html,
+      text: welcomeEmail.text,
+    }).catch(() => {
+      // Intentionally swallowed — welcome email failure must not affect signup
+    });
+  }
 
   return { success: true };
 }

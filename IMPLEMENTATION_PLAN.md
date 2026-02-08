@@ -301,13 +301,15 @@ Send a welcome email with quick-start tips and verification link on signup. Add 
   - Acceptance: Function returns `{ subject, html, text }` with "Welcome to Social Tracker" subject, greeting, 3 quick-start tips, "Get Started" CTA, and "Verify Email" button with signed token link
   - Tests: 9 unit tests verifying subject, greeting/intro, all 3 tips in HTML and plain text, Get Started CTA, verify link with signed token, 7-day token expiry, plain text without HTML tags, footer
 
-### In Progress (Phase 26)
+### Completed (Phase 26)
 
-- [ ] **Send welcome email from signup action (fire-and-forget)**
+- [x] **Send welcome email from signup action (fire-and-forget)**
   - Files: `webapp/app/actions/auth.ts`
   - Spec: `specs/welcome-email.md` — Trigger
   - Acceptance: After successful user creation, sends welcome email asynchronously (does not block signup response); signup succeeds even if email fails
-  - Tests: Unit test verifying email send is called after user creation; test verifying signup succeeds when email throws
+  - Tests: 2 new tests — email send called after user creation with correct userId/email, signup succeeds when email throws
+
+### In Progress (Phase 26)
 
 - [ ] **Create `GET /api/verify-email` endpoint**
   - Files: `webapp/app/api/verify-email/route.ts`

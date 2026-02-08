@@ -25,6 +25,7 @@ const mockFindFirst = vi.fn();
 const mockInsert = vi.fn();
 const mockUpdate = vi.fn();
 const mockValues = vi.fn();
+const mockReturning = vi.fn();
 const mockSet = vi.fn();
 const mockWhere = vi.fn();
 
@@ -40,7 +41,9 @@ vi.mock("@/lib/db", () => ({
       return {
         values: (...valArgs: unknown[]) => {
           mockValues(...valArgs);
-          return Promise.resolve();
+          return {
+            returning: (...retArgs: unknown[]) => mockReturning(...retArgs),
+          };
         },
       };
     },
@@ -67,12 +70,34 @@ vi.mock("@/lib/auth", () => ({
   auth: () => mockAuth(),
 }));
 
+// Mock email sending
+const mockSendEmail = vi.fn();
+vi.mock("@/lib/email", () => ({
+  sendEmail: (...args: unknown[]) => mockSendEmail(...args),
+}));
+
+// Mock email templates
+const mockBuildWelcomeEmail = vi.fn();
+vi.mock("@/lib/email-templates", () => ({
+  buildWelcomeEmail: (...args: unknown[]) => mockBuildWelcomeEmail(...args),
+}));
+
 // Import after mocks are set up
 import { signup, changePassword } from "@/app/actions/auth";
 
 describe("auth server actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: returning resolves with a new user id
+    mockReturning.mockResolvedValue([{ id: "new-user-id" }]);
+    // Default: sendEmail resolves successfully
+    mockSendEmail.mockResolvedValue({ success: true });
+    // Default: buildWelcomeEmail returns template
+    mockBuildWelcomeEmail.mockReturnValue({
+      subject: "Welcome to Social Tracker",
+      html: "<p>Welcome</p>",
+      text: "Welcome",
+    });
   });
 
   describe("signup", () => {
@@ -231,6 +256,43 @@ describe("auth server actions", () => {
             email: "user@example.com",
           })
         );
+      });
+
+      it("sends welcome email after user creation", async () => {
+        mockFindFirst.mockResolvedValueOnce(null);
+
+        const result = await signup(
+          "newuser@example.com",
+          "ValidPassword123!",
+          "ValidPassword123!"
+        );
+
+        expect(result.success).toBe(true);
+        expect(mockBuildWelcomeEmail).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userId: "new-user-id",
+          })
+        );
+        expect(mockSendEmail).toHaveBeenCalledWith(
+          expect.objectContaining({
+            to: "newuser@example.com",
+            subject: "Welcome to Social Tracker",
+          })
+        );
+      });
+
+      it("succeeds even when welcome email fails", async () => {
+        mockFindFirst.mockResolvedValueOnce(null);
+        mockSendEmail.mockRejectedValueOnce(new Error("SMTP connection failed"));
+
+        const result = await signup(
+          "newuser@example.com",
+          "ValidPassword123!",
+          "ValidPassword123!"
+        );
+
+        expect(result.success).toBe(true);
+        expect(mockInsert).toHaveBeenCalled();
       });
     });
   });
