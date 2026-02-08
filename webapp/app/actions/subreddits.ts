@@ -107,7 +107,8 @@ export async function addSubreddit(
   } else {
     // Brand-new subreddit — trigger immediate fetch via the cron endpoint
     const { GET } = await import("@/app/api/cron/fetch-posts/route");
-    await GET();
+    const { NextRequest } = await import("next/server");
+    await GET(new NextRequest("http://localhost:3000/api/cron/fetch-posts"));
   }
 
   revalidatePath("/");

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { subreddits, subredditFetchStatus } from "@/drizzle/schema";
 import { sql, inArray } from "drizzle-orm";
@@ -9,8 +9,23 @@ import {
   sendNotificationEmails,
   upsertComments,
 } from "@/app/actions/posts";
+import aj from "@/lib/arcjet";
+import { slidingWindow } from "@arcjet/next";
 
-export async function GET() {
+const cronAj = aj.withRule(
+  slidingWindow({ mode: "LIVE", interval: "1m", max: 2 })
+);
+
+export async function GET(request: NextRequest) {
+  // Arcjet rate limit check
+  const decision = await cronAj.protect(request);
+  if (decision.isDenied()) {
+    if (decision.reason.isRateLimit()) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   // Try to acquire advisory lock (lock id = 1)
   const lockResult = await db.execute<{ pg_try_advisory_lock: boolean }>(
     sql`SELECT pg_try_advisory_lock(1)`

@@ -69,6 +69,18 @@ vi.mock("@/app/actions/posts", () => ({
     mockUpsertComments(...args),
 }));
 
+// Mock Arcjet
+const mockProtect = vi.fn();
+vi.mock("@/lib/arcjet", () => ({
+  default: {
+    withRule: () => ({ protect: (...args: unknown[]) => mockProtect(...args) }),
+  },
+}));
+
+vi.mock("@arcjet/next", () => ({
+  slidingWindow: vi.fn().mockReturnValue([]),
+}));
+
 // Mock drizzle-orm operators (preserve relations for schema imports)
 vi.mock("drizzle-orm", async (importOriginal) => {
   const actual = await importOriginal<typeof import("drizzle-orm")>();
@@ -81,10 +93,17 @@ vi.mock("drizzle-orm", async (importOriginal) => {
 
 // Import after mocks
 import { GET } from "@/app/api/cron/fetch-posts/route";
+import { NextRequest } from "next/server";
+
+function createRequest(): NextRequest {
+  return new NextRequest("http://localhost:3000/api/cron/fetch-posts");
+}
 
 describe("GET /api/cron/fetch-posts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: Arcjet allows request
+    mockProtect.mockResolvedValue({ isDenied: () => false });
     // Default: lock acquired successfully
     mockExecute.mockResolvedValue([{ pg_try_advisory_lock: true }]);
     // Default: no subreddits
@@ -110,7 +129,7 @@ describe("GET /api/cron/fetch-posts", () => {
   it("should return skipped response when advisory lock is already held", async () => {
     mockExecute.mockResolvedValueOnce([{ pg_try_advisory_lock: false }]);
 
-    const res = await GET();
+    const res = await GET(createRequest());
     const data = await res.json();
 
     expect(res.status).toBe(200);
@@ -122,7 +141,7 @@ describe("GET /api/cron/fetch-posts", () => {
   it("should release advisory lock even after returning skipped", async () => {
     mockExecute.mockResolvedValueOnce([{ pg_try_advisory_lock: false }]);
 
-    await GET();
+    await GET(createRequest());
 
     // Lock was not acquired, so no unlock should happen
     // (skipped path returns before the try block)
@@ -132,7 +151,7 @@ describe("GET /api/cron/fetch-posts", () => {
   it("should return empty result when no subreddits have subscribers", async () => {
     mockSelectDistinctFrom.mockResolvedValue([]);
 
-    const res = await GET();
+    const res = await GET(createRequest());
     const data = await res.json();
 
     expect(data).toEqual({ fetched: [], skipped: 0 });
@@ -145,7 +164,7 @@ describe("GET /api/cron/fetch-posts", () => {
     mockSelectWhere.mockResolvedValue([]); // No fetch_status rows
     mockGetLastPostTimestampPerSubreddit.mockResolvedValue(new Map());
 
-    const res = await GET();
+    const res = await GET(createRequest());
     const data = await res.json();
 
     expect(data.fetched).toEqual(["nextjs"]);
@@ -166,7 +185,7 @@ describe("GET /api/cron/fetch-posts", () => {
       },
     ]);
 
-    const res = await GET();
+    const res = await GET(createRequest());
     const data = await res.json();
 
     expect(data.fetched).toEqual([]);
@@ -189,7 +208,7 @@ describe("GET /api/cron/fetch-posts", () => {
       new Map([["typescript", new Date(Date.now() - 3600 * 1000)]])
     );
 
-    const res = await GET();
+    const res = await GET(createRequest());
     const data = await res.json();
 
     expect(data.fetched).toEqual(["typescript"]);
@@ -201,7 +220,7 @@ describe("GET /api/cron/fetch-posts", () => {
     mockSelectDistinctFrom.mockResolvedValue([{ name: "svelte" }]);
     mockSelectWhere.mockResolvedValue([]);
 
-    await GET();
+    await GET(createRequest());
 
     expect(mockInsert).toHaveBeenCalledTimes(1);
     expect(mockInsertValues).toHaveBeenCalledWith(
@@ -235,7 +254,7 @@ describe("GET /api/cron/fetch-posts", () => {
     ]);
     mockGetLastPostTimestampPerSubreddit.mockResolvedValue(new Map());
 
-    const res = await GET();
+    const res = await GET(createRequest());
     const data = await res.json();
 
     expect(data.fetched).toEqual(["vue", "angular"]);
@@ -247,7 +266,7 @@ describe("GET /api/cron/fetch-posts", () => {
     mockSelectDistinctFrom.mockResolvedValue([{ name: "test" }]);
     mockSelectWhere.mockResolvedValue([]);
 
-    await GET();
+    await GET(createRequest());
 
     // execute called: 1 for lock acquire, 1 for lock release
     expect(mockExecute).toHaveBeenCalledTimes(2);
@@ -256,7 +275,7 @@ describe("GET /api/cron/fetch-posts", () => {
   it("should release advisory lock even on error", async () => {
     mockSelectDistinctFrom.mockRejectedValue(new Error("DB error"));
 
-    const res = await GET();
+    const res = await GET(createRequest());
     const data = await res.json();
 
     expect(res.status).toBe(500);
@@ -286,7 +305,7 @@ describe("GET /api/cron/fetch-posts", () => {
     mockSelectWhere.mockResolvedValue([]);
     mockFetchRedditPosts.mockResolvedValue(mockPosts);
 
-    await GET();
+    await GET(createRequest());
 
     expect(mockFetchPostsForAllUsers).toHaveBeenCalledWith("nextjs", mockPosts);
   });
@@ -296,7 +315,7 @@ describe("GET /api/cron/fetch-posts", () => {
     mockSelectWhere.mockResolvedValue([]);
     mockGetLastPostTimestampPerSubreddit.mockResolvedValue(new Map());
 
-    const res = await GET();
+    const res = await GET(createRequest());
     const data = await res.json();
 
     expect(mockSendNotificationEmails).toHaveBeenCalledTimes(1);
@@ -309,7 +328,7 @@ describe("GET /api/cron/fetch-posts", () => {
     mockGetLastPostTimestampPerSubreddit.mockResolvedValue(new Map());
     mockSendNotificationEmails.mockResolvedValue({ sent: 2, skipped: 1 });
 
-    const res = await GET();
+    const res = await GET(createRequest());
     const data = await res.json();
 
     expect(data.emails).toEqual({ sent: 2, skipped: 1 });
@@ -318,7 +337,7 @@ describe("GET /api/cron/fetch-posts", () => {
   it("should not call sendNotificationEmails when no subreddits exist", async () => {
     mockSelectDistinctFrom.mockResolvedValue([]);
 
-    await GET();
+    await GET(createRequest());
 
     expect(mockSendNotificationEmails).not.toHaveBeenCalled();
   });
@@ -335,7 +354,7 @@ describe("GET /api/cron/fetch-posts", () => {
       },
     ]);
 
-    await GET();
+    await GET(createRequest());
 
     expect(mockSendNotificationEmails).not.toHaveBeenCalled();
   });
@@ -348,7 +367,7 @@ describe("GET /api/cron/fetch-posts", () => {
       new Map([["golang", lastPostDate]])
     );
 
-    await GET();
+    await GET(createRequest());
 
     expect(mockFetchRedditPosts).toHaveBeenCalledTimes(1);
     const callArg = mockFetchRedditPosts.mock.calls[0]![0] as Map<
@@ -406,7 +425,7 @@ describe("GET /api/cron/fetch-posts", () => {
       },
     ]);
 
-    await GET();
+    await GET(createRequest());
 
     // fetchRedditComments called once per post
     expect(mockFetchRedditComments).toHaveBeenCalledTimes(2);
@@ -421,7 +440,7 @@ describe("GET /api/cron/fetch-posts", () => {
     mockSelectWhere.mockResolvedValue([]);
     mockFetchRedditPosts.mockResolvedValue([]);
 
-    await GET();
+    await GET(createRequest());
 
     expect(mockFetchRedditComments).not.toHaveBeenCalled();
     expect(mockUpsertComments).not.toHaveBeenCalled();
@@ -460,8 +479,38 @@ describe("GET /api/cron/fetch-posts", () => {
     mockFetchRedditPosts.mockResolvedValue(mockPosts);
     mockFetchRedditComments.mockResolvedValue(mockComments);
 
-    await GET();
+    await GET(createRequest());
 
     expect(mockUpsertComments).toHaveBeenCalledWith(mockComments);
+  });
+
+  it("should return 429 when Arcjet rate limit is denied", async () => {
+    mockProtect.mockResolvedValueOnce({
+      isDenied: () => true,
+      reason: { isRateLimit: () => true },
+    });
+
+    const res = await GET(createRequest());
+    const data = await res.json();
+
+    expect(res.status).toBe(429);
+    expect(data.error).toBe("Too many requests");
+    // Should not attempt advisory lock or any DB operations
+    expect(mockExecute).not.toHaveBeenCalled();
+    expect(mockSelectDistinct).not.toHaveBeenCalled();
+  });
+
+  it("should return 403 when Arcjet denies for non-rate-limit reason", async () => {
+    mockProtect.mockResolvedValueOnce({
+      isDenied: () => true,
+      reason: { isRateLimit: () => false },
+    });
+
+    const res = await GET(createRequest());
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.error).toBe("Forbidden");
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 });
