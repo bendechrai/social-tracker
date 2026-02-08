@@ -623,13 +623,13 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 
 ### In Progress (Phase 32)
 
-- [ ] **Install `@arcjet/next` and create shared Arcjet client** ← NEXT
+- [x] **Install `@arcjet/next` and create shared Arcjet client**
   - Files: `webapp/lib/arcjet.ts`, `webapp/package.json`
   - Spec: `specs/arcjet-security.md` — Shared Client
   - Acceptance: Base client configured with `ARCJET_KEY` env var and global Shield rule in LIVE mode
-  - Tests: Unit test verifying client creation with env var
+  - Tests: 2 unit tests verifying client creation with env var and Shield in LIVE mode, and default export
 
-- [ ] **Add Arcjet `protectSignup` to signup flow**
+- [ ] **Add Arcjet `protectSignup` to signup flow** ← NEXT
   - Files: `webapp/app/actions/auth.ts` (or `webapp/app/api/auth/signup/route.ts` if refactored)
   - Spec: `specs/arcjet-security.md` — Signup rules
   - Acceptance: Email validation (block DISPOSABLE, INVALID, NO_MX_RECORDS), bot detection, rate limit (5 per 10min per IP)
