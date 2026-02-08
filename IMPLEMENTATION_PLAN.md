@@ -234,13 +234,15 @@ Set up nodemailer/SMTP email infrastructure and implement notification digests f
   - Acceptance: `createSignedToken(userId, expiryMs)` and `verifySignedToken(token)` functions using HMAC with `ENCRYPTION_KEY`; returns `{ userId, expires }` or null
   - Tests: 10 unit tests covering roundtrip, UUID IDs, expired token rejection, signature/payload tampering, malformed tokens, missing ENCRYPTION_KEY
 
-### In Progress (Phase 25)
+### Completed (Phase 25)
 
-- [ ] **Create `POST /api/unsubscribe` endpoint**
+- [x] **Create `POST /api/unsubscribe` endpoint**
   - Files: `webapp/app/api/unsubscribe/route.ts`
   - Spec: `specs/email-notifications.md` — Unsubscribe Endpoint (POST)
   - Acceptance: Verifies signed token, sets `email_notifications = false` on user, returns 200; invalid token returns 400
-  - Tests: Unit tests for valid unsubscribe, expired token, invalid token, missing token
+  - Tests: 4 unit tests — valid unsubscribe, expired token, invalid token, missing token
+
+### In Progress (Phase 25)
 
 - [ ] **Create `GET /api/unsubscribe` confirmation page**
   - Files: `webapp/app/api/unsubscribe/route.ts`
