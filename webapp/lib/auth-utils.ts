@@ -10,12 +10,12 @@ import { verifyPassword } from "@/lib/password";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import type { JWT } from "next-auth/jwt";
-import aj from "@/lib/arcjet";
+import aj, { ajMode } from "@/lib/arcjet";
 import { detectBot, slidingWindow, request } from "@arcjet/next";
 
 const loginAj = aj
-  .withRule(slidingWindow({ mode: "LIVE", interval: "5m", max: 10 }))
-  .withRule(detectBot({ mode: "LIVE", allow: [] }));
+  .withRule(slidingWindow({ mode: ajMode, interval: "5m", max: 10 }))
+  .withRule(detectBot({ mode: ajMode, allow: [] }));
 
 // Email validation schema - exported for testing
 export const emailSchema = z.string().email("Invalid email format");

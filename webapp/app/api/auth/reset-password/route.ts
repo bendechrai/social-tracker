@@ -6,21 +6,21 @@ import { eq, and, gt } from "drizzle-orm";
 import { emailSchema } from "@/lib/validations";
 import { sendEmail } from "@/lib/email";
 import { buildPasswordResetEmail } from "@/lib/email-templates";
-import aj from "@/lib/arcjet";
+import aj, { ajMode } from "@/lib/arcjet";
 import { protectSignup } from "@arcjet/next";
 
 const resetAj = aj.withRule(
   protectSignup({
     email: {
-      mode: "LIVE",
+      mode: ajMode,
       deny: ["DISPOSABLE", "INVALID", "NO_MX_RECORDS"],
     },
     bots: {
-      mode: "LIVE",
+      mode: ajMode,
       allow: [],
     },
     rateLimit: {
-      mode: "LIVE",
+      mode: ajMode,
       interval: "15m",
       max: 3,
     },

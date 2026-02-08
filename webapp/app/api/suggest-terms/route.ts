@@ -7,13 +7,13 @@ import { db } from "@/lib/db";
 import { users } from "@/drizzle/schema";
 import { decrypt } from "@/lib/encryption";
 import { eq } from "drizzle-orm";
-import aj from "@/lib/arcjet";
+import aj, { ajMode } from "@/lib/arcjet";
 import { slidingWindow } from "@arcjet/next";
 
 const SYSTEM_PROMPT = `You are helping a developer relations professional track mentions of a technology topic on Reddit. Given a topic name, suggest search terms that would find relevant Reddit posts about this topic. Include: the exact topic name (lowercase), common variations and abbreviations, component names or features, related technical terms, common misspellings if applicable. Return ONLY a JSON array of strings, no explanation. Keep terms lowercase. Aim for 5-15 terms.`;
 
 const suggestTermsAj = aj.withRule(
-  slidingWindow({ mode: "LIVE", interval: "1m", max: 10, characteristics: ["userId"] })
+  slidingWindow({ mode: ajMode, interval: "1m", max: 10, characteristics: ["userId"] })
 );
 
 /**

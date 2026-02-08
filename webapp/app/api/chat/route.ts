@@ -6,11 +6,11 @@ import { db } from "@/lib/db";
 import { users, userPosts, comments, chatMessages } from "@/drizzle/schema";
 import { decrypt } from "@/lib/encryption";
 import { eq, and, asc } from "drizzle-orm";
-import aj from "@/lib/arcjet";
+import aj, { ajMode } from "@/lib/arcjet";
 import { slidingWindow } from "@arcjet/next";
 
 const chatAj = aj.withRule(
-  slidingWindow({ mode: "LIVE", interval: "1m", max: 20, characteristics: ["userId"] })
+  slidingWindow({ mode: ajMode, interval: "1m", max: 20, characteristics: ["userId"] })
 );
 
 /**

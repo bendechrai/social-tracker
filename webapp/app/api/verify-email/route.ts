@@ -3,24 +3,21 @@ import { db } from "@/lib/db";
 import { users } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import { verifySignedToken } from "@/lib/tokens";
-import aj from "@/lib/arcjet";
+import aj, { ajMode } from "@/lib/arcjet";
 import { slidingWindow } from "@arcjet/next";
 
 const verifyEmailAj = aj.withRule(
-  slidingWindow({ mode: "LIVE", interval: "1m", max: 5 })
+  slidingWindow({ mode: ajMode, interval: "1m", max: 5 })
 );
 
 export async function GET(request: NextRequest) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? request.url;
+
   // Arcjet rate limit check
   const decision = await verifyEmailAj.protect(request);
   if (decision.isDenied()) {
-    if (decision.reason.isRateLimit()) {
-      return NextResponse.redirect(
-        new URL("/dashboard?verify_error=true", request.url)
-      );
-    }
     return NextResponse.redirect(
-      new URL("/dashboard?verify_error=true", request.url)
+      new URL("/dashboard?verify_error=true", appUrl)
     );
   }
 
@@ -28,14 +25,14 @@ export async function GET(request: NextRequest) {
 
   if (!token) {
     return NextResponse.redirect(
-      new URL("/dashboard?verify_error=true", request.url)
+      new URL("/dashboard?verify_error=true", appUrl)
     );
   }
 
   const verified = verifySignedToken(token);
   if (!verified) {
     return NextResponse.redirect(
-      new URL("/dashboard?verify_error=true", request.url)
+      new URL("/dashboard?verify_error=true", appUrl)
     );
   }
 
@@ -45,6 +42,6 @@ export async function GET(request: NextRequest) {
     .where(eq(users.id, verified.userId));
 
   return NextResponse.redirect(
-    new URL("/dashboard?verified=true", request.url)
+    new URL("/dashboard?verified=true", appUrl)
   );
 }

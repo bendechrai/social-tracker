@@ -8,21 +8,21 @@ import { eq } from "drizzle-orm";
 import { auth, signOut } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import { buildWelcomeEmail } from "@/lib/email-templates";
-import aj from "@/lib/arcjet";
+import aj, { ajMode } from "@/lib/arcjet";
 import { protectSignup, request } from "@arcjet/next";
 
 const signupAj = aj.withRule(
   protectSignup({
     email: {
-      mode: "LIVE",
+      mode: ajMode,
       deny: ["DISPOSABLE", "INVALID", "NO_MX_RECORDS"],
     },
     bots: {
-      mode: "LIVE",
+      mode: ajMode,
       allow: [],
     },
     rateLimit: {
-      mode: "LIVE",
+      mode: ajMode,
       interval: "10m",
       max: 5,
     },

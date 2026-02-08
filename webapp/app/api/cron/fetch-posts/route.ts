@@ -9,11 +9,11 @@ import {
   sendNotificationEmails,
   upsertComments,
 } from "@/app/actions/posts";
-import aj from "@/lib/arcjet";
+import aj, { ajMode } from "@/lib/arcjet";
 import { slidingWindow } from "@arcjet/next";
 
 const cronAj = aj.withRule(
-  slidingWindow({ mode: "LIVE", interval: "1m", max: 2 })
+  slidingWindow({ mode: ajMode, interval: "1m", max: 2 })
 );
 
 export async function GET(request: NextRequest) {

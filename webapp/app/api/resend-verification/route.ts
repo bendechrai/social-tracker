@@ -5,11 +5,11 @@ import { users } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import { sendEmail } from "@/lib/email";
 import { buildVerificationEmail } from "@/lib/email-templates";
-import aj from "@/lib/arcjet";
+import aj, { ajMode } from "@/lib/arcjet";
 import { slidingWindow } from "@arcjet/next";
 
 const resendAj = aj.withRule(
-  slidingWindow({ mode: "LIVE", interval: "5m", max: 1, characteristics: ["userId"] })
+  slidingWindow({ mode: ajMode, interval: "5m", max: 1, characteristics: ["userId"] })
 );
 
 export async function POST(request: NextRequest) {
