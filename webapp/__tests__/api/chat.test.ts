@@ -22,6 +22,7 @@ const mockCreditBalancesFindFirst = vi.fn();
 const mockSelect = vi.fn();
 const mockInsert = vi.fn();
 const mockDelete = vi.fn();
+const mockUpdate = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -39,6 +40,7 @@ vi.mock("@/lib/db", () => ({
     select: (...args: unknown[]) => mockSelect(...args),
     insert: (...args: unknown[]) => mockInsert(...args),
     delete: (...args: unknown[]) => mockDelete(...args),
+    update: (...args: unknown[]) => mockUpdate(...args),
   },
 }));
 
@@ -77,8 +79,9 @@ vi.mock("@/lib/openrouter", () => ({
   getOpenRouterClient: vi.fn(() => (model: string) => `openrouter-model-${model}`),
 }));
 
+const mockIsAllowedModel = vi.fn().mockReturnValue(true);
 vi.mock("@/lib/ai-models", () => ({
-  isAllowedModel: vi.fn(() => true),
+  isAllowedModel: (id: string) => mockIsAllowedModel(id) as boolean,
 }));
 
 // Mock drizzle-orm (preserve real exports used by schema)
@@ -125,6 +128,16 @@ function setupDeleteChain() {
     where: vi.fn().mockResolvedValue(undefined),
   };
   mockDelete.mockReturnValue(chain);
+  return chain;
+}
+
+// Helper to set up mock chain for db.update().set().where()
+function setupUpdateChain() {
+  const chain = {
+    set: vi.fn().mockReturnThis(),
+    where: vi.fn().mockResolvedValue(undefined),
+  };
+  mockUpdate.mockReturnValue(chain);
   return chain;
 }
 
@@ -680,6 +693,226 @@ describe("POST /api/chat profile loading", () => {
     expect(streamCallArgs.system).toContain("Role: DevRel at TestCo");
     expect(streamCallArgs.system).toContain("Goal: Community engagement");
     expect(streamCallArgs.system).toContain("Preferred tone: Casual");
+  });
+});
+
+describe("POST /api/chat OpenRouter credits path", () => {
+  // Helper to set up select chains for comments + chat history
+  function setupSelectChains() {
+    let selectCallCount = 0;
+    mockSelect.mockImplementation(() => {
+      selectCallCount++;
+      if (selectCallCount === 1) {
+        return {
+          from: vi.fn().mockReturnThis(),
+          where: vi.fn().mockResolvedValue([]),
+        };
+      }
+      return {
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockResolvedValue([]),
+      };
+    });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuth.mockResolvedValue({ user: { id: "user-1", email: "test@example.com" } });
+    // No Groq key by default for credits tests
+    mockFindFirst.mockResolvedValue({ groqApiKey: null, profileRole: null, profileCompany: null, profileGoal: null, profileTone: null, profileContext: null });
+    delete process.env.GROQ_API_KEY;
+    mockProtect.mockResolvedValue({ isDenied: () => false });
+    mockIsAllowedModel.mockReturnValue(true);
+  });
+
+  it("should use OpenRouter when modelId provided and user has credits", async () => {
+    mockUserPostsFindFirst.mockResolvedValue({ post: mockPost });
+    mockCreditBalancesFindFirst.mockResolvedValue({ balanceCents: 500 });
+    setupSelectChains();
+    setupInsertChain();
+    setupUpdateChain();
+
+    const textPromise = Promise.resolve("OpenRouter response");
+    mockStreamText.mockReturnValue({
+      toTextStreamResponse: () =>
+        new Response("stream", { headers: { "Content-Type": "text/event-stream" } }),
+      text: textPromise,
+      usage: Promise.resolve({ inputTokens: 100, outputTokens: 50 }),
+      providerMetadata: Promise.resolve({ openrouter: { cost: 0.005 } }),
+    });
+
+    const req = makePostRequest({ postId: "post-1", message: "Hello", modelId: "openai/gpt-4o-mini" });
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    // Verify streamText was called with the OpenRouter model
+    expect(mockStreamText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "openrouter-model-openai/gpt-4o-mini",
+      })
+    );
+  });
+
+  it("should fall back to Groq when no modelId is provided", async () => {
+    process.env.GROQ_API_KEY = "env-groq-key";
+    mockUserPostsFindFirst.mockResolvedValue({ post: mockPost });
+    setupSelectChains();
+    setupInsertChain();
+
+    const textPromise = Promise.resolve("Groq response");
+    mockStreamText.mockReturnValue({
+      toTextStreamResponse: () =>
+        new Response("stream", { headers: { "Content-Type": "text/event-stream" } }),
+      text: textPromise,
+    });
+
+    const req = makePostRequest({ postId: "post-1", message: "Hello" });
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    expect(mockCreateGroq).toHaveBeenCalledWith({ apiKey: "env-groq-key" });
+  });
+
+  it("should return NO_AI_ACCESS when neither Groq key nor credits available", async () => {
+    mockUserPostsFindFirst.mockResolvedValue({ post: mockPost });
+    mockCreditBalancesFindFirst.mockResolvedValue(null);
+
+    const req = makePostRequest({ postId: "post-1", message: "Hello" });
+    const res = await POST(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(422);
+    expect(data.code).toBe("NO_AI_ACCESS");
+  });
+
+  it("should reject invalid modelId as NO_AI_ACCESS", async () => {
+    mockUserPostsFindFirst.mockResolvedValue({ post: mockPost });
+    mockIsAllowedModel.mockReturnValue(false);
+
+    const req = makePostRequest({ postId: "post-1", message: "Hello", modelId: "invalid/model" });
+    const res = await POST(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(422);
+    expect(data.code).toBe("NO_AI_ACCESS");
+  });
+
+  it("should reject credits path when balance is zero", async () => {
+    mockUserPostsFindFirst.mockResolvedValue({ post: mockPost });
+    mockCreditBalancesFindFirst.mockResolvedValue({ balanceCents: 0 });
+
+    const req = makePostRequest({ postId: "post-1", message: "Hello", modelId: "openai/gpt-4o-mini" });
+    const res = await POST(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(422);
+    expect(data.code).toBe("NO_AI_ACCESS");
+  });
+
+  it("should deduct cost from credit balance after streaming", async () => {
+    mockUserPostsFindFirst.mockResolvedValue({ post: mockPost });
+    mockCreditBalancesFindFirst.mockResolvedValue({ balanceCents: 500 });
+    setupSelectChains();
+    setupInsertChain();
+    const updateChain = setupUpdateChain();
+
+    const textPromise = Promise.resolve("Response");
+    mockStreamText.mockReturnValue({
+      toTextStreamResponse: () =>
+        new Response("stream", { headers: { "Content-Type": "text/event-stream" } }),
+      text: textPromise,
+      usage: Promise.resolve({ inputTokens: 100, outputTokens: 50 }),
+      providerMetadata: Promise.resolve({ openrouter: { cost: 0.03 } }),
+    });
+
+    const req = makePostRequest({ postId: "post-1", message: "Hello", modelId: "openai/gpt-4o" });
+    await POST(req);
+
+    // Wait for the async post-stream processing
+    await textPromise;
+    await vi.waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalled();
+    });
+
+    expect(updateChain.set).toHaveBeenCalled();
+    expect(updateChain.where).toHaveBeenCalled();
+  });
+
+  it("should enforce minimum 1 cent cost", async () => {
+    mockUserPostsFindFirst.mockResolvedValue({ post: mockPost });
+    mockCreditBalancesFindFirst.mockResolvedValue({ balanceCents: 500 });
+    setupSelectChains();
+
+    const insertValues: Array<Record<string, unknown>> = [];
+    mockInsert.mockReturnValue({
+      values: vi.fn().mockImplementation((vals: Record<string, unknown>) => {
+        insertValues.push(vals);
+        return Promise.resolve(undefined);
+      }),
+    });
+    setupUpdateChain();
+
+    const textPromise = Promise.resolve("Response");
+    mockStreamText.mockReturnValue({
+      toTextStreamResponse: () =>
+        new Response("stream", { headers: { "Content-Type": "text/event-stream" } }),
+      text: textPromise,
+      usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
+      // Very tiny cost — less than 1 cent
+      providerMetadata: Promise.resolve({ openrouter: { cost: 0.001 } }),
+    });
+
+    const req = makePostRequest({ postId: "post-1", message: "Hello", modelId: "openai/gpt-4o-mini" });
+    await POST(req);
+
+    await textPromise;
+    await vi.waitFor(() => {
+      // Find the ai_usage_log insert (the one with costCents)
+      const usageInsert = insertValues.find((v) => "costCents" in v);
+      expect(usageInsert).toBeDefined();
+      expect(usageInsert!.costCents).toBe(1); // minimum 1 cent
+    });
+  });
+
+  it("should create usage log entry after streaming", async () => {
+    mockUserPostsFindFirst.mockResolvedValue({ post: mockPost });
+    mockCreditBalancesFindFirst.mockResolvedValue({ balanceCents: 500 });
+    setupSelectChains();
+
+    const insertValues: Array<Record<string, unknown>> = [];
+    mockInsert.mockReturnValue({
+      values: vi.fn().mockImplementation((vals: Record<string, unknown>) => {
+        insertValues.push(vals);
+        return Promise.resolve(undefined);
+      }),
+    });
+    setupUpdateChain();
+
+    const textPromise = Promise.resolve("Response");
+    mockStreamText.mockReturnValue({
+      toTextStreamResponse: () =>
+        new Response("stream", { headers: { "Content-Type": "text/event-stream" } }),
+      text: textPromise,
+      usage: Promise.resolve({ inputTokens: 200, outputTokens: 100 }),
+      providerMetadata: Promise.resolve({ openrouter: { cost: 0.05 } }),
+    });
+
+    const req = makePostRequest({ postId: "post-1", message: "Hello", modelId: "openai/gpt-4o" });
+    await POST(req);
+
+    await textPromise;
+    await vi.waitFor(() => {
+      const usageInsert = insertValues.find((v) => "costCents" in v);
+      expect(usageInsert).toBeDefined();
+      expect(usageInsert!.userId).toBe("user-1");
+      expect(usageInsert!.postId).toBe("post-1");
+      expect(usageInsert!.modelId).toBe("openai/gpt-4o");
+      expect(usageInsert!.provider).toBe("openrouter");
+      expect(usageInsert!.promptTokens).toBe(200);
+      expect(usageInsert!.completionTokens).toBe(100);
+      expect(usageInsert!.costCents).toBe(5); // 0.05 * 100 = 5 cents
+    });
   });
 });
 

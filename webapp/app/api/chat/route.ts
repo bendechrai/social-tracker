@@ -29,18 +29,38 @@ type AiProvider =
 
 /**
  * Resolves the AI provider for the given user.
- * Priority: 1) User's stored Groq key, 2) Env Groq key, 3) Credit balance, 4) None
+ * If modelId is provided → try credits path (OpenRouter).
+ * If no modelId → try BYOK Groq path (user key, then env fallback).
+ * If neither works → none.
  */
 async function resolveAiProvider(
   userId: string,
   requestedModelId?: string
 ): Promise<AiProvider> {
+  // Path 1: modelId provided → use credits (OpenRouter)
+  if (requestedModelId) {
+    if (!isAllowedModel(requestedModelId)) {
+      return { type: "none" };
+    }
+
+    const balance = await db.query.creditBalances.findFirst({
+      where: eq(creditBalances.userId, userId),
+      columns: { balanceCents: true },
+    });
+
+    if (balance && balance.balanceCents > 0) {
+      return { type: "credits", modelId: requestedModelId };
+    }
+
+    return { type: "none" };
+  }
+
+  // Path 2: no modelId → try BYOK Groq
   const user = await db.query.users.findFirst({
     where: eq(users.id, userId),
     columns: { groqApiKey: true },
   });
 
-  // Priority 1: User has their own Groq API key
   if (user?.groqApiKey) {
     try {
       const apiKey = decrypt(user.groqApiKey);
@@ -50,23 +70,8 @@ async function resolveAiProvider(
     }
   }
 
-  // Priority 2: Fall back to env Groq key
   if (process.env.GROQ_API_KEY) {
     return { type: "groq", apiKey: process.env.GROQ_API_KEY };
-  }
-
-  // Priority 3: Credit balance with OpenRouter
-  const balance = await db.query.creditBalances.findFirst({
-    where: eq(creditBalances.userId, userId),
-    columns: { balanceCents: true },
-  });
-
-  if (balance && balance.balanceCents > 0) {
-    const modelId = requestedModelId ?? "google/gemini-2.0-flash-001";
-    if (!isAllowedModel(modelId)) {
-      return { type: "none" };
-    }
-    return { type: "credits", modelId };
   }
 
   return { type: "none" };

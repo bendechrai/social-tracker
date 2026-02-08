@@ -841,13 +841,14 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
   - Acceptance: Static allowlist of 9 models matching spec; endpoint fetches pricing from OpenRouter `GET /api/v1/models`, filters to allowlist, returns models with per-1M-token pricing; in-memory cache for 1 hour; falls back to static models on API error
   - Tests: 4 unit tests — returns filtered model list, caches for 1 hour, handles OpenRouter API error, only returns allowlisted models
 
-### In Progress
-
-- [ ] **Update `POST /api/chat` to support OpenRouter credits path**
+- [x] **Update `POST /api/chat` to support OpenRouter credits path**
   - Files: `webapp/app/api/chat/route.ts`
   - Spec: `specs/ai-credits.md` — Chat Route Changes
   - Acceptance: Accepts optional `modelId` field in request body; when `modelId` provided and user has credits, uses OpenRouter with that model; when no `modelId`, falls back to BYOK Groq; when neither available, returns error with code `NO_AI_ACCESS`; after OpenRouter streaming completes, reads cost from provider metadata, deducts from balance (minimum 1 cent), inserts `ai_usage_log` row
   - Tests: 8 unit tests — OpenRouter path with valid modelId and credits, Groq fallback when no modelId, NO_AI_ACCESS error when neither, invalid modelId rejected, zero balance rejects credits path, cost deducted from balance, minimum 1 cent cost, usage log entry created
+  - Also fixed: `resolveAiProvider` priority to match spec (modelId → credits, no modelId → Groq, neither → none)
+
+### In Progress
 
 - [ ] **Create `getUsageHistory` server action (paginated)**
   - Files: `webapp/app/actions/credits.ts`
@@ -941,9 +942,9 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
 | 31 | Welcome Wizard | 5 | **COMPLETE** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **COMPLETE** | Phases 25-27, 30 | HIGH |
 | 33 | AI Assistant Improvements | 10 | **COMPLETE** | Phase 30 | HIGH |
-| 34 | AI Credits System | 20 | **IN PROGRESS** (9/20) | Phase 33 | HIGH |
+| 34 | AI Credits System | 20 | **IN PROGRESS** (10/20) | Phase 33 | HIGH |
 
-**Total Remaining Tasks: 11**
+**Total Remaining Tasks: 10**
 
 ### Environment Variables Required
 ```bash
