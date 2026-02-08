@@ -1,10 +1,10 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { posts, userPosts, userPostTags, tags, subreddits, users } from "@/drizzle/schema";
+import { posts, userPosts, userPostTags, tags, subreddits, users, comments } from "@/drizzle/schema";
 import { getCurrentUserId } from "./users";
 import { postStatusSchema, type PostStatus } from "@/lib/validations";
-import { fetchRedditPosts, type FetchedPost } from "@/lib/reddit";
+import { fetchRedditPosts, type FetchedPost, type FetchedComment } from "@/lib/reddit";
 import { eq, and, desc, inArray, notInArray, sql, isNotNull, gt, isNull, or, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { sendEmail } from "@/lib/email";
@@ -590,6 +590,42 @@ export async function fetchPostsForAllUsers(
   }
 
   return { newUserPostCount };
+}
+
+/**
+ * Upsert comments into the global comments table.
+ * Deduplicates by reddit_id (onConflictDoNothing).
+ */
+export async function upsertComments(
+  fetchedComments: FetchedComment[]
+): Promise<{ upsertedCount: number }> {
+  if (fetchedComments.length === 0) {
+    return { upsertedCount: 0 };
+  }
+
+  let upsertedCount = 0;
+
+  for (const comment of fetchedComments) {
+    const result = await db
+      .insert(comments)
+      .values({
+        redditId: comment.redditId,
+        postRedditId: comment.postRedditId,
+        parentRedditId: comment.parentRedditId,
+        author: comment.author,
+        body: comment.body,
+        score: comment.score,
+        redditCreatedAt: comment.redditCreatedAt,
+      })
+      .onConflictDoNothing({ target: comments.redditId })
+      .returning();
+
+    if (result[0]) {
+      upsertedCount++;
+    }
+  }
+
+  return { upsertedCount };
 }
 
 // Fetch new posts from Reddit

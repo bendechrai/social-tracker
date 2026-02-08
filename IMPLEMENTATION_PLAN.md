@@ -515,13 +515,13 @@ Dedicated page for viewing a Reddit post with comments and AI chat. Adds `commen
 
 ### Backlog (Phase 30)
 
-- [ ] **Fetch comments from Arctic Shift during cron cycle**
-  - Files: `webapp/lib/reddit.ts`, `webapp/app/api/cron/fetch-posts/route.ts`
+- [x] **Fetch comments from Arctic Shift during cron cycle**
+  - Files: `webapp/lib/reddit.ts`, `webapp/app/actions/posts.ts`, `webapp/app/api/cron/fetch-posts/route.ts`
   - Spec: `specs/post-detail.md` — Comment Fetching
   - Acceptance: After fetching posts for a subreddit, fetch top ~50 comments per post from Arctic Shift comments endpoint (`/api/comments/search?link_id={post_id}`); upsert into `comments` table by `reddit_id`
-  - Tests: Unit test for comment fetch + upsert, deduplication, limit of 50 per post
+  - Tests: 6 fetchRedditComments tests (parse, prefix strip, limit 50, API error, missing data, top-level parent), 3 upsertComments tests (empty, insert, dedup), 3 cron integration tests (comments fetched per post, no comments for empty posts, comments passed to upsert). All 845 tests pass.
 
-- [ ] **Create `getPost` server action for post detail data**
+- [ ] **Create `getPost` server action for post detail data** ← NEXT
   - Files: `webapp/app/actions/posts.ts`
   - Spec: `specs/post-detail.md` — Route (data loading)
   - Acceptance: Returns full post content + user_post status/tags + threaded comments (sorted by score) for authenticated user; returns null if post doesn't exist or user has no association

@@ -4,6 +4,8 @@
 
 const ARCTIC_SHIFT_POSTS_URL =
   "https://arctic-shift.photon-reddit.com/api/posts/search";
+const ARCTIC_SHIFT_COMMENTS_URL =
+  "https://arctic-shift.photon-reddit.com/api/comments/search";
 
 // Rate limit tracking from response headers
 let rateLimitRemaining: number | null = null;
@@ -26,6 +28,26 @@ interface ArcticShiftPost {
 
 interface ArcticShiftResponse {
   data: ArcticShiftPost[];
+}
+
+interface ArcticShiftComment {
+  id: string;
+  link_id: string;
+  parent_id: string;
+  author: string;
+  body: string;
+  score: number;
+  created_utc: number;
+}
+
+export interface FetchedComment {
+  redditId: string;
+  postRedditId: string;
+  parentRedditId: string | null;
+  author: string;
+  body: string;
+  score: number;
+  redditCreatedAt: Date;
 }
 
 export interface FetchedPost {
@@ -219,6 +241,78 @@ export async function fetchRedditPosts(
   posts.sort((a, b) => b.redditCreatedAt.getTime() - a.redditCreatedAt.getTime());
 
   return posts;
+}
+
+/**
+ * Parse a single Arctic Shift comment into our FetchedComment format.
+ * Prefixes reddit_id with t1_ and link_id/parent_id as appropriate.
+ */
+function parseComment(comment: ArcticShiftComment): FetchedComment {
+  const redditId = comment.id.startsWith("t1_")
+    ? comment.id
+    : `t1_${comment.id}`;
+  const postRedditId = comment.link_id.startsWith("t3_")
+    ? comment.link_id
+    : `t3_${comment.link_id}`;
+
+  // parent_id can be a post (t3_) or comment (t1_).
+  // If parent_id equals link_id it's a top-level comment → null.
+  let parentRedditId: string | null = null;
+  if (comment.parent_id && comment.parent_id !== comment.link_id) {
+    parentRedditId = comment.parent_id.startsWith("t1_")
+      ? comment.parent_id
+      : `t1_${comment.parent_id}`;
+  }
+
+  return {
+    redditId,
+    postRedditId,
+    parentRedditId,
+    author: comment.author,
+    body: comment.body ?? "",
+    score: comment.score ?? 0,
+    redditCreatedAt: new Date(comment.created_utc * 1000),
+  };
+}
+
+/**
+ * Fetch top comments for a single post from Arctic Shift.
+ *
+ * @param postRedditId - Reddit post ID (with t3_ prefix, e.g. "t3_abc123")
+ * @param limit - Maximum number of comments to fetch (default 50)
+ * @returns Array of parsed comments, sorted by score descending
+ */
+export async function fetchRedditComments(
+  postRedditId: string,
+  limit = 50
+): Promise<FetchedComment[]> {
+  try {
+    // Strip t3_ prefix for the Arctic Shift API query
+    const linkId = postRedditId.startsWith("t3_")
+      ? postRedditId.slice(3)
+      : postRedditId;
+
+    const url = new URL(ARCTIC_SHIFT_COMMENTS_URL);
+    url.searchParams.set("link_id", linkId);
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("sort", "desc");
+    url.searchParams.set("sort_type", "score");
+
+    const response = await fetchWithRetry(url.toString());
+    const data = (await response.json()) as { data?: ArcticShiftComment[] };
+
+    if (!data.data || !Array.isArray(data.data)) {
+      return [];
+    }
+
+    return data.data.map(parseComment);
+  } catch (error) {
+    console.error(
+      `Error fetching comments for ${postRedditId} from Arctic Shift:`,
+      error
+    );
+    return [];
+  }
 }
 
 /**

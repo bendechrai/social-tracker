@@ -47,14 +47,17 @@ vi.mock("@/lib/db", () => ({
 
 // Mock reddit fetcher
 const mockFetchRedditPosts = vi.fn();
+const mockFetchRedditComments = vi.fn();
 vi.mock("@/lib/reddit", () => ({
   fetchRedditPosts: (...args: unknown[]) => mockFetchRedditPosts(...args),
+  fetchRedditComments: (...args: unknown[]) => mockFetchRedditComments(...args),
 }));
 
 // Mock post actions
 const mockFetchPostsForAllUsers = vi.fn();
 const mockGetLastPostTimestampPerSubreddit = vi.fn();
 const mockSendNotificationEmails = vi.fn();
+const mockUpsertComments = vi.fn();
 vi.mock("@/app/actions/posts", () => ({
   fetchPostsForAllUsers: (...args: unknown[]) =>
     mockFetchPostsForAllUsers(...args),
@@ -62,6 +65,8 @@ vi.mock("@/app/actions/posts", () => ({
     mockGetLastPostTimestampPerSubreddit(...args),
   sendNotificationEmails: (...args: unknown[]) =>
     mockSendNotificationEmails(...args),
+  upsertComments: (...args: unknown[]) =>
+    mockUpsertComments(...args),
 }));
 
 // Mock drizzle-orm operators (preserve relations for schema imports)
@@ -92,6 +97,10 @@ describe("GET /api/cron/fetch-posts", () => {
     mockFetchRedditPosts.mockResolvedValue([]);
     // Default: fan-out returns 0
     mockFetchPostsForAllUsers.mockResolvedValue({ newUserPostCount: 0 });
+    // Default: no comments fetched
+    mockFetchRedditComments.mockResolvedValue([]);
+    // Default: upsert comments
+    mockUpsertComments.mockResolvedValue({ upsertedCount: 0 });
     // Default: notification emails
     mockSendNotificationEmails.mockResolvedValue({ sent: 0, skipped: 0 });
     // Default: upsert succeeds
@@ -349,5 +358,110 @@ describe("GET /api/cron/fetch-posts", () => {
     expect(callArg.get("golang")).toBe(
       Math.floor(lastPostDate.getTime() / 1000)
     );
+  });
+
+  it("should fetch comments for each fetched post", async () => {
+    const mockPosts = [
+      {
+        redditId: "t3_post1",
+        title: "Post 1",
+        body: null,
+        author: "user1",
+        subreddit: "nextjs",
+        permalink: "/r/nextjs/post1",
+        url: null,
+        redditCreatedAt: new Date(),
+        score: 10,
+        numComments: 5,
+        isSelf: true,
+        isNsfw: false,
+      },
+      {
+        redditId: "t3_post2",
+        title: "Post 2",
+        body: null,
+        author: "user2",
+        subreddit: "nextjs",
+        permalink: "/r/nextjs/post2",
+        url: null,
+        redditCreatedAt: new Date(),
+        score: 20,
+        numComments: 3,
+        isSelf: true,
+        isNsfw: false,
+      },
+    ];
+    mockSelectDistinctFrom.mockResolvedValue([{ name: "nextjs" }]);
+    mockSelectWhere.mockResolvedValue([]);
+    mockFetchRedditPosts.mockResolvedValue(mockPosts);
+    mockFetchRedditComments.mockResolvedValue([
+      {
+        redditId: "t1_comment1",
+        postRedditId: "t3_post1",
+        parentRedditId: null,
+        author: "commenter",
+        body: "Nice!",
+        score: 5,
+        redditCreatedAt: new Date(),
+      },
+    ]);
+
+    await GET();
+
+    // fetchRedditComments called once per post
+    expect(mockFetchRedditComments).toHaveBeenCalledTimes(2);
+    expect(mockFetchRedditComments).toHaveBeenCalledWith("t3_post1");
+    expect(mockFetchRedditComments).toHaveBeenCalledWith("t3_post2");
+    // upsertComments called once per post
+    expect(mockUpsertComments).toHaveBeenCalledTimes(2);
+  });
+
+  it("should not fetch comments when no posts are fetched", async () => {
+    mockSelectDistinctFrom.mockResolvedValue([{ name: "nextjs" }]);
+    mockSelectWhere.mockResolvedValue([]);
+    mockFetchRedditPosts.mockResolvedValue([]);
+
+    await GET();
+
+    expect(mockFetchRedditComments).not.toHaveBeenCalled();
+    expect(mockUpsertComments).not.toHaveBeenCalled();
+  });
+
+  it("should pass fetched comments to upsertComments", async () => {
+    const mockPosts = [
+      {
+        redditId: "t3_abc",
+        title: "Test",
+        body: null,
+        author: "user",
+        subreddit: "test",
+        permalink: "/r/test/abc",
+        url: null,
+        redditCreatedAt: new Date(),
+        score: 1,
+        numComments: 1,
+        isSelf: true,
+        isNsfw: false,
+      },
+    ];
+    const mockComments = [
+      {
+        redditId: "t1_xyz",
+        postRedditId: "t3_abc",
+        parentRedditId: null,
+        author: "commenter",
+        body: "Hello",
+        score: 3,
+        redditCreatedAt: new Date(),
+      },
+    ];
+    mockSelectDistinctFrom.mockResolvedValue([{ name: "test" }]);
+    mockSelectWhere.mockResolvedValue([]);
+    mockFetchRedditPosts.mockResolvedValue(mockPosts);
+    mockFetchRedditComments.mockResolvedValue(mockComments);
+
+    await GET();
+
+    expect(mockUpsertComments).toHaveBeenCalledWith(mockComments);
   });
 });

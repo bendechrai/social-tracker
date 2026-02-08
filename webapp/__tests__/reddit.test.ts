@@ -16,7 +16,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "@/mocks/server";
-import { fetchRedditPosts, resetRateLimitState, verifySubredditExists } from "@/lib/reddit";
+import { fetchRedditPosts, fetchRedditComments, resetRateLimitState, verifySubredditExists } from "@/lib/reddit";
 
 /** Helper: build a Map from subreddit names using a shared after-timestamp. */
 function toMap(subreddits: string[], afterTimestamp?: number): Map<string, number> {
@@ -569,6 +569,149 @@ describe("fetchRedditPosts", () => {
       expect(capturedTimestamps.get("postgresql")).toBe(recentTs);
       expect(capturedTimestamps.get("database")).toBe(oldTs);
     });
+  });
+});
+
+describe("fetchRedditComments", () => {
+  beforeEach(() => {
+    resetRateLimitState();
+  });
+
+  it("fetches comments for a post and returns parsed results", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    server.use(
+      http.get(
+        "https://arctic-shift.photon-reddit.com/api/comments/search",
+        () => {
+          return HttpResponse.json({
+            data: [
+              {
+                id: "comment1",
+                link_id: "post1",
+                parent_id: "post1",
+                author: "user1",
+                body: "Great post!",
+                score: 15,
+                created_utc: now - 1800,
+              },
+              {
+                id: "comment2",
+                link_id: "post1",
+                parent_id: "t1_comment1",
+                author: "user2",
+                body: "I agree!",
+                score: 5,
+                created_utc: now - 900,
+              },
+            ],
+          });
+        }
+      )
+    );
+
+    const result = await fetchRedditComments("t3_post1");
+    expect(result.length).toBe(2);
+
+    expect(result[0]!.redditId).toBe("t1_comment1");
+    expect(result[0]!.postRedditId).toBe("t3_post1");
+    expect(result[0]!.parentRedditId).toBeNull(); // top-level
+    expect(result[0]!.author).toBe("user1");
+    expect(result[0]!.body).toBe("Great post!");
+    expect(result[0]!.score).toBe(15);
+
+    expect(result[1]!.redditId).toBe("t1_comment2");
+    expect(result[1]!.parentRedditId).toBe("t1_comment1"); // reply
+  });
+
+  it("strips t3_ prefix for API query parameter", async () => {
+    let capturedUrl = "";
+    server.use(
+      http.get(
+        "https://arctic-shift.photon-reddit.com/api/comments/search",
+        ({ request }) => {
+          capturedUrl = request.url;
+          return HttpResponse.json({ data: [] });
+        }
+      )
+    );
+
+    await fetchRedditComments("t3_abc123");
+
+    const url = new URL(capturedUrl);
+    expect(url.searchParams.get("link_id")).toBe("abc123");
+  });
+
+  it("limits to 50 comments by default", async () => {
+    let capturedUrl = "";
+    server.use(
+      http.get(
+        "https://arctic-shift.photon-reddit.com/api/comments/search",
+        ({ request }) => {
+          capturedUrl = request.url;
+          return HttpResponse.json({ data: [] });
+        }
+      )
+    );
+
+    await fetchRedditComments("t3_test");
+
+    const url = new URL(capturedUrl);
+    expect(url.searchParams.get("limit")).toBe("50");
+  });
+
+  it("handles API errors gracefully and returns empty array", async () => {
+    server.use(
+      http.get(
+        "https://arctic-shift.photon-reddit.com/api/comments/search",
+        () => {
+          return new HttpResponse(null, { status: 404 });
+        }
+      )
+    );
+
+    const result = await fetchRedditComments("t3_test");
+    expect(result).toEqual([]);
+  }, 15000);
+
+  it("handles missing data array gracefully", async () => {
+    server.use(
+      http.get(
+        "https://arctic-shift.photon-reddit.com/api/comments/search",
+        () => {
+          return HttpResponse.json({});
+        }
+      )
+    );
+
+    const result = await fetchRedditComments("t3_test");
+    expect(result).toEqual([]);
+  });
+
+  it("handles top-level comments (parent_id equals link_id)", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    server.use(
+      http.get(
+        "https://arctic-shift.photon-reddit.com/api/comments/search",
+        () => {
+          return HttpResponse.json({
+            data: [
+              {
+                id: "toplevel",
+                link_id: "mypost",
+                parent_id: "mypost",
+                author: "author",
+                body: "Top comment",
+                score: 10,
+                created_utc: now - 1000,
+              },
+            ],
+          });
+        }
+      )
+    );
+
+    const result = await fetchRedditComments("t3_mypost");
+    expect(result[0]!.parentRedditId).toBeNull();
   });
 });
 

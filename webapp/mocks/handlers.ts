@@ -39,4 +39,36 @@ export const handlers = [
       );
     }
   ),
+  // Mock Arctic Shift comment search endpoint
+  http.get(
+    "https://arctic-shift.photon-reddit.com/api/comments/search",
+    ({ request }) => {
+      const url = new URL(request.url);
+      const linkId = url.searchParams.get("link_id") ?? "unknown";
+
+      return HttpResponse.json(
+        {
+          data: [
+            {
+              id: "mock_comment_1",
+              link_id: linkId,
+              parent_id: linkId,
+              author: "mock_commenter",
+              body: "This is a mock comment.",
+              score: 10,
+              created_utc: Math.floor(Date.now() / 1000) - 900,
+            },
+          ],
+        },
+        {
+          headers: {
+            "X-RateLimit-Remaining": "99",
+            "X-RateLimit-Reset": String(
+              Math.floor(Date.now() / 1000) + 60
+            ),
+          },
+        }
+      );
+    }
+  ),
 ];

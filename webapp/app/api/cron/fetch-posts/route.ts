@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { subreddits, subredditFetchStatus } from "@/drizzle/schema";
 import { sql, inArray } from "drizzle-orm";
-import { fetchRedditPosts } from "@/lib/reddit";
+import { fetchRedditPosts, fetchRedditComments } from "@/lib/reddit";
 import {
   fetchPostsForAllUsers,
   getLastPostTimestampPerSubreddit,
   sendNotificationEmails,
+  upsertComments,
 } from "@/app/actions/posts";
 
 export async function GET() {
@@ -91,6 +92,12 @@ export async function GET() {
 
       // Fan out to all subscribers
       await fetchPostsForAllUsers(name, fetchedPosts);
+
+      // Fetch comments for each post (top ~50 per post)
+      for (const post of fetchedPosts) {
+        const fetchedComments = await fetchRedditComments(post.redditId);
+        await upsertComments(fetchedComments);
+      }
 
       // Upsert subreddit_fetch_status
       await db

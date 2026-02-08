@@ -136,6 +136,7 @@ import {
   getLastPostTimestampPerSubreddit,
   fetchNewPosts,
   fetchPostsForAllUsers,
+  upsertComments,
 } from "@/app/actions/posts";
 
 // Helper to create a mock post (global, shared)
@@ -1544,5 +1545,77 @@ describe("post server actions", () => {
       // No new user_posts created (conflict)
       expect(result.newUserPostCount).toBe(0);
     });
+  });
+});
+
+describe("upsertComments", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns zero count for empty comments array", async () => {
+    const result = await upsertComments([]);
+    expect(result.upsertedCount).toBe(0);
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("inserts comments into the database", async () => {
+    mockReturning.mockResolvedValue([{ id: "db-comment-1" }]);
+
+    const result = await upsertComments([
+      {
+        redditId: "t1_abc",
+        postRedditId: "t3_post1",
+        parentRedditId: null,
+        author: "user1",
+        body: "Great post!",
+        score: 10,
+        redditCreatedAt: new Date(),
+      },
+    ]);
+
+    expect(result.upsertedCount).toBe(1);
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        redditId: "t1_abc",
+        postRedditId: "t3_post1",
+        author: "user1",
+        body: "Great post!",
+      })
+    );
+  });
+
+  it("handles deduplication via onConflictDoNothing", async () => {
+    // First insert succeeds, second conflicts (returns empty)
+    mockReturning
+      .mockResolvedValueOnce([{ id: "db-comment-1" }])
+      .mockResolvedValueOnce([]);
+
+    const comments = [
+      {
+        redditId: "t1_abc",
+        postRedditId: "t3_post1",
+        parentRedditId: null,
+        author: "user1",
+        body: "First comment",
+        score: 10,
+        redditCreatedAt: new Date(),
+      },
+      {
+        redditId: "t1_def",
+        postRedditId: "t3_post1",
+        parentRedditId: "t1_abc",
+        author: "user2",
+        body: "Second comment (duplicate)",
+        score: 5,
+        redditCreatedAt: new Date(),
+      },
+    ];
+
+    const result = await upsertComments(comments);
+
+    expect(result.upsertedCount).toBe(1); // Only 1 actually inserted
+    expect(mockInsert).toHaveBeenCalledTimes(2);
   });
 });
