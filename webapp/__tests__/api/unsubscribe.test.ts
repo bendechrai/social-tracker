@@ -6,6 +6,8 @@
  * - Expired token returns 400
  * - Invalid token returns 400
  * - Missing token returns 400
+ * - Arcjet rate limit denial returns 429
+ * - Arcjet non-rate-limit denial returns 403
  *
  * GET tests:
  * - Valid token returns HTML confirmation page (does not modify DB)
@@ -36,6 +38,18 @@ vi.mock("@/lib/tokens", () => ({
   verifySignedToken: (token: unknown) => mockVerifySignedToken(token),
 }));
 
+// Mock Arcjet
+const mockProtect = vi.fn();
+vi.mock("@/lib/arcjet", () => ({
+  default: {
+    withRule: () => ({ protect: (...args: unknown[]) => mockProtect(...args) }),
+  },
+}));
+
+vi.mock("@arcjet/next", () => ({
+  slidingWindow: vi.fn().mockReturnValue([]),
+}));
+
 // Import AFTER mocks
 import { POST, GET } from "@/app/api/unsubscribe/route";
 
@@ -49,6 +63,8 @@ function makeRequest(token?: string, method = "POST"): NextRequest {
 describe("POST /api/unsubscribe", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: Arcjet allows request
+    mockProtect.mockResolvedValue({ isDenied: () => false });
   });
 
   it("unsubscribes user with valid token", async () => {
@@ -94,6 +110,36 @@ describe("POST /api/unsubscribe", () => {
     expect(res.status).toBe(400);
     expect(data.error).toBe("Missing token");
     expect(mockVerifySignedToken).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 when Arcjet rate limit is denied", async () => {
+    mockProtect.mockResolvedValueOnce({
+      isDenied: () => true,
+      reason: { isRateLimit: () => true },
+    });
+
+    const res = await POST(makeRequest("valid-token"));
+    const data = await res.json();
+
+    expect(res.status).toBe(429);
+    expect(data.error).toBe("Too many requests");
+    expect(mockVerifySignedToken).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when Arcjet denies for non-rate-limit reason", async () => {
+    mockProtect.mockResolvedValueOnce({
+      isDenied: () => true,
+      reason: { isRateLimit: () => false },
+    });
+
+    const res = await POST(makeRequest("valid-token"));
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.error).toBe("Forbidden");
+    expect(mockVerifySignedToken).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
 

@@ -3,6 +3,12 @@ import { db } from "@/lib/db";
 import { users } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import { verifySignedToken } from "@/lib/tokens";
+import aj from "@/lib/arcjet";
+import { slidingWindow } from "@arcjet/next";
+
+const unsubscribeAj = aj.withRule(
+  slidingWindow({ mode: "LIVE", interval: "1m", max: 5 })
+);
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
@@ -59,6 +65,15 @@ function renderPage(title: string, body: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  // Arcjet rate limit check
+  const decision = await unsubscribeAj.protect(request);
+  if (decision.isDenied()) {
+    if (decision.reason.isRateLimit()) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const token = request.nextUrl.searchParams.get("token");
 
   if (!token) {
