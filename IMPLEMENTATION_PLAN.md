@@ -610,9 +610,9 @@ Step-by-step onboarding wizard for new users with overlay prompts on actual sett
 
 ---
 
-## Phase 32: Arcjet Security — IN PROGRESS
+## Phase 32: Arcjet Security — COMPLETE
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 **Priority: HIGH — New spec**
 **Dependencies: Phases 25-27, 30 (all routes that need protection must exist first)**
 **Spec: `specs/arcjet-security.md`**
@@ -621,7 +621,7 @@ Step-by-step onboarding wizard for new users with overlay prompts on actual sett
 
 Application-wide security using Arcjet for rate limiting, bot detection, email validation, and attack protection. Replaces hand-rolled rate limiters.
 
-### In Progress (Phase 32)
+### Completed (Phase 32)
 
 - [x] **Install `@arcjet/next` and create shared Arcjet client**
   - Files: `webapp/lib/arcjet.ts`, `webapp/package.json`
@@ -677,11 +677,11 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
   - Acceptance: Shield + rate limit (5 per min per IP) using `slidingWindow`; denied requests redirect to `/dashboard?verify_error=true` (consistent with endpoint's redirect pattern)
   - Tests: 2 unit tests (rate limit redirects to error, non-rate-limit denial redirects to error). All 941 tests pass.
 
-- [ ] **Add Arcjet protection to resend-verification endpoint** ← NEXT
+- [x] **Add Arcjet protection to resend-verification endpoint**
   - Files: `webapp/app/api/resend-verification/route.ts`
   - Spec: `specs/arcjet-security.md` — Resend Verification rules
-  - Acceptance: Shield + rate limit (1 per 5min per user ID)
-  - Tests: Unit test for rate limit denial
+  - Acceptance: Shield + rate limit (1 per 5min per user ID) using `slidingWindow` with `characteristics: ["userId"]`
+  - Tests: 2 unit tests (rate limit 429, non-rate-limit denial 403). All 943 tests pass.
 
 ---
 
@@ -707,9 +707,9 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 | 29 | NSFW Content Handling | 4 | **COMPLETE** | None | MODERATE |
 | 30 | Post Detail Page | 10 | **COMPLETE** | Phase 29 | HIGH |
 | 31 | Welcome Wizard | 5 | **COMPLETE** | None | MODERATE |
-| 32 | Arcjet Security | 10 | **IN PROGRESS** | Phases 25-27, 30 | HIGH |
+| 32 | Arcjet Security | 10 | **COMPLETE** | Phases 25-27, 30 | HIGH |
 
-**Total Remaining Tasks: 48**
+**Total Remaining Tasks: 0**
 
 ### Environment Variables Required
 ```bash
