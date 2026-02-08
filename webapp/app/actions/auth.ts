@@ -8,6 +8,26 @@ import { eq } from "drizzle-orm";
 import { auth, signOut } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import { buildWelcomeEmail } from "@/lib/email-templates";
+import aj from "@/lib/arcjet";
+import { protectSignup, request } from "@arcjet/next";
+
+const signupAj = aj.withRule(
+  protectSignup({
+    email: {
+      mode: "LIVE",
+      deny: ["DISPOSABLE", "INVALID", "NO_MX_RECORDS"],
+    },
+    bots: {
+      mode: "LIVE",
+      allow: [],
+    },
+    rateLimit: {
+      mode: "LIVE",
+      interval: "10m",
+      max: 5,
+    },
+  })
+);
 
 export type SignupResult = {
   success: boolean;
@@ -48,6 +68,23 @@ export async function signup(
   const passwordResult = passwordSchema.safeParse(password);
   if (!passwordResult.success) {
     return { success: false, error: passwordResult.error.issues[0]?.message ?? "Invalid password" };
+  }
+
+  // Arcjet protection: email validation, bot detection, rate limiting
+  const req = await request();
+  const decision = await signupAj.protect(req, { email });
+
+  if (decision.isDenied()) {
+    if (decision.reason.isRateLimit()) {
+      return { success: false, error: "Too many requests. Please try again later." };
+    }
+    if (decision.reason.isBot()) {
+      return { success: false, error: "Forbidden" };
+    }
+    if (decision.reason.isEmail()) {
+      return { success: false, error: "Invalid email address" };
+    }
+    return { success: false, error: "Forbidden" };
   }
 
   // Check if user already exists

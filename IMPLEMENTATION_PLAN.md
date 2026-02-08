@@ -629,13 +629,13 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
   - Acceptance: Base client configured with `ARCJET_KEY` env var and global Shield rule in LIVE mode
   - Tests: 2 unit tests verifying client creation with env var and Shield in LIVE mode, and default export
 
-- [ ] **Add Arcjet `protectSignup` to signup flow** ← NEXT
-  - Files: `webapp/app/actions/auth.ts` (or `webapp/app/api/auth/signup/route.ts` if refactored)
+- [x] **Add Arcjet `protectSignup` to signup flow**
+  - Files: `webapp/app/actions/auth.ts`
   - Spec: `specs/arcjet-security.md` — Signup rules
   - Acceptance: Email validation (block DISPOSABLE, INVALID, NO_MX_RECORDS), bot detection, rate limit (5 per 10min per IP)
-  - Tests: Unit test for rate limit denial (429), bot denial (403), email validation denial
+  - Tests: 3 unit tests — rate limit denial, bot denial, email validation denial. All 925 tests pass.
 
-- [ ] **Add Arcjet protection to login credentials authorize**
+- [ ] **Add Arcjet protection to login credentials authorize** ← NEXT
   - Files: `webapp/lib/auth.ts` or `webapp/lib/auth-utils.ts`
   - Spec: `specs/arcjet-security.md` — Login rules
   - Acceptance: Shield + bot detection + rate limit (10 per 5min per IP) on credentials authorize

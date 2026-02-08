@@ -20,6 +20,23 @@ vi.mock("bcrypt", () => ({
   },
 }));
 
+// Mock Arcjet
+const { mockProtect, mockRequest, mockProtectSignup } = vi.hoisted(() => {
+  const mockProtect = vi.fn();
+  const mockRequest = vi.fn().mockResolvedValue({ headers: {} });
+  const mockProtectSignup = vi.fn().mockReturnValue([]);
+  return { mockProtect, mockRequest, mockProtectSignup };
+});
+
+vi.mock("@/lib/arcjet", () => ({
+  default: { withRule: () => ({ protect: (...args: unknown[]) => mockProtect(...args) }) },
+}));
+
+vi.mock("@arcjet/next", () => ({
+  protectSignup: (...args: unknown[]) => mockProtectSignup(...args),
+  request: () => mockRequest(),
+}));
+
 // Mock database before importing actions
 const mockFindFirst = vi.fn();
 const mockInsert = vi.fn();
@@ -110,6 +127,11 @@ describe("auth server actions", () => {
       subject: "Welcome to Social Tracker",
       html: "<p>Welcome</p>",
       text: "Welcome",
+    });
+    // Default: Arcjet allows the request
+    mockProtect.mockResolvedValue({
+      isDenied: () => false,
+      reason: { isRateLimit: () => false, isBot: () => false, isEmail: () => false },
     });
   });
 
@@ -212,6 +234,59 @@ describe("auth server actions", () => {
 
         expect(result.success).toBe(false);
         expect(result.error).toContain("Password must contain at least one symbol");
+        expect(mockInsert).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("Arcjet protection", () => {
+      it("rejects when rate limited", async () => {
+        mockProtect.mockResolvedValueOnce({
+          isDenied: () => true,
+          reason: { isRateLimit: () => true, isBot: () => false, isEmail: () => false },
+        });
+
+        const result = await signup(
+          "user@example.com",
+          "ValidPassword123!",
+          "ValidPassword123!"
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("Too many requests. Please try again later.");
+        expect(mockInsert).not.toHaveBeenCalled();
+      });
+
+      it("rejects when bot detected", async () => {
+        mockProtect.mockResolvedValueOnce({
+          isDenied: () => true,
+          reason: { isRateLimit: () => false, isBot: () => true, isEmail: () => false },
+        });
+
+        const result = await signup(
+          "user@example.com",
+          "ValidPassword123!",
+          "ValidPassword123!"
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("Forbidden");
+        expect(mockInsert).not.toHaveBeenCalled();
+      });
+
+      it("rejects when email validation fails", async () => {
+        mockProtect.mockResolvedValueOnce({
+          isDenied: () => true,
+          reason: { isRateLimit: () => false, isBot: () => false, isEmail: () => true },
+        });
+
+        const result = await signup(
+          "user@disposable.com",
+          "ValidPassword123!",
+          "ValidPassword123!"
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("Invalid email address");
         expect(mockInsert).not.toHaveBeenCalled();
       });
     });
