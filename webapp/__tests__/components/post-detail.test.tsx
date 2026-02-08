@@ -40,17 +40,34 @@ vi.mock("next/navigation", () => ({
 const mockGetPost = vi.fn();
 const mockChangePostStatus = vi.fn();
 const mockUpdateResponseText = vi.fn();
+const mockGetChatMessages = vi.fn();
 
 vi.mock("@/app/actions/posts", () => ({
   getPost: (...args: unknown[]) => mockGetPost(...args),
   changePostStatus: (...args: unknown[]) => mockChangePostStatus(...args),
   updateResponseText: (...args: unknown[]) => mockUpdateResponseText(...args),
+  getChatMessages: (...args: unknown[]) => mockGetChatMessages(...args),
 }));
 
 const mockGetShowNsfw = vi.fn();
 
 vi.mock("@/app/actions/users", () => ({
   getShowNsfw: () => mockGetShowNsfw(),
+}));
+
+const mockHasGroqApiKey = vi.fn();
+
+vi.mock("@/app/actions/api-keys", () => ({
+  hasGroqApiKey: () => mockHasGroqApiKey(),
+}));
+
+// Mock ChatPanel to avoid complex rendering in post detail tests
+vi.mock("@/components/chat-panel", () => ({
+  ChatPanel: ({ postId, hasApiKey }: { postId: string; hasApiKey: boolean }) => (
+    <div data-testid="chat-panel" data-post-id={postId} data-has-api-key={String(hasApiKey)}>
+      AI Assistant
+    </div>
+  ),
 }));
 
 const mockToast = vi.fn();
@@ -111,6 +128,8 @@ describe("PostDetailPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetShowNsfw.mockResolvedValue(false);
+    mockHasGroqApiKey.mockResolvedValue(false);
+    mockGetChatMessages.mockResolvedValue([]);
   });
 
   it("renders post content with title, metadata, and tags", async () => {
@@ -235,7 +254,7 @@ describe("PostDetailPage", () => {
     expect(mockChangePostStatus).toHaveBeenCalledWith("post-uuid-1", "ignored");
   });
 
-  it("renders AI Assistant placeholder in right column", async () => {
+  it("renders ChatPanel in right column", async () => {
     mockGetPost.mockResolvedValue({
       success: true,
       post: makePostDetail(),
@@ -244,8 +263,10 @@ describe("PostDetailPage", () => {
     render(<PostDetailPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("AI Assistant")).toBeInTheDocument();
+      expect(screen.getByTestId("chat-panel")).toBeInTheDocument();
     });
+
+    expect(screen.getByTestId("chat-panel")).toHaveAttribute("data-post-id", "post-uuid-1");
   });
 
   it("shows back link to dashboard", async () => {

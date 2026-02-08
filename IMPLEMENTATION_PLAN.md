@@ -551,13 +551,13 @@ Dedicated page for viewing a Reddit post with comments and AI chat. Adds `commen
   - Acceptance: Deletes all `chat_messages` for authenticated user + given postId; returns 200
   - Tests: 3 unit tests — unauthorized (401), missing postId (400), successful clear. All 875 tests pass.
 
-- [ ] **Build AI chat panel component** ← NEXT
-  - Files: `webapp/components/chat-panel.tsx`
+- [x] **Build AI chat panel component**
+  - Files: `webapp/components/chat-panel.tsx`, `webapp/app/dashboard/posts/[id]/page.tsx`, `webapp/app/actions/posts.ts`
   - Spec: `specs/post-detail.md` — Right Column (AI Chat)
-  - Acceptance: Scrollable message list (user right-aligned, AI left-aligned as markdown), chat input with send button, "Clear Chat" button, loading indicator during streaming, disabled state with message when no Groq key, "Use as Response" button on AI messages to save to `user_posts.response_text` + copy to clipboard
-  - Tests: Component tests for: message rendering, disabled without API key, clear chat button, send button
+  - Acceptance: Scrollable message list (user right-aligned, AI left-aligned), chat input with send button, "Clear Chat" button, loading indicator during streaming, disabled state with message when no Groq key, "Use as Response" button on AI messages to save to `user_posts.response_text` + copy to clipboard
+  - Tests: 13 component tests (disabled state, input/send, messages, alignment, clear chat, Use as Response, streaming, errors). Integrated into post detail page with `hasGroqApiKey` check and `getChatMessages` for persisted history. All 888 tests pass.
 
-- [ ] **Make post cards clickable to navigate to detail page**
+- [ ] **Make post cards clickable to navigate to detail page** ← NEXT
   - Files: `webapp/components/post-card.tsx`
   - Spec: `specs/post-detail.md` — Dashboard Post Card Changes
   - Acceptance: Post card title and card itself link to `/dashboard/posts/:id`; existing action buttons (Ignore, Done, View on Reddit) remain on card

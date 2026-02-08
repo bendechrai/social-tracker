@@ -19,11 +19,13 @@ import {
   CopyIcon,
   ShieldAlertIcon,
 } from "lucide-react";
-import { getPost, changePostStatus, updateResponseText } from "@/app/actions/posts";
+import { getPost, changePostStatus, updateResponseText, getChatMessages } from "@/app/actions/posts";
 import { getShowNsfw } from "@/app/actions/users";
+import { hasGroqApiKey } from "@/app/actions/api-keys";
+import { ChatPanel } from "@/components/chat-panel";
 import { useToast } from "@/lib/hooks/use-toast";
 import type { PostStatus } from "@/lib/validations";
-import type { CommentData, PostDetailData } from "@/app/actions/posts";
+import type { CommentData, PostDetailData, ChatMessageData } from "@/app/actions/posts";
 
 function formatRelativeTime(date: Date): string {
   const now = new Date();
@@ -83,16 +85,22 @@ export default function PostDetailPage() {
   const [responseText, setResponseText] = React.useState("");
   const [isSaved, setIsSaved] = React.useState(false);
   const [saveTimeout, setSaveTimeout] = React.useState<NodeJS.Timeout | null>(null);
+  const [apiKeyConfigured, setApiKeyConfigured] = React.useState(false);
+  const [initialChatMessages, setInitialChatMessages] = React.useState<ChatMessageData[]>([]);
 
   const isBlurred = post?.isNsfw && !showNsfw && !revealed;
 
   React.useEffect(() => {
     async function load() {
-      const [result, nsfwPref] = await Promise.all([
+      const [result, nsfwPref, hasKey, chatMsgs] = await Promise.all([
         getPost(params.id),
         getShowNsfw(),
+        hasGroqApiKey(),
+        getChatMessages(params.id),
       ]);
       setShowNsfw(nsfwPref);
+      setApiKeyConfigured(hasKey);
+      setInitialChatMessages(chatMsgs);
       if (result.success) {
         setPost(result.post);
         setResponseText(result.post.responseText ?? "");
@@ -494,14 +502,15 @@ export default function PostDetailPage() {
 
           {/* Right column - AI Chat panel (~40%) */}
           <div className="lg:col-span-2">
-            <Card className="lg:sticky lg:top-6">
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold mb-4">AI Assistant</h3>
-                <p className="text-sm text-muted-foreground">
-                  AI chat will be available here. Add a Groq API key in Settings to use AI chat.
-                </p>
-              </CardContent>
-            </Card>
+            <ChatPanel
+              postId={post.id}
+              hasApiKey={apiKeyConfigured}
+              initialMessages={initialChatMessages.map((m) => ({
+                id: m.id,
+                role: m.role as "user" | "assistant",
+                content: m.content,
+              }))}
+            />
           </div>
         </div>
       </main>

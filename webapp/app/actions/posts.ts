@@ -1,11 +1,11 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { posts, userPosts, userPostTags, tags, subreddits, users, comments } from "@/drizzle/schema";
+import { posts, userPosts, userPostTags, tags, subreddits, users, comments, chatMessages } from "@/drizzle/schema";
 import { getCurrentUserId } from "./users";
 import { postStatusSchema, type PostStatus } from "@/lib/validations";
 import { fetchRedditPosts, type FetchedPost, type FetchedComment } from "@/lib/reddit";
-import { eq, and, desc, inArray, notInArray, sql, isNotNull, gt, isNull, or, lte } from "drizzle-orm";
+import { eq, and, desc, asc, inArray, notInArray, sql, isNotNull, gt, isNull, or, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { sendEmail } from "@/lib/email";
 import { buildNotificationEmail, type TaggedPost } from "@/lib/email-templates";
@@ -990,4 +990,37 @@ export async function sendNotificationEmails(
   }
 
   return { sent, skipped };
+}
+
+export interface ChatMessageData {
+  id: string;
+  role: string;
+  content: string;
+}
+
+/**
+ * Gets chat messages for the authenticated user and a specific post.
+ * Returns messages sorted by creation time ascending.
+ */
+export async function getChatMessages(
+  postId: string
+): Promise<ChatMessageData[]> {
+  const userId = await getCurrentUserId();
+
+  const messages = await db
+    .select({
+      id: chatMessages.id,
+      role: chatMessages.role,
+      content: chatMessages.content,
+    })
+    .from(chatMessages)
+    .where(
+      and(
+        eq(chatMessages.userId, userId),
+        eq(chatMessages.postId, postId)
+      )
+    )
+    .orderBy(asc(chatMessages.createdAt));
+
+  return messages;
 }
