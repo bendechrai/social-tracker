@@ -488,9 +488,9 @@ Blur NSFW post content by default with user preference to show it. Adds `is_nsfw
 
 ---
 
-## Phase 30: Post Detail Page — IN PROGRESS
+## Phase 30: Post Detail Page — COMPLETE
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 **Priority: HIGH — New spec**
 **Dependencies: Phase 29 (NSFW handling for detail page blur)**
 **Spec: `specs/post-detail.md`**
@@ -513,7 +513,7 @@ Dedicated page for viewing a Reddit post with comments and AI chat. Adds `commen
   - Acceptance: `chat_messages` table with `id` (uuid PK), `user_id` (uuid FK cascade), `post_id` (uuid FK cascade), `role` (varchar 20), `content` (text), `created_at` (timestamp); indexed on `(user_id, post_id, created_at)`; relations added to users and posts
   - Tests: Typecheck passes; all 833 tests pass; build passes
 
-### Backlog (Phase 30)
+### Completed (Phase 30 cont.)
 
 - [x] **Fetch comments from Arctic Shift during cron cycle**
   - Files: `webapp/lib/reddit.ts`, `webapp/app/actions/posts.ts`, `webapp/app/api/cron/fetch-posts/route.ts`
@@ -557,17 +557,17 @@ Dedicated page for viewing a Reddit post with comments and AI chat. Adds `commen
   - Acceptance: Scrollable message list (user right-aligned, AI left-aligned), chat input with send button, "Clear Chat" button, loading indicator during streaming, disabled state with message when no Groq key, "Use as Response" button on AI messages to save to `user_posts.response_text` + copy to clipboard
   - Tests: 13 component tests (disabled state, input/send, messages, alignment, clear chat, Use as Response, streaming, errors). Integrated into post detail page with `hasGroqApiKey` check and `getChatMessages` for persisted history. All 888 tests pass.
 
-- [ ] **Make post cards clickable to navigate to detail page** ← NEXT
-  - Files: `webapp/components/post-card.tsx`
+- [x] **Make post cards clickable to navigate to detail page**
+  - Files: `webapp/components/post-card.tsx`, `webapp/__tests__/components/post-card.test.tsx`, `webapp/__tests__/components/post-list.test.tsx`
   - Spec: `specs/post-detail.md` — Dashboard Post Card Changes
-  - Acceptance: Post card title and card itself link to `/dashboard/posts/:id`; existing action buttons (Ignore, Done, View on Reddit) remain on card
-  - Tests: Component test for link presence, click navigation
+  - Acceptance: Post card title and card itself link to `/dashboard/posts/:id`; existing action buttons (Ignore, Done, View on Reddit) remain on card; clicking buttons/links within the card does not trigger card navigation
+  - Tests: 4 new tests (card click navigates, button click does not navigate, View on Reddit does not navigate, title click navigates). All 892 tests pass.
 
 ---
 
-## Phase 31: Welcome Wizard — BACKLOG
+## Phase 31: Welcome Wizard — IN PROGRESS
 
-**Status: BACKLOG**
+**Status: IN PROGRESS**
 **Priority: MODERATE — New spec**
 **Dependencies: None**
 **Spec: `specs/welcome-wizard.md`**
@@ -705,7 +705,7 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 | 27 | Password Reset | 8 | **COMPLETE** | Phase 25 | HIGH |
 | 28 | Account Deletion | 2 | **COMPLETE** | None | HIGH |
 | 29 | NSFW Content Handling | 4 | **COMPLETE** | None | MODERATE |
-| 30 | Post Detail Page | 10 | **IN PROGRESS** | Phase 29 | HIGH |
+| 30 | Post Detail Page | 10 | **COMPLETE** | Phase 29 | HIGH |
 | 31 | Welcome Wizard | 5 | **BACKLOG** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **BACKLOG** | Phases 25-27, 30 | HIGH |
 

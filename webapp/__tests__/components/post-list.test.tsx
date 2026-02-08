@@ -12,6 +12,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PostList } from "@/components/post-list";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 function makePost(id: string, title: string) {
   return {
     id,

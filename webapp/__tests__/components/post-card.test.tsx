@@ -3,7 +3,7 @@
  *
  * Verifies that post cards correctly:
  * - Display post title, author, subreddit, score, and comments
- * - Link to the Reddit post
+ * - Link to the post detail page
  * - Show status-appropriate action buttons
  * - Render tags using TagBadge
  * - Truncate long body text
@@ -12,11 +12,17 @@
  * - Blur NSFW content when show_nsfw is off
  * - Show NSFW badge on NSFW posts
  * - Reveal NSFW content on click
+ * - Navigate to detail page on card click
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PostCard } from "@/components/post-card";
+
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
 
 function makePost(overrides: Partial<Parameters<typeof PostCard>[0]["post"]> = {}) {
   return {
@@ -48,6 +54,7 @@ describe("PostCard component", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPush.mockReset();
   });
 
   describe("rendering", () => {
@@ -56,15 +63,10 @@ describe("PostCard component", () => {
       expect(screen.getByText("Test Post Title")).toBeInTheDocument();
     });
 
-    it("renders the post title as a link to Reddit", () => {
+    it("renders the post title as a link to the detail page", () => {
       render(<PostCard {...defaultProps} />);
       const link = screen.getByText("Test Post Title").closest("a");
-      expect(link).toHaveAttribute(
-        "href",
-        "https://reddit.com/r/reactjs/comments/abc123/test_post/"
-      );
-      expect(link).toHaveAttribute("target", "_blank");
-      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+      expect(link).toHaveAttribute("href", "/dashboard/posts/post-1");
     });
 
     it("renders subreddit name with r/ prefix", () => {
@@ -505,6 +507,46 @@ describe("PostCard component", () => {
 
       // View on Reddit should be visible
       expect(screen.getByText("View on Reddit")).toBeInTheDocument();
+    });
+  });
+
+  describe("navigation to detail page", () => {
+    it("navigates to detail page when card body area is clicked", async () => {
+      const user = userEvent.setup();
+      render(<PostCard {...defaultProps} />);
+
+      // Click on the card's metadata area (not a button or link)
+      await user.click(screen.getByText("r/reactjs"));
+
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/posts/post-1");
+    });
+
+    it("does not navigate when clicking action buttons", async () => {
+      const user = userEvent.setup();
+      render(<PostCard {...defaultProps} />);
+
+      await user.click(screen.getByText("Ignore"));
+
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(defaultProps.onStatusChange).toHaveBeenCalledWith("ignored");
+    });
+
+    it("does not navigate when clicking View on Reddit link", async () => {
+      const user = userEvent.setup();
+      render(<PostCard {...defaultProps} />);
+
+      await user.click(screen.getByText("View on Reddit"));
+
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it("navigates when clicking post title link", async () => {
+      const user = userEvent.setup();
+      render(<PostCard {...defaultProps} />);
+
+      await user.click(screen.getByText("Test Post Title"));
+
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/posts/post-1");
     });
   });
 });

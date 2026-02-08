@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -64,12 +65,14 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 export function PostCard({ post, showNsfw, onStatusChange, onResponseUpdate }: PostCardProps) {
+  const router = useRouter();
   const [responseText, setResponseText] = React.useState(post.responseText ?? "");
   const [isSaved, setIsSaved] = React.useState(false);
   const [saveTimeout, setSaveTimeout] = React.useState<NodeJS.Timeout | null>(null);
   const [revealed, setRevealed] = React.useState(false);
 
   const isBlurred = post.isNsfw && !showNsfw && !revealed;
+  const detailUrl = `/dashboard/posts/${post.id}`;
 
   // Debounced save function
   const debouncedSave = React.useCallback(
@@ -108,8 +111,15 @@ export function PostCard({ post, showNsfw, onStatusChange, onResponseUpdate }: P
 
   const redditUrl = `https://reddit.com${post.permalink}`;
 
+  const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Don't navigate if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest("a, button, textarea, [role='button']")) return;
+    router.push(detailUrl);
+  };
+
   return (
-    <Card className="w-full">
+    <Card className="w-full cursor-pointer hover:shadow-md transition-shadow" onClick={handleCardClick}>
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -118,9 +128,11 @@ export function PostCard({ post, showNsfw, onStatusChange, onResponseUpdate }: P
                 <span className="blur-sm select-none">{post.title}</span>
               ) : (
                 <a
-                  href={redditUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={detailUrl}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push(detailUrl);
+                  }}
                   className="hover:underline"
                 >
                   {post.title}
