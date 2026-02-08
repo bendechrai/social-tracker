@@ -671,13 +671,13 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
   - Acceptance: Shield + rate limit (5 per min per IP) using `slidingWindow` on POST handler
   - Tests: 2 unit tests (rate limit 429, non-rate-limit denial 403). All 939 tests pass.
 
-- [ ] **Add Arcjet protection to verify-email endpoint** ← NEXT
+- [x] **Add Arcjet protection to verify-email endpoint**
   - Files: `webapp/app/api/verify-email/route.ts`
   - Spec: `specs/arcjet-security.md` — Verify Email rules
-  - Acceptance: Shield + rate limit (5 per min per IP)
-  - Tests: Unit test for rate limit denial
+  - Acceptance: Shield + rate limit (5 per min per IP) using `slidingWindow`; denied requests redirect to `/dashboard?verify_error=true` (consistent with endpoint's redirect pattern)
+  - Tests: 2 unit tests (rate limit redirects to error, non-rate-limit denial redirects to error). All 941 tests pass.
 
-- [ ] **Add Arcjet protection to resend-verification endpoint**
+- [ ] **Add Arcjet protection to resend-verification endpoint** ← NEXT
   - Files: `webapp/app/api/resend-verification/route.ts`
   - Spec: `specs/arcjet-security.md` — Resend Verification rules
   - Acceptance: Shield + rate limit (1 per 5min per user ID)

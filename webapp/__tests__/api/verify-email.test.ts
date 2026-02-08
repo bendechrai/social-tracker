@@ -31,6 +31,18 @@ vi.mock("@/lib/tokens", () => ({
   verifySignedToken: (token: unknown) => mockVerifySignedToken(token),
 }));
 
+// Mock Arcjet
+const mockProtect = vi.fn();
+vi.mock("@/lib/arcjet", () => ({
+  default: {
+    withRule: () => ({ protect: (...args: unknown[]) => mockProtect(...args) }),
+  },
+}));
+
+vi.mock("@arcjet/next", () => ({
+  slidingWindow: vi.fn().mockReturnValue([]),
+}));
+
 // Import AFTER mocks
 import { GET } from "@/app/api/verify-email/route";
 
@@ -44,6 +56,8 @@ function makeRequest(token?: string): NextRequest {
 describe("GET /api/verify-email", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: Arcjet allows request
+    mockProtect.mockResolvedValue({ isDenied: () => false });
   });
 
   it("verifies email with valid token and redirects to dashboard", async () => {
@@ -110,5 +124,35 @@ describe("GET /api/verify-email", () => {
     expect(mockUpdateSet).toHaveBeenCalledWith({
       emailVerified: expect.any(Date),
     });
+  });
+
+  it("redirects to error when Arcjet rate limit is denied", async () => {
+    mockProtect.mockResolvedValueOnce({
+      isDenied: () => true,
+      reason: { isRateLimit: () => true },
+    });
+
+    const res = await GET(makeRequest("valid-token"));
+
+    expect(res.status).toBe(307);
+    const location = res.headers.get("location");
+    expect(location).toContain("/dashboard?verify_error=true");
+    expect(mockVerifySignedToken).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("redirects to error when Arcjet denies for non-rate-limit reason", async () => {
+    mockProtect.mockResolvedValueOnce({
+      isDenied: () => true,
+      reason: { isRateLimit: () => false },
+    });
+
+    const res = await GET(makeRequest("valid-token"));
+
+    expect(res.status).toBe(307);
+    const location = res.headers.get("location");
+    expect(location).toContain("/dashboard?verify_error=true");
+    expect(mockVerifySignedToken).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
