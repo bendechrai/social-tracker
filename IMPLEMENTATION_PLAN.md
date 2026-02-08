@@ -835,13 +835,13 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
   - Acceptance: `/api/webhooks/stripe` accessible without authentication
   - Tests: 2 middleware tests — no 401 for /api/webhooks/stripe, matcher contains api/webhooks
 
-### In Progress
-
-- [ ] **Create curated model list constant and `GET /api/models` endpoint**
-  - Files: `webapp/app/api/models/route.ts`
+- [x] **Create curated model list constant and `GET /api/models` endpoint**
+  - Files: `webapp/lib/ai-models.ts`, `webapp/app/api/models/route.ts`, `webapp/__tests__/api/models.test.ts`
   - Spec: `specs/ai-credits.md` — Curated Model List, Model Pricing Endpoint
-  - Acceptance: Static allowlist of ~9 models; endpoint fetches pricing from OpenRouter `GET /api/v1/models`, filters to allowlist, returns models with per-1M-token pricing; in-memory cache for 1 hour
+  - Acceptance: Static allowlist of 9 models matching spec; endpoint fetches pricing from OpenRouter `GET /api/v1/models`, filters to allowlist, returns models with per-1M-token pricing; in-memory cache for 1 hour; falls back to static models on API error
   - Tests: 4 unit tests — returns filtered model list, caches for 1 hour, handles OpenRouter API error, only returns allowlisted models
+
+### In Progress
 
 - [ ] **Update `POST /api/chat` to support OpenRouter credits path**
   - Files: `webapp/app/api/chat/route.ts`
@@ -941,9 +941,9 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
 | 31 | Welcome Wizard | 5 | **COMPLETE** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **COMPLETE** | Phases 25-27, 30 | HIGH |
 | 33 | AI Assistant Improvements | 10 | **COMPLETE** | Phase 30 | HIGH |
-| 34 | AI Credits System | 20 | **IN PROGRESS** (8/20) | Phase 33 | HIGH |
+| 34 | AI Credits System | 20 | **IN PROGRESS** (9/20) | Phase 33 | HIGH |
 
-**Total Remaining Tasks: 12**
+**Total Remaining Tasks: 11**
 
 ### Environment Variables Required
 ```bash
