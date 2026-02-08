@@ -596,13 +596,13 @@ Step-by-step onboarding wizard for new users with overlay prompts on actual sett
   - Acceptance: When `?onboarding=2`, show banner explaining subreddits; after adding a subreddit, show "Next" button to `/settings/api-keys?onboarding=3`; form remains interactive under overlay
   - Tests: 5 component tests (overlay shown with param, hidden without param, Next button with subreddits, no Next button without subreddits, Next navigates to /settings/api-keys?onboarding=3). All 910 tests pass.
 
-- [ ] **Add Step 3 overlay to API keys settings page** ← NEXT
-  - Files: `webapp/app/settings/api-keys/page.tsx`
+- [x] **Add Step 3 overlay to API keys settings page**
+  - Files: `webapp/app/settings/api-keys/page.tsx`, `webapp/__tests__/components/api-keys-onboarding.test.tsx`
   - Spec: `specs/welcome-wizard.md` — Step 3
-  - Acceptance: When `?onboarding=3`, show skippable overlay about Groq API key; "Skip" and "Next" buttons both navigate to `/settings/tags?onboarding=4`
-  - Tests: Component test for overlay, skip and next buttons
+  - Acceptance: When `?onboarding=3`, show skippable overlay about Groq API key with Groq console link; "Skip" and "Next" buttons both navigate to `/settings/tags?onboarding=4`
+  - Tests: 5 component tests (overlay shown with param, hidden without param, Groq console link, Skip navigates, Next navigates). All 915 tests pass.
 
-- [ ] **Add Step 4 overlay to tag settings page**
+- [ ] **Add Step 4 overlay to tag settings page** ← NEXT
   - Files: `webapp/app/settings/tags/page.tsx`
   - Spec: `specs/welcome-wizard.md` — Step 4
   - Acceptance: When `?onboarding=4`, show skippable overlay explaining tags with example; "Skip" and "Done" buttons navigate to `/dashboard`

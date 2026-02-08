@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -28,8 +29,10 @@ import {
   useDeleteGroqApiKey,
 } from "@/lib/hooks";
 import { toast } from "@/lib/hooks/use-toast";
+import { OnboardingOverlay } from "@/components/onboarding-overlay";
 
 export default function ApiKeysPage() {
+  const router = useRouter();
   const [apiKey, setApiKey] = React.useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -86,6 +89,33 @@ export default function ApiKeysPage() {
 
   return (
     <div className="space-y-6">
+      <OnboardingOverlay
+        step={3}
+        totalSteps={4}
+        heading="AI-Powered Suggestions (Optional)"
+        description="Add a Groq API key to enable AI-generated response suggestions for posts. This is free and optional — you can always add it later in settings."
+        actions={[
+          {
+            label: "Skip",
+            variant: "outline",
+            onClick: () => router.push("/settings/tags?onboarding=4"),
+          },
+          {
+            label: "Next",
+            onClick: () => router.push("/settings/tags?onboarding=4"),
+          },
+        ]}
+      >
+        <a
+          href="https://console.groq.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+        >
+          Get a free API key at console.groq.com
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      </OnboardingOverlay>
       <Card>
         <CardHeader>
           <CardTitle>Groq API Key</CardTitle>
