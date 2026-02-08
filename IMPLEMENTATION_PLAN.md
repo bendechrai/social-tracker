@@ -527,13 +527,13 @@ Dedicated page for viewing a Reddit post with comments and AI chat. Adds `commen
   - Acceptance: Returns full post content + user_post status/tags + threaded comments (sorted by score) for authenticated user; returns null if post doesn't exist or user has no association
   - Tests: 5 unit tests — non-existent post returns error, no user association returns error, valid post with tags and empty comments, threaded comments sorted by score, comments flattened beyond max depth 4. All 848 tests pass.
 
-- [ ] **Create `/dashboard/posts/[id]` page layout** ← NEXT
-  - Files: `webapp/app/dashboard/posts/[id]/page.tsx`
+- [x] **Create `/dashboard/posts/[id]` page layout**
+  - Files: `webapp/app/dashboard/posts/[id]/page.tsx`, `webapp/__tests__/components/post-detail.test.tsx`
   - Spec: `specs/post-detail.md` — Page Layout
-  - Acceptance: Two-column layout (60/40); left: post header (title, metadata, tags, "View on Reddit"), body, action bar (Ignore/Done), comments section (threaded, max 4 depth); right: AI chat panel; responsive (stacked on mobile); 404 for invalid posts
-  - Tests: Component test for layout render with mock data; 404 test
+  - Acceptance: Two-column layout (60/40); left: post header (title, metadata, tags, "View on Reddit"), body, action bar (Ignore/Done), comments section (threaded, max 4 depth); right: AI chat panel placeholder; responsive (stacked on mobile); 404 for invalid posts
+  - Tests: 9 component tests (content render with metadata/tags, 404 state, threaded comments, empty comments, action buttons, status change, AI Assistant placeholder, back link, link post URL). All 857 tests pass.
 
-- [ ] **Add NSFW blur to post detail page**
+- [ ] **Add NSFW blur to post detail page** ← NEXT
   - Files: `webapp/app/dashboard/posts/[id]/page.tsx`
   - Spec: `specs/nsfw.md` — UI Behavior (Post detail page)
   - Acceptance: When `is_nsfw` true and `show_nsfw` off, title/body/comments blurred with banner "This post is marked NSFW" + "Show Content" button; metadata and actions remain visible
