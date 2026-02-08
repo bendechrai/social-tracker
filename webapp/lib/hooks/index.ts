@@ -34,6 +34,7 @@ import {
   getAiAccessInfo,
   createCheckoutSession,
 } from "@/app/actions/credits";
+import { getProfile, updateProfile } from "@/app/actions/profile";
 import type { PostStatus } from "@/lib/validations";
 
 // Post hooks
@@ -348,5 +349,23 @@ export function useAiAccessInfo() {
 export function useCreateCheckoutSession() {
   return useMutation({
     mutationFn: (amountCents: number) => createCheckoutSession(amountCents),
+  });
+}
+
+// Profile hooks
+export function useProfile() {
+  return useQuery({
+    queryKey: ["profile"],
+    queryFn: getProfile,
+  });
+}
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Parameters<typeof updateProfile>[0]) => updateProfile(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
   });
 }

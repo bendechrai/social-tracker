@@ -64,6 +64,15 @@ vi.mock("@/app/actions/api-keys", () => ({
   getGroqApiKeyHint: () => mockGetGroqApiKeyHint(),
 }));
 
+// Mock profile actions
+const mockGetProfile = vi.fn();
+const mockUpdateProfile = vi.fn();
+
+vi.mock("@/app/actions/profile", () => ({
+  getProfile: () => mockGetProfile(),
+  updateProfile: (...args: unknown[]) => mockUpdateProfile(...args),
+}));
+
 // Mock credits actions (Phase 34)
 vi.mock("@/app/actions/credits", () => ({
   getCreditBalance: vi.fn().mockResolvedValue(0),
@@ -92,6 +101,8 @@ import {
   useGroqApiKeyHint,
   useSaveGroqApiKey,
   useDeleteGroqApiKey,
+  useProfile,
+  useUpdateProfile,
 } from "@/lib/hooks";
 
 function createWrapper() {
@@ -737,6 +748,56 @@ describe("React Query hooks", () => {
           });
           expect(invalidateSpy).toHaveBeenCalledWith({
             queryKey: ["groqApiKeyHint"],
+          });
+        });
+      });
+    });
+  });
+
+  describe("Profile hooks", () => {
+    describe("useProfile", () => {
+      it("calls getProfile and returns data", async () => {
+        const profile = {
+          role: "Developer Advocate",
+          company: "YugabyteDB",
+          goal: "Engage with community",
+          tone: "casual",
+          context: null,
+        };
+        mockGetProfile.mockResolvedValue(profile);
+        const { wrapper } = createWrapper();
+
+        const { result } = renderHook(() => useProfile(), { wrapper });
+
+        await waitFor(() => {
+          expect(result.current.isSuccess).toBe(true);
+          expect(result.current.data).toEqual(profile);
+        });
+      });
+    });
+
+    describe("useUpdateProfile", () => {
+      it("calls updateProfile and invalidates profile cache on success", async () => {
+        mockUpdateProfile.mockResolvedValue({ success: true });
+        const { wrapper, queryClient } = createWrapper();
+        const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+        const { result } = renderHook(() => useUpdateProfile(), { wrapper });
+
+        await act(async () => {
+          result.current.mutate({
+            role: "Engineer",
+            tone: "professional",
+          });
+        });
+
+        await waitFor(() => {
+          expect(mockUpdateProfile).toHaveBeenCalledWith({
+            role: "Engineer",
+            tone: "professional",
+          });
+          expect(invalidateSpy).toHaveBeenCalledWith({
+            queryKey: ["profile"],
           });
         });
       });

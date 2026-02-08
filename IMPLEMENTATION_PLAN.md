@@ -729,13 +729,13 @@ Four incremental improvements to the AI chat assistant: anti-hallucination guard
   - Acceptance: `getProfile()` returns `{ role, company, goal, tone, context }` for authenticated user; `updateProfile(data)` validates inputs (role/company max 255, goal max 1000, tone must be casual/professional/technical/friendly or null, context max 2000), trims whitespace, updates DB, returns `{ success }` or `{ success: false, error }`
   - Tests: 16 unit tests — getProfile returns fields, getProfile empty/null, getProfile user not found, getProfile unauthenticated throws, updateProfile saves all fields, updateProfile trims whitespace, updateProfile validates tone enum (all 4 valid), updateProfile rejects invalid tone, updateProfile validates role/company/goal/context max lengths, updateProfile unauthenticated returns error, updateProfile clears fields with empty strings, partial update only sends provided fields, updateProfile handles DB errors
 
-### In Progress
-
-- [ ] **Add `useProfile` and `useUpdateProfile` React Query hooks**
+- [x] **Add `useProfile` and `useUpdateProfile` React Query hooks**
   - Files: `webapp/lib/hooks/index.ts`
   - Spec: `specs/ai-assistant-improvements.md` — Improvement 3, React Query Hooks
   - Acceptance: `useProfile()` returns query for profile data; `useUpdateProfile()` returns mutation that invalidates `["profile"]` cache on success
   - Tests: 2 hook tests — useProfile calls getProfile, useUpdateProfile invalidates cache on success
+
+### In Progress
 
 - [ ] **Create AI Profile settings page**
   - Files: `webapp/app/settings/ai-profile/page.tsx`
