@@ -584,13 +584,13 @@ Step-by-step onboarding wizard for new users with overlay prompts on actual sett
   - Acceptance: Renders as a non-blocking card/banner; accepts heading, description, step number, total steps, action buttons; shows step progress indicator (e.g., "Step 2 of 4"); Step 1 renders without query param; Steps 2+ only render when `?onboarding=N` matches expected step; supports children, href actions, and onClick callbacks
   - Tests: 10 component tests (heading/description, progress indicator, step 1 without param, step 2 hidden without param, step 3 hidden with wrong param, step 2 with matching param, action buttons with onClick, multiple actions with variants, children content, href link action). All 902 tests pass.
 
-- [ ] **Add Step 1 welcome overlay to dashboard page** ← NEXT
-  - Files: `webapp/app/dashboard/page.tsx`
+- [x] **Add Step 1 welcome overlay to dashboard page**
+  - Files: `webapp/app/dashboard/page.tsx`, `webapp/__tests__/components/dashboard-onboarding.test.tsx`
   - Spec: `specs/welcome-wizard.md` — Step 1
-  - Acceptance: When user has zero subreddits, show overlay with "Welcome to Social Tracker" heading and "Get Started" button navigating to `/settings/subreddits?onboarding=2`; overlay does not show if user has subreddits
-  - Tests: Component test for overlay shown with zero subreddits, hidden with subreddits
+  - Acceptance: When user has zero subreddits, show overlay with "Welcome to Social Tracker" heading and "Get Started" button navigating to `/settings/subreddits?onboarding=2`; overlay does not show if user has subreddits; replaces old plain "No subreddits configured" banner
+  - Tests: 3 component tests (overlay shown with zero subreddits, hidden with subreddits, Get Started navigates to /settings/subreddits?onboarding=2). All 905 tests pass.
 
-- [ ] **Add Step 2 overlay to subreddit settings page**
+- [ ] **Add Step 2 overlay to subreddit settings page** ← NEXT
   - Files: `webapp/app/settings/subreddits/page.tsx`
   - Spec: `specs/welcome-wizard.md` — Step 2
   - Acceptance: When `?onboarding=2`, show banner explaining subreddits; after adding a subreddit, show "Next" button to `/settings/api-keys?onboarding=3`; form remains interactive under overlay

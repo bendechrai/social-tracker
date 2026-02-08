@@ -2,11 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/header";
 import { StatusTabs } from "@/components/status-tabs";
 import { TagFilter } from "@/components/tag-filter";
 import { PostList } from "@/components/post-list";
 import { Pagination } from "@/components/ui/pagination";
+import { OnboardingOverlay } from "@/components/onboarding-overlay";
 import {
   usePosts,
   usePostCounts,
@@ -29,6 +31,7 @@ export default function HomePage() {
   const [resendLoading, setResendLoading] = React.useState(false);
   const [showNsfw, setShowNsfw] = React.useState(false);
 
+  const router = useRouter();
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -155,18 +158,20 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Banner for missing configuration */}
+        {/* Welcome wizard Step 1 — shown when user has zero subreddits */}
         {!postsLoading && allSubreddits.length === 0 && (
-          <div className="p-4 bg-muted rounded-lg text-sm text-muted-foreground">
-            No subreddits configured. Open{" "}
-            <Link
-              href="/settings/subreddits"
-              className="text-primary hover:underline font-medium"
-            >
-              Settings
-            </Link>{" "}
-            to add subreddits to monitor.
-          </div>
+          <OnboardingOverlay
+            step={1}
+            totalSteps={4}
+            heading="Welcome to Social Tracker"
+            description="Track Reddit posts across subreddits and organize them with tags. Let's get you set up."
+            actions={[
+              {
+                label: "Get Started",
+                onClick: () => router.push("/settings/subreddits?onboarding=2"),
+              },
+            ]}
+          />
         )}
         {!postsLoading && allSubreddits.length > 0 && allTags.length === 0 && (
           <div className="p-4 bg-muted rounded-lg text-sm text-muted-foreground">

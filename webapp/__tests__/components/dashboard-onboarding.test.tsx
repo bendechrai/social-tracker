@@ -1,18 +1,18 @@
 /**
- * Unit tests for the dashboard verification banner.
+ * Unit tests for the dashboard welcome wizard (Step 1).
  *
- * Verifies acceptance criteria from welcome-email.md:
- * - Banner visible when email not verified
- * - Banner hidden when email verified
- * - Banner dismissible (client-side state)
+ * Verifies acceptance criteria from welcome-wizard.md:
+ * - Overlay shown when user has zero subreddits
+ * - Overlay hidden when user has subreddits
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-// Mock next/navigation (used by OnboardingOverlay and useRouter)
+const mockRouterPush = vi.fn();
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: mockRouterPush }),
   useSearchParams: () => ({
     get: () => null,
   }),
@@ -67,7 +67,7 @@ vi.mock("@/lib/hooks/use-toast", () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-// Mock child components that would cause issues
+// Mock child components
 vi.mock("@/components/header", () => ({
   Header: () => <div data-testid="header">Header</div>,
 }));
@@ -90,9 +90,10 @@ vi.mock("@/components/ui/pagination", () => ({
 
 import DashboardPage from "@/app/dashboard/page";
 
-describe("Dashboard verification banner", () => {
+describe("Dashboard onboarding wizard (Step 1)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetEmailVerified.mockResolvedValue(true);
     mockGetShowNsfw.mockResolvedValue(false);
     mockUsePosts.mockReturnValue({
       data: { posts: [], total: 0, totalPages: 0 },
@@ -101,27 +102,31 @@ describe("Dashboard verification banner", () => {
     mockUsePostCounts.mockReturnValue({ data: { new: 0, ignored: 0, done: 0 } });
     mockUseChangePostStatus.mockReturnValue({ mutateAsync: vi.fn() });
     mockUseUpdateResponseText.mockReturnValue({ mutateAsync: vi.fn() });
-    mockUseSubreddits.mockReturnValue({ data: [{ id: "1", name: "test" }] });
-    mockUseTags.mockReturnValue({ data: [{ id: "1", name: "tag1", color: "#000" }] });
+    mockUseTags.mockReturnValue({ data: [] });
   });
 
-  it("shows verification banner when email is not verified", async () => {
-    mockGetEmailVerified.mockResolvedValue(false);
+  it("shows welcome overlay when user has zero subreddits", async () => {
+    mockUseSubreddits.mockReturnValue({ data: [] });
 
     render(<DashboardPage />);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/please verify your email to receive notifications/i)
-      ).toBeInTheDocument();
+      expect(screen.getByTestId("onboarding-overlay")).toBeInTheDocument();
     });
+    expect(screen.getByText("Welcome to Social Tracker")).toBeInTheDocument();
     expect(
-      screen.getByText(/resend verification email/i)
+      screen.getByText(
+        "Track Reddit posts across subreddits and organize them with tags. Let's get you set up."
+      )
     ).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 4")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Get Started" })).toBeInTheDocument();
   });
 
-  it("hides verification banner when email is verified", async () => {
-    mockGetEmailVerified.mockResolvedValue(true);
+  it("hides welcome overlay when user has subreddits", async () => {
+    mockUseSubreddits.mockReturnValue({
+      data: [{ id: "1", name: "reactjs" }],
+    });
 
     render(<DashboardPage />);
 
@@ -129,32 +134,22 @@ describe("Dashboard verification banner", () => {
       expect(screen.getByTestId("header")).toBeInTheDocument();
     });
 
-    // Wait a tick for the state to settle
-    await waitFor(() => {
-      expect(
-        screen.queryByText(/please verify your email to receive notifications/i)
-      ).not.toBeInTheDocument();
-    });
+    expect(screen.queryByTestId("onboarding-overlay")).not.toBeInTheDocument();
+    expect(screen.queryByText("Welcome to Social Tracker")).not.toBeInTheDocument();
   });
 
-  it("dismisses banner when close button is clicked", async () => {
+  it("navigates to subreddit settings with onboarding param on Get Started click", async () => {
     const user = userEvent.setup();
-    mockGetEmailVerified.mockResolvedValue(false);
+    mockUseSubreddits.mockReturnValue({ data: [] });
 
     render(<DashboardPage />);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/please verify your email to receive notifications/i)
-      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Get Started" })).toBeInTheDocument();
     });
 
-    await user.click(
-      screen.getByRole("button", { name: /dismiss verification banner/i })
-    );
+    await user.click(screen.getByRole("button", { name: "Get Started" }));
 
-    expect(
-      screen.queryByText(/please verify your email to receive notifications/i)
-    ).not.toBeInTheDocument();
+    expect(mockRouterPush).toHaveBeenCalledWith("/settings/subreddits?onboarding=2");
   });
 });
