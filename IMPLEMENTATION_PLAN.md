@@ -311,11 +311,11 @@ Send a welcome email with quick-start tips and verification link on signup. Add 
 
 ### In Progress (Phase 26)
 
-- [ ] **Create `GET /api/verify-email` endpoint**
+- [x] **Create `GET /api/verify-email` endpoint**
   - Files: `webapp/app/api/verify-email/route.ts`
   - Spec: `specs/welcome-email.md` — Verification Endpoint
   - Acceptance: Verifies signed token (7-day expiry), sets `users.emailVerified` to now, redirects to `/dashboard?verified=true`; expired/invalid token redirects to `/dashboard?verify_error=true`
-  - Tests: Unit tests for valid verification, expired token, invalid token, already-verified user
+  - Tests: 5 unit tests — valid verification, expired token, invalid token, missing token, already-verified user (idempotent)
 
 - [ ] **Add proxy.ts exclusion for `/api/verify-email`**
   - Files: `webapp/proxy.ts`
