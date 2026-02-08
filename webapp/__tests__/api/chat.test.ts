@@ -521,6 +521,43 @@ describe("POST /api/chat", () => {
     expect(streamCallArgs.system).toContain("Web research is a feature we're working on for the future");
     expect(streamCallArgs.system).toContain("Based on what's described in the post");
   });
+
+  it("should include tone-calibrated closing instructions in system prompt", async () => {
+    mockUserPostsFindFirst.mockResolvedValue({ post: mockPost });
+
+    let callCount = 0;
+    mockSelect.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          from: vi.fn().mockReturnThis(),
+          where: vi.fn().mockResolvedValue([]),
+        };
+      }
+      return {
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockResolvedValue([]),
+      };
+    });
+
+    setupInsertChain();
+
+    const textPromise = Promise.resolve("Response");
+    mockStreamText.mockReturnValue({
+      toTextStreamResponse: () =>
+        new Response("stream", { headers: { "Content-Type": "text/event-stream" } }),
+      text: textPromise,
+    });
+
+    const req = makePostRequest({ postId: "post-1", message: "Draft a reply" });
+    await POST(req);
+
+    const streamCallArgs = mockStreamText.mock.calls[0]?.[0] as { system: string };
+    expect(streamCallArgs.system).toContain("Write like a real person on Reddit");
+    expect(streamCallArgs.system).toContain("No flowery language");
+    expect(streamCallArgs.system).not.toContain("identify key points, and draft thoughtful responses");
+  });
 });
 
 describe("DELETE /api/chat", () => {

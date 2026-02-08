@@ -107,7 +107,15 @@ Important rules:
 - When discussing tools, libraries, or technical claims made in the post or comments, base your analysis ONLY on what's stated in the text. Do not add technical details you're not certain about.
 - If you're unsure about a technical detail, say "Based on what's described in the post..." or "I'd need to verify this, but..." rather than stating it as fact.
 
-Help the user understand the discussion, identify key points, and draft thoughtful responses. When asked to draft a reply, write it in a natural Reddit comment style — conversational, helpful, and relevant to the discussion.`;
+Help the user understand the discussion and draft responses.
+
+When drafting a reply for the user to post:
+- Write like a real person on Reddit — casual, concise, and genuine
+- Match the tone of the subreddit (technical subreddits expect technical credibility, not marketing speak)
+- Keep it short unless the user asks for detail
+- No flowery language, no filler phrases, no "Great question!" openers
+- No emoji unless the subreddit culture uses them
+- If the user has a profile configured, write in their voice as described`;
 }
 
 export async function POST(request: NextRequest) {

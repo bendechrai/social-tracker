@@ -704,21 +704,23 @@ Four incremental improvements to the AI chat assistant: anti-hallucination guard
   - Acceptance: `buildSystemPrompt` output includes the "Important rules" block with anti-fabrication instructions, URL/web-research disclosure, and hedged-claims guidance; existing prompt structure (post context, comments) is unchanged
   - Tests: 1 unit test verifying the returned prompt string contains the anti-hallucination rules block ("NEVER fabricate", "I can only work with the post", "Web research is a feature", "Based on what's described in the post"). Also fixed pre-existing test mock issues (ajMode export, creditBalances query mock, NO_AI_ACCESS code) from Phase 34 code.
 
-### In Progress
+### Completed (Phase 33 cont.)
 
-- [ ] **Update `buildSystemPrompt` closing instructions for tone calibration**
-  - Files: `webapp/app/api/chat/route.ts`
+- [x] **Update `buildSystemPrompt` closing instructions for tone calibration**
+  - Files: `webapp/app/api/chat/route.ts`, `webapp/__tests__/api/chat.test.ts`
   - Spec: `specs/ai-assistant-improvements.md` — Improvement 2
   - Acceptance: The closing paragraph of the system prompt is replaced with the tone-calibrated version: "Write like a real person on Reddit", "No flowery language", "Keep it short", etc.; the old "identify key points, and draft thoughtful responses" text is removed
-  - Tests: 1 unit test verifying the prompt contains "Write like a real person on Reddit" and does NOT contain "identify key points, and draft thoughtful responses"
+  - Tests: 1 unit test verifying the prompt contains "Write like a real person on Reddit" and "No flowery language" and does NOT contain "identify key points, and draft thoughtful responses". All 18 chat tests pass.
 
-### Backlog
+### In Progress
 
 - [ ] **Add `profile_*` columns to users table and generate migration**
   - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/` (new migration file)
   - Spec: `specs/ai-assistant-improvements.md` — Improvement 3, Database Changes
   - Acceptance: `users` table has 5 new nullable columns: `profile_role` (varchar 255), `profile_company` (varchar 255), `profile_goal` (text), `profile_tone` (varchar 20), `profile_context` (text); migration applies cleanly
   - Tests: Typecheck passes; all existing tests pass; build passes
+
+### Backlog
 
 - [ ] **Create `getProfile` and `updateProfile` server actions**
   - Files: `webapp/app/actions/profile.ts`
