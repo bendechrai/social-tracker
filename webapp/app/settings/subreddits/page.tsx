@@ -41,7 +41,7 @@ export default function SubredditsSettingsPage() {
     <div className="space-y-4">
       <OnboardingOverlay
         step={2}
-        totalSteps={4}
+        totalSteps={5}
         heading="Add a Subreddit"
         description="Subreddits are the source of your posts. Add at least one subreddit to start tracking. Posts from the last 7 days will be fetched automatically."
         actions={

@@ -93,7 +93,7 @@ vi.mock("drizzle-orm", async (importOriginal) => {
 });
 
 // Import after mocks
-import { POST, DELETE } from "@/app/api/chat/route";
+import { POST, DELETE, buildSystemPrompt } from "@/app/api/chat/route";
 
 function makePostRequest(body: unknown): NextRequest {
   return new NextRequest("http://localhost:3000/api/chat", {
@@ -148,7 +148,7 @@ describe("POST /api/chat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAuth.mockResolvedValue({ user: { id: "user-1", email: "test@example.com" } });
-    mockFindFirst.mockResolvedValue({ groqApiKey: null });
+    mockFindFirst.mockResolvedValue({ groqApiKey: null, profileRole: null, profileCompany: null, profileGoal: null, profileTone: null, profileContext: null });
     process.env.GROQ_API_KEY = "test-groq-key";
     // Default: Arcjet allows request
     mockProtect.mockResolvedValue({
@@ -207,7 +207,7 @@ describe("POST /api/chat", () => {
 
   it("should return 422 when no AI access is available", async () => {
     mockUserPostsFindFirst.mockResolvedValue({ post: mockPost });
-    mockFindFirst.mockResolvedValue({ groqApiKey: null });
+    mockFindFirst.mockResolvedValue({ groqApiKey: null, profileRole: null, profileCompany: null, profileGoal: null, profileTone: null, profileContext: null });
     mockCreditBalancesFindFirst.mockResolvedValue(null);
     delete process.env.GROQ_API_KEY;
 
@@ -339,7 +339,7 @@ describe("POST /api/chat", () => {
 
   it("should use user's encrypted API key when available", async () => {
     mockUserPostsFindFirst.mockResolvedValue({ post: mockPost });
-    mockFindFirst.mockResolvedValue({ groqApiKey: "encrypted-key" });
+    mockFindFirst.mockResolvedValue({ groqApiKey: "encrypted-key", profileRole: null, profileCompany: null, profileGoal: null, profileTone: null, profileContext: null });
     mockDecrypt.mockReturnValue("user-groq-key");
 
     let selectCallCount = 0;
@@ -557,6 +557,129 @@ describe("POST /api/chat", () => {
     expect(streamCallArgs.system).toContain("Write like a real person on Reddit");
     expect(streamCallArgs.system).toContain("No flowery language");
     expect(streamCallArgs.system).not.toContain("identify key points, and draft thoughtful responses");
+  });
+});
+
+describe("buildSystemPrompt profile integration", () => {
+  const testPost = {
+    title: "Test Post",
+    body: "Test body",
+    subreddit: "testsubreddit",
+    author: "testauthor",
+  };
+
+  it("omits profile section when no profile provided", () => {
+    const prompt = buildSystemPrompt(testPost, []);
+    expect(prompt).not.toContain("About the user:");
+  });
+
+  it("includes full profile when all fields set", () => {
+    const prompt = buildSystemPrompt(testPost, [], {
+      profileRole: "Developer Advocate",
+      profileCompany: "YugabyteDB",
+      profileGoal: "Engage with community",
+      profileTone: "casual",
+      profileContext: "Keep it short",
+    });
+    expect(prompt).toContain("About the user:");
+    expect(prompt).toContain("Role: Developer Advocate at YugabyteDB");
+    expect(prompt).toContain("Goal: Engage with community");
+    expect(prompt).toContain("Preferred tone: Casual");
+    expect(prompt).toContain("Additional notes: Keep it short");
+    expect(prompt).toContain("write in the user's voice");
+  });
+
+  it("combines role and company", () => {
+    const prompt = buildSystemPrompt(testPost, [], {
+      profileRole: "Engineer",
+      profileCompany: "Acme",
+      profileGoal: null,
+      profileTone: null,
+      profileContext: null,
+    });
+    expect(prompt).toContain("Role: Engineer at Acme");
+  });
+
+  it("shows only non-null fields in partial profile", () => {
+    const prompt = buildSystemPrompt(testPost, [], {
+      profileRole: null,
+      profileCompany: null,
+      profileGoal: "Help users",
+      profileTone: "technical",
+      profileContext: null,
+    });
+    expect(prompt).toContain("About the user:");
+    expect(prompt).toContain("Goal: Help users");
+    expect(prompt).toContain("Preferred tone: Technical");
+    expect(prompt).not.toContain("Role:");
+    expect(prompt).not.toContain("Company:");
+    expect(prompt).not.toContain("Additional notes:");
+  });
+
+  it("includes tone preference", () => {
+    const prompt = buildSystemPrompt(testPost, [], {
+      profileRole: null,
+      profileCompany: null,
+      profileGoal: null,
+      profileTone: "professional",
+      profileContext: null,
+    });
+    expect(prompt).toContain("Preferred tone: Professional");
+  });
+});
+
+describe("POST /api/chat profile loading", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuth.mockResolvedValue({ user: { id: "user-1", email: "test@example.com" } });
+    mockFindFirst.mockResolvedValue({
+      groqApiKey: null,
+      profileRole: "DevRel",
+      profileCompany: "TestCo",
+      profileGoal: "Community engagement",
+      profileTone: "casual",
+      profileContext: "Be brief",
+    });
+    process.env.GROQ_API_KEY = "test-groq-key";
+    mockProtect.mockResolvedValue({ isDenied: () => false });
+  });
+
+  it("should load and pass user profile to buildSystemPrompt", async () => {
+    mockUserPostsFindFirst.mockResolvedValue({ post: mockPost });
+
+    let selectCallCount = 0;
+    mockSelect.mockImplementation(() => {
+      selectCallCount++;
+      if (selectCallCount === 1) {
+        return {
+          from: vi.fn().mockReturnThis(),
+          where: vi.fn().mockResolvedValue([]),
+        };
+      }
+      return {
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockResolvedValue([]),
+      };
+    });
+
+    setupInsertChain();
+
+    const textPromise = Promise.resolve("Response");
+    mockStreamText.mockReturnValue({
+      toTextStreamResponse: () =>
+        new Response("stream", { headers: { "Content-Type": "text/event-stream" } }),
+      text: textPromise,
+    });
+
+    const req = makePostRequest({ postId: "post-1", message: "Draft a reply" });
+    await POST(req);
+
+    const streamCallArgs = mockStreamText.mock.calls[0]?.[0] as { system: string };
+    expect(streamCallArgs.system).toContain("About the user:");
+    expect(streamCallArgs.system).toContain("Role: DevRel at TestCo");
+    expect(streamCallArgs.system).toContain("Goal: Community engagement");
+    expect(streamCallArgs.system).toContain("Preferred tone: Casual");
   });
 });
 

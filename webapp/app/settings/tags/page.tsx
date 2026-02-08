@@ -64,7 +64,7 @@ export default function TagsSettingsPage() {
     <div className="space-y-6">
       <OnboardingOverlay
         step={4}
-        totalSteps={4}
+        totalSteps={5}
         heading="Organize with Tags"
         description="Tags help you categorize posts. Each tag has search terms — posts matching those terms are automatically tagged. For example, a tag called 'Performance' with search terms 'slow', 'latency', 'benchmark' will auto-tag matching posts."
         actions={[

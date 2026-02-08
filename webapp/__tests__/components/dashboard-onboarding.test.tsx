@@ -119,7 +119,7 @@ describe("Dashboard onboarding wizard (Step 1)", () => {
         "Track Reddit posts across subreddits and organize them with tags. Let's get you set up."
       )
     ).toBeInTheDocument();
-    expect(screen.getByText("Step 1 of 4")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 5")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Get Started" })).toBeInTheDocument();
   });
 

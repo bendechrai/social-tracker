@@ -4,7 +4,7 @@
  * Verifies acceptance criteria from welcome-wizard.md:
  * - Overlay shown when ?onboarding=3 query param is present
  * - Overlay hidden when ?onboarding=3 is not present
- * - Both "Skip" and "Next" buttons navigate to /settings/tags?onboarding=4
+ * - Both "Skip" and "Next" buttons navigate to /settings/ai-profile?onboarding=3.5
  * - Groq console link is shown in overlay
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -57,7 +57,7 @@ describe("API keys settings onboarding (Step 3)", () => {
         "Add a Groq API key to enable AI-generated response suggestions for posts. This is free and optional — you can always add it later in settings."
       )
     ).toBeInTheDocument();
-    expect(screen.getByText("Step 3 of 4")).toBeInTheDocument();
+    expect(screen.getByText("Step 3 of 5")).toBeInTheDocument();
   });
 
   it("does not show onboarding overlay without ?onboarding=3", () => {
@@ -83,7 +83,7 @@ describe("API keys settings onboarding (Step 3)", () => {
     );
   });
 
-  it("Skip button navigates to /settings/tags?onboarding=4", async () => {
+  it("Skip button navigates to /settings/ai-profile?onboarding=3.5", async () => {
     const user = userEvent.setup();
     mockSearchParams = { onboarding: "3" };
 
@@ -92,11 +92,11 @@ describe("API keys settings onboarding (Step 3)", () => {
     await user.click(screen.getByRole("button", { name: "Skip" }));
 
     expect(mockRouterPush).toHaveBeenCalledWith(
-      "/settings/tags?onboarding=4"
+      "/settings/ai-profile?onboarding=3.5"
     );
   });
 
-  it("Next button navigates to /settings/tags?onboarding=4", async () => {
+  it("Next button navigates to /settings/ai-profile?onboarding=3.5", async () => {
     const user = userEvent.setup();
     mockSearchParams = { onboarding: "3" };
 
@@ -105,7 +105,7 @@ describe("API keys settings onboarding (Step 3)", () => {
     await user.click(screen.getByRole("button", { name: "Next" }));
 
     expect(mockRouterPush).toHaveBeenCalledWith(
-      "/settings/tags?onboarding=4"
+      "/settings/ai-profile?onboarding=3.5"
     );
   });
 });

@@ -62,7 +62,7 @@ describe("Tag settings onboarding (Step 4)", () => {
 
     expect(screen.getByTestId("onboarding-overlay")).toBeInTheDocument();
     expect(screen.getByText("Organize with Tags")).toBeInTheDocument();
-    expect(screen.getByText("Step 4 of 4")).toBeInTheDocument();
+    expect(screen.getByText("Step 4 of 5")).toBeInTheDocument();
   });
 
   it("does not show onboarding overlay without ?onboarding=4", () => {

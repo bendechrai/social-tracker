@@ -3,7 +3,7 @@
  *
  * Verifies acceptance criteria from welcome-wizard.md:
  * - Renders with correct heading and description
- * - Shows step progress indicator (e.g., "Step 2 of 4")
+ * - Shows step progress indicator (e.g., "Step 2 of 5")
  * - Conditional rendering based on ?onboarding query param
  * - Step 1 renders without query param
  * - Action buttons render and fire callbacks
@@ -32,7 +32,7 @@ describe("OnboardingOverlay", () => {
     render(
       <OnboardingOverlay
         step={1}
-        totalSteps={4}
+        totalSteps={5}
         heading="Welcome to Social Tracker"
         description="Track Reddit posts across subreddits."
         actions={[]}
@@ -48,26 +48,26 @@ describe("OnboardingOverlay", () => {
     render(
       <OnboardingOverlay
         step={2}
-        totalSteps={4}
+        totalSteps={5}
         heading="Add a Subreddit"
         description="Add at least one subreddit."
         actions={[]}
       />
     );
     // Step 2 requires query param to render
-    expect(screen.queryByText("Step 2 of 4")).not.toBeInTheDocument();
+    expect(screen.queryByText("Step 2 of 5")).not.toBeInTheDocument();
 
     mockSearchParams = { onboarding: "2" };
     const { unmount } = render(
       <OnboardingOverlay
         step={2}
-        totalSteps={4}
+        totalSteps={5}
         heading="Add a Subreddit"
         description="Add at least one subreddit."
         actions={[]}
       />
     );
-    expect(screen.getByText("Step 2 of 4")).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 5")).toBeInTheDocument();
     unmount();
   });
 
@@ -76,13 +76,13 @@ describe("OnboardingOverlay", () => {
     render(
       <OnboardingOverlay
         step={1}
-        totalSteps={4}
+        totalSteps={5}
         heading="Welcome"
         description="Let's get started."
         actions={[]}
       />
     );
-    expect(screen.getByText("Step 1 of 4")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 5")).toBeInTheDocument();
     expect(screen.getByTestId("onboarding-overlay")).toBeInTheDocument();
   });
 
@@ -91,7 +91,7 @@ describe("OnboardingOverlay", () => {
     render(
       <OnboardingOverlay
         step={2}
-        totalSteps={4}
+        totalSteps={5}
         heading="Add a Subreddit"
         description="Add at least one."
         actions={[]}
@@ -105,7 +105,7 @@ describe("OnboardingOverlay", () => {
     render(
       <OnboardingOverlay
         step={3}
-        totalSteps={4}
+        totalSteps={5}
         heading="API Keys"
         description="Add a Groq key."
         actions={[]}
@@ -119,7 +119,7 @@ describe("OnboardingOverlay", () => {
     render(
       <OnboardingOverlay
         step={2}
-        totalSteps={4}
+        totalSteps={5}
         heading="Add a Subreddit"
         description="Add at least one."
         actions={[]}
@@ -135,7 +135,7 @@ describe("OnboardingOverlay", () => {
     render(
       <OnboardingOverlay
         step={1}
-        totalSteps={4}
+        totalSteps={5}
         heading="Welcome"
         description="Get started."
         actions={[{ label: "Get Started", onClick: handleClick }]}
@@ -152,7 +152,7 @@ describe("OnboardingOverlay", () => {
     render(
       <OnboardingOverlay
         step={3}
-        totalSteps={4}
+        totalSteps={5}
         heading="API Keys"
         description="Optional step."
         actions={[
@@ -169,7 +169,7 @@ describe("OnboardingOverlay", () => {
     render(
       <OnboardingOverlay
         step={1}
-        totalSteps={4}
+        totalSteps={5}
         heading="Welcome"
         description="Get started."
         actions={[]}
@@ -185,7 +185,7 @@ describe("OnboardingOverlay", () => {
     render(
       <OnboardingOverlay
         step={3}
-        totalSteps={4}
+        totalSteps={5}
         heading="API Keys"
         description="Add a Groq key."
         actions={[

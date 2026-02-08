@@ -162,7 +162,7 @@ export default function HomePage() {
         {!postsLoading && allSubreddits.length === 0 && (
           <OnboardingOverlay
             step={1}
-            totalSteps={4}
+            totalSteps={5}
             heading="Welcome to Social Tracker"
             description="Track Reddit posts across subreddits and organize them with tags. Let's get you set up."
             actions={[

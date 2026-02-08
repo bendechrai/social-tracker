@@ -735,31 +735,33 @@ Four incremental improvements to the AI chat assistant: anti-hallucination guard
   - Acceptance: `useProfile()` returns query for profile data; `useUpdateProfile()` returns mutation that invalidates `["profile"]` cache on success
   - Tests: 2 hook tests — useProfile calls getProfile, useUpdateProfile invalidates cache on success
 
-### In Progress
+### Completed (Phase 33 cont.)
 
-- [ ] **Create AI Profile settings page**
-  - Files: `webapp/app/settings/ai-profile/page.tsx`
+- [x] **Create AI Profile settings page**
+  - Files: `webapp/app/settings/ai-profile/page.tsx`, `webapp/__tests__/components/ai-profile-settings.test.tsx`
   - Spec: `specs/ai-assistant-improvements.md` — Improvement 3, Settings Page
-  - Acceptance: "use client" page with form fields (Role input, Company input, Goal textarea, Tone select dropdown, Context textarea); Save button; loads existing data on mount via `useProfile()`; calls `updateProfile()` on save; toast on success/error; all fields optional with helper text
-  - Tests: 8+ component tests — renders all fields with placeholders, loads existing profile data, Save button disabled while saving, successful save shows toast, error shows destructive toast, tone dropdown has 4 options plus empty, fields are optional (can save empty), max length attributes on textareas
+  - Acceptance: "use client" page with form fields (Role input, Company input, Goal textarea, Tone select dropdown via shadcn Select, Context textarea); Save button with loading state; loads existing data on mount via `useProfile()`; calls `updateProfile()` on save; toast on success/error; all fields optional with helper text; Suspense boundary for OnboardingOverlay
+  - Tests: 9 component tests — renders all fields with placeholders, loads existing profile data, Save button disabled while saving, successful save shows toast, error shows destructive toast, tone dropdown has 4 options plus empty, fields are optional (can save empty), max length attributes on textareas, helper text shown
 
-- [ ] **Add "AI Profile" to settings sidebar navigation**
-  - Files: `webapp/app/settings/layout.tsx`
+- [x] **Add "AI Profile" to settings sidebar navigation**
+  - Files: `webapp/app/settings/layout.tsx`, `webapp/__tests__/components/settings-nav-ai-profile.test.tsx`
   - Spec: `specs/ai-assistant-improvements.md` — Improvement 3, Navigation
   - Acceptance: "AI Profile" nav item with BrainCircuit icon appears after "API Keys" and before "Subreddits" in the sidebar; links to `/settings/ai-profile`
   - Tests: 1 test verifying settings nav contains "AI Profile" link between "API Keys" and "Subreddits"
 
-- [ ] **Integrate user profile into `buildSystemPrompt`**
-  - Files: `webapp/app/api/chat/route.ts`
+- [x] **Integrate user profile into `buildSystemPrompt`**
+  - Files: `webapp/app/api/chat/route.ts`, `webapp/__tests__/api/chat.test.ts`
   - Spec: `specs/ai-assistant-improvements.md` — Improvement 3, System Prompt Integration
-  - Acceptance: `buildSystemPrompt` accepts optional profile parameter; when profile fields are non-null, inserts "About the user:" section between comments and rules; combines role+company as "Role: {role} at {company}"; omits section entirely when no profile fields set; POST handler loads user profile and passes to `buildSystemPrompt`
+  - Acceptance: `buildSystemPrompt` exported and accepts optional profile parameter; when profile fields are non-null, inserts "About the user:" section between comments and rules; combines role+company as "Role: {role} at {company}"; omits section entirely when no profile fields set; POST handler loads user profile and passes to `buildSystemPrompt`
   - Tests: 5 unit tests — no profile omits section, full profile includes all fields, role+company combined, partial profile only shows non-null fields, tone preference included; 1 integration test verifying POST handler loads and passes profile
 
-- [ ] **Add Step 3.5 (AI Profile) to welcome wizard and update step count to 5**
-  - Files: `webapp/app/settings/ai-profile/page.tsx`, `webapp/app/settings/api-keys/page.tsx`, `webapp/app/dashboard/page.tsx`, `webapp/app/settings/subreddits/page.tsx`, `webapp/app/settings/tags/page.tsx`, `webapp/components/onboarding-overlay.tsx`
+- [x] **Add Step 3.5 (AI Profile) to welcome wizard and update step count to 5**
+  - Files: `webapp/app/settings/ai-profile/page.tsx`, `webapp/app/settings/api-keys/page.tsx`, `webapp/app/dashboard/page.tsx`, `webapp/app/settings/subreddits/page.tsx`, `webapp/app/settings/tags/page.tsx`, `webapp/__tests__/components/ai-profile-onboarding.test.tsx`
   - Spec: `specs/ai-assistant-improvements.md` — Improvement 3, Onboarding Wizard Integration
   - Acceptance: New Step 3.5 overlay on AI Profile page when `?onboarding=3.5`; Step 3 "Next" navigates to `?onboarding=3.5` instead of `?onboarding=4`; all step progress indicators updated from "of 4" to "of 5"; Step 3.5 is skippable, both buttons navigate to `/settings/tags?onboarding=4`
-  - Tests: 5 component tests — overlay shown on AI Profile with ?onboarding=3.5, hidden without param, Skip navigates to tags, Next navigates to tags, Step 3 Next goes to 3.5; update existing onboarding tests for "of 5"
+  - Tests: 5 component tests — overlay shown on AI Profile with ?onboarding=3.5, hidden without param, Skip navigates to tags, Next navigates to tags, step 3.5 of 5 progress indicator; updated all existing onboarding tests (6 files) for "of 5"
+
+### In Progress
 
 - [ ] **Add draft reply quick-action chips to ChatPanel**
   - Files: `webapp/components/chat-panel.tsx`

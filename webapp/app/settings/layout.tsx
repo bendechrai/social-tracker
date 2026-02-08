@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { User, Key, Radio, TagIcon, CreditCard, ChevronLeft } from "lucide-react";
+import { User, Key, BrainCircuit, Radio, TagIcon, CreditCard, ChevronLeft } from "lucide-react";
 import { UserMenu } from "@/components/user-menu";
 
 const settingsNavItems = [
@@ -19,6 +19,12 @@ const settingsNavItems = [
     label: "API Keys",
     icon: Key,
     description: "Manage your API keys",
+  },
+  {
+    href: "/settings/ai-profile",
+    label: "AI Profile",
+    icon: BrainCircuit,
+    description: "Help the AI write in your voice",
   },
   {
     href: "/settings/subreddits",

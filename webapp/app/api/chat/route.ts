@@ -72,23 +72,62 @@ async function resolveAiProvider(
   return { type: "none" };
 }
 
-function buildSystemPrompt(post: {
-  title: string;
-  body: string | null;
-  subreddit: string;
-  author: string;
-}, postComments: Array<{
-  author: string;
-  body: string;
-  score: number;
-  parentRedditId: string | null;
-}>): string {
+export function buildSystemPrompt(
+  post: {
+    title: string;
+    body: string | null;
+    subreddit: string;
+    author: string;
+  },
+  postComments: Array<{
+    author: string;
+    body: string;
+    score: number;
+    parentRedditId: string | null;
+  }>,
+  profile?: {
+    profileRole: string | null;
+    profileCompany: string | null;
+    profileGoal: string | null;
+    profileTone: string | null;
+    profileContext: string | null;
+  }
+): string {
   const commentsText = postComments
     .map((c) => {
       const indent = c.parentRedditId ? "  " : "";
       return `${indent}u/${c.author} (score: ${c.score}):\n${indent}${c.body}`;
     })
     .join("\n\n");
+
+  // Build profile section if any fields are set
+  let profileSection = "";
+  if (profile) {
+    const lines: string[] = [];
+    if (profile.profileRole || profile.profileCompany) {
+      const rolePart = profile.profileRole ?? "";
+      const companyPart = profile.profileCompany ?? "";
+      if (rolePart && companyPart) {
+        lines.push(`- Role: ${rolePart} at ${companyPart}`);
+      } else if (rolePart) {
+        lines.push(`- Role: ${rolePart}`);
+      } else {
+        lines.push(`- Company: ${companyPart}`);
+      }
+    }
+    if (profile.profileGoal) {
+      lines.push(`- Goal: ${profile.profileGoal}`);
+    }
+    if (profile.profileTone) {
+      lines.push(`- Preferred tone: ${profile.profileTone.charAt(0).toUpperCase() + profile.profileTone.slice(1)}`);
+    }
+    if (profile.profileContext) {
+      lines.push(`- Additional notes: ${profile.profileContext}`);
+    }
+    if (lines.length > 0) {
+      profileSection = `\n\nAbout the user:\n${lines.join("\n")}\n\nWhen drafting replies, write in the user's voice as described above. The user will post these as themselves on Reddit, so they must sound natural and genuine.`;
+    }
+  }
 
   return `You are an AI assistant helping a user engage with a Reddit post. You have full context of the post and its comments.
 
@@ -98,7 +137,7 @@ Author: u/${post.author}
 Body: ${post.body ?? "(no body)"}
 
 Comments:
-${commentsText || "(no comments)"}
+${commentsText || "(no comments)"}${profileSection}
 
 Important rules:
 - NEVER fabricate, guess, or invent information you don't have. If you don't know something, say so clearly.
@@ -198,8 +237,20 @@ export async function POST(request: NextRequest) {
       )
       .orderBy(asc(chatMessages.createdAt));
 
+    // Load user profile for system prompt
+    const userProfile = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: {
+        profileRole: true,
+        profileCompany: true,
+        profileGoal: true,
+        profileTone: true,
+        profileContext: true,
+      },
+    });
+
     // Build messages array for the LLM
-    const systemPrompt = buildSystemPrompt(userPost.post, postComments);
+    const systemPrompt = buildSystemPrompt(userPost.post, postComments, userProfile ?? undefined);
     const messages: Array<{ role: "user" | "assistant"; content: string }> = [
       ...chatHistory.map((m) => ({
         role: m.role as "user" | "assistant",

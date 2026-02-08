@@ -59,7 +59,7 @@ describe("Subreddit settings onboarding (Step 2)", () => {
         "Subreddits are the source of your posts. Add at least one subreddit to start tracking. Posts from the last 7 days will be fetched automatically."
       )
     ).toBeInTheDocument();
-    expect(screen.getByText("Step 2 of 4")).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 5")).toBeInTheDocument();
   });
 
   it("does not show onboarding overlay without ?onboarding=2", () => {

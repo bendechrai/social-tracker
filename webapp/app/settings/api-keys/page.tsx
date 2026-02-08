@@ -91,18 +91,18 @@ export default function ApiKeysPage() {
     <div className="space-y-6">
       <OnboardingOverlay
         step={3}
-        totalSteps={4}
+        totalSteps={5}
         heading="AI-Powered Suggestions (Optional)"
         description="Add a Groq API key to enable AI-generated response suggestions for posts. This is free and optional — you can always add it later in settings."
         actions={[
           {
             label: "Skip",
             variant: "outline",
-            onClick: () => router.push("/settings/tags?onboarding=4"),
+            onClick: () => router.push("/settings/ai-profile?onboarding=3.5"),
           },
           {
             label: "Next",
-            onClick: () => router.push("/settings/tags?onboarding=4"),
+            onClick: () => router.push("/settings/ai-profile?onboarding=3.5"),
           },
         ]}
       >
