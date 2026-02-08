@@ -35,7 +35,7 @@ This document outlines the implementation status and remaining tasks for complet
 - `llama-3.3-70b-versatile` hardcoded — matches spec
 - Next.js 16 "middleware" → "proxy" deprecation — future migration
 - shadcn/ui toast deprecated upstream in favor of Sonner — future migration
-- No TODOs, FIXMEs, skipped tests, or placeholder code in production source
+- **Phase 34 validation breakage** — Phase 34 code was committed with broken validation: `lib/stripe.ts` has circular export, `chat-panel.test.tsx` uses old `hasApiKey` prop (now `aiAccess`), many test files fail on `ajMode` mock, `app/settings/credits/page.tsx` has lint error, build fails on stripe import. These must be fixed as part of Phase 34 work before other tasks can pass full validation.
 
 ---
 
@@ -696,21 +696,23 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 
 Four incremental improvements to the AI chat assistant: anti-hallucination guardrails, tone calibration, user profile with system prompt integration, and draft reply quick-action chips.
 
-### In Progress
+### Completed (Phase 33)
 
-- [ ] **Add anti-hallucination guardrails to `buildSystemPrompt`**
-  - Files: `webapp/app/api/chat/route.ts`
+- [x] **Add anti-hallucination guardrails to `buildSystemPrompt`**
+  - Files: `webapp/app/api/chat/route.ts`, `webapp/__tests__/api/chat.test.ts`
   - Spec: `specs/ai-assistant-improvements.md` — Improvement 1
   - Acceptance: `buildSystemPrompt` output includes the "Important rules" block with anti-fabrication instructions, URL/web-research disclosure, and hedged-claims guidance; existing prompt structure (post context, comments) is unchanged
-  - Tests: 1 unit test verifying the returned prompt string contains the anti-hallucination rules block (e.g., "NEVER fabricate", "I can only work with the post", "Web research is a feature")
+  - Tests: 1 unit test verifying the returned prompt string contains the anti-hallucination rules block ("NEVER fabricate", "I can only work with the post", "Web research is a feature", "Based on what's described in the post"). Also fixed pre-existing test mock issues (ajMode export, creditBalances query mock, NO_AI_ACCESS code) from Phase 34 code.
 
-### Backlog
+### In Progress
 
 - [ ] **Update `buildSystemPrompt` closing instructions for tone calibration**
   - Files: `webapp/app/api/chat/route.ts`
   - Spec: `specs/ai-assistant-improvements.md` — Improvement 2
   - Acceptance: The closing paragraph of the system prompt is replaced with the tone-calibrated version: "Write like a real person on Reddit", "No flowery language", "Keep it short", etc.; the old "identify key points, and draft thoughtful responses" text is removed
   - Tests: 1 unit test verifying the prompt contains "Write like a real person on Reddit" and does NOT contain "identify key points, and draft thoughtful responses"
+
+### Backlog
 
 - [ ] **Add `profile_*` columns to users table and generate migration**
   - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/` (new migration file)

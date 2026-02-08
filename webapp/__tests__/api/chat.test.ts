@@ -18,6 +18,7 @@ vi.mock("@/lib/auth", () => ({
 // Mock database
 const mockFindFirst = vi.fn();
 const mockUserPostsFindFirst = vi.fn();
+const mockCreditBalancesFindFirst = vi.fn();
 const mockSelect = vi.fn();
 const mockInsert = vi.fn();
 const mockDelete = vi.fn();
@@ -30,6 +31,9 @@ vi.mock("@/lib/db", () => ({
       },
       userPosts: {
         findFirst: (...args: unknown[]) => mockUserPostsFindFirst(...args),
+      },
+      creditBalances: {
+        findFirst: (...args: unknown[]) => mockCreditBalancesFindFirst(...args),
       },
     },
     select: (...args: unknown[]) => mockSelect(...args),
@@ -61,10 +65,20 @@ vi.mock("@/lib/arcjet", () => ({
   default: {
     withRule: () => ({ protect: (...args: unknown[]) => mockProtect(...args) }),
   },
+  ajMode: "DRY_RUN",
 }));
 
 vi.mock("@arcjet/next", () => ({
   slidingWindow: vi.fn().mockReturnValue([]),
+}));
+
+// Mock OpenRouter and AI models (Phase 34 dependencies)
+vi.mock("@/lib/openrouter", () => ({
+  getOpenRouterClient: vi.fn(() => (model: string) => `openrouter-model-${model}`),
+}));
+
+vi.mock("@/lib/ai-models", () => ({
+  isAllowedModel: vi.fn(() => true),
 }));
 
 // Mock drizzle-orm (preserve real exports used by schema)
@@ -191,9 +205,10 @@ describe("POST /api/chat", () => {
     expect(data.error).toBe("Post not found");
   });
 
-  it("should return 422 when no API key is available", async () => {
+  it("should return 422 when no AI access is available", async () => {
     mockUserPostsFindFirst.mockResolvedValue({ post: mockPost });
     mockFindFirst.mockResolvedValue({ groqApiKey: null });
+    mockCreditBalancesFindFirst.mockResolvedValue(null);
     delete process.env.GROQ_API_KEY;
 
     const req = makePostRequest({ postId: "post-1", message: "Hello" });
@@ -201,7 +216,7 @@ describe("POST /api/chat", () => {
     const data = await res.json();
 
     expect(res.status).toBe(422);
-    expect(data.code).toBe("MISSING_API_KEY");
+    expect(data.code).toBe("NO_AI_ACCESS");
   });
 
   it("should stream a valid chat response", async () => {
@@ -467,6 +482,44 @@ describe("POST /api/chat", () => {
     expect(streamCallArgs.system).toContain("Test post body content");
     expect(streamCallArgs.system).toContain("commenter1");
     expect(streamCallArgs.system).toContain("Great post!");
+  });
+
+  it("should include anti-hallucination guardrails in system prompt", async () => {
+    mockUserPostsFindFirst.mockResolvedValue({ post: mockPost });
+
+    let callCount = 0;
+    mockSelect.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          from: vi.fn().mockReturnThis(),
+          where: vi.fn().mockResolvedValue([]),
+        };
+      }
+      return {
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockResolvedValue([]),
+      };
+    });
+
+    setupInsertChain();
+
+    const textPromise = Promise.resolve("Response");
+    mockStreamText.mockReturnValue({
+      toTextStreamResponse: () =>
+        new Response("stream", { headers: { "Content-Type": "text/event-stream" } }),
+      text: textPromise,
+    });
+
+    const req = makePostRequest({ postId: "post-1", message: "Check this URL" });
+    await POST(req);
+
+    const streamCallArgs = mockStreamText.mock.calls[0]?.[0] as { system: string };
+    expect(streamCallArgs.system).toContain("NEVER fabricate");
+    expect(streamCallArgs.system).toContain("I can only work with the post and comments shown here");
+    expect(streamCallArgs.system).toContain("Web research is a feature we're working on for the future");
+    expect(streamCallArgs.system).toContain("Based on what's described in the post");
   });
 });
 
