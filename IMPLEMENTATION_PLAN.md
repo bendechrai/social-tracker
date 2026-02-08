@@ -364,25 +364,25 @@ Allow users to reset their password via a tokenized email link. Add `passwordCha
   - Acceptance: `users` table has `passwordChangedAt` (timestamp, nullable, default null); migration applies cleanly
   - Tests: Typecheck passes; all 749 tests pass; build passes
 
-### In Progress (Phase 27)
-
-- [ ] **Create `POST /api/auth/reset-password` request-reset endpoint**
+- [x] **Create `POST /api/auth/reset-password` request-reset endpoint**
   - Files: `webapp/app/api/auth/reset-password/route.ts`
   - Spec: `specs/password-reset.md` — Request Reset API
   - Acceptance: Validates email, generates SHA-256-hashed token stored in `verificationTokens` (1hr expiry), sends reset email fire-and-forget, returns 200 regardless of email existence; rate limits 1 per email per 15 min by checking existing tokens
-  - Tests: Unit tests for: valid request, non-existent email returns 200, rate limit (token exists within 15min), token stored as SHA-256 hash, existing tokens deleted before new one
+  - Tests: 7 unit tests — valid request, non-existent email returns 200, rate limit (token exists within 15min), token stored as SHA-256 hash, existing tokens deleted before new one, invalid email 400, missing email 400
+
+- [x] **Build password reset email template**
+  - Files: `webapp/lib/email-templates.ts`
+  - Spec: `specs/password-reset.md` — Reset Email
+  - Acceptance: `buildPasswordResetEmail` returns `{ subject, html, text }` with "Social Tracker — Reset Your Password" subject, reset button link, 1-hour expiry note, security note, plain text fallback
+  - Tests: 6 unit tests — subject, reset link with token, 1-hour expiry note, security note, plain text fallback, footer
+
+### In Progress (Phase 27)
 
 - [ ] **Create `POST /api/auth/execute-reset` endpoint**
   - Files: `webapp/app/api/auth/execute-reset/route.ts`
   - Spec: `specs/password-reset.md` — Execute Reset API
   - Acceptance: Validates password against `passwordSchema`, verifies SHA-256 hashed token in `verificationTokens`, updates password hash and sets `passwordChangedAt`, deletes used token, returns 200; invalid/expired token returns 400
   - Tests: Unit tests for: valid reset, expired token, invalid token, password validation failure, token deleted after use
-
-- [ ] **Build password reset email template**
-  - Files: `webapp/lib/email-templates.ts`
-  - Spec: `specs/password-reset.md` — Reset Email
-  - Acceptance: Function returns `{ subject, html, text }` with "Social Tracker — Reset Your Password" subject, reset button link, 1-hour expiry note, security note
-  - Tests: Unit test verifying subject, link format, expiry note, plain text fallback
 
 - [ ] **Create `/forgot-password` page**
   - Files: `webapp/app/forgot-password/page.tsx`
@@ -700,14 +700,14 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 | 24 | Tag Search Term Constraints | 4 | **COMPLETE** | None | HIGH |
 | 25 | Email Infrastructure & Notifications | 9 | **COMPLETE** | None | HIGH |
 | 26 | Welcome Email & Verification | 7 | **COMPLETE** | Phase 25 | HIGH |
-| 27 | Password Reset | 10 | **IN PROGRESS** | Phase 25 | HIGH |
+| 27 | Password Reset | 8 | **IN PROGRESS** | Phase 25 | HIGH |
 | 28 | Account Deletion | 2 | **BACKLOG** | None | HIGH |
 | 29 | NSFW Content Handling | 4 | **BACKLOG** | None | MODERATE |
 | 30 | Post Detail Page | 10 | **BACKLOG** | Phase 29 | HIGH |
 | 31 | Welcome Wizard | 5 | **BACKLOG** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **BACKLOG** | Phases 25-27, 30 | HIGH |
 
-**Total Remaining Tasks: 55**
+**Total Remaining Tasks: 53**
 
 ### Environment Variables Required
 ```bash

@@ -12,9 +12,11 @@ import {
   buildNotificationEmail,
   buildWelcomeEmail,
   buildVerificationEmail,
+  buildPasswordResetEmail,
   type TaggedPost,
   type NotificationEmailInput,
   type WelcomeEmailInput,
+  type PasswordResetEmailInput,
 } from "@/lib/email-templates";
 
 function makePost(overrides: Partial<TaggedPost> = {}): TaggedPost {
@@ -408,5 +410,61 @@ describe("buildVerificationEmail", () => {
     expect(result.text).toContain("https://app.example.com/api/verify-email");
     expect(result.text).not.toContain("<a ");
     expect(result.text).not.toContain("<p>");
+  });
+});
+
+describe("buildPasswordResetEmail", () => {
+  function makeResetInput(overrides: Partial<PasswordResetEmailInput> = {}): PasswordResetEmailInput {
+    return {
+      token: "abc123def456",
+      appUrl: "https://app.example.com",
+      ...overrides,
+    };
+  }
+
+  it("generates correct subject", () => {
+    const result = buildPasswordResetEmail(makeResetInput());
+
+    expect(result.subject).toBe("Social Tracker — Reset Your Password");
+  });
+
+  it("includes reset link with token", () => {
+    const result = buildPasswordResetEmail(makeResetInput({ token: "my-raw-token" }));
+
+    expect(result.html).toContain("Reset Password");
+    expect(result.html).toContain("https://app.example.com/reset-password?token=my-raw-token");
+    expect(result.text).toContain("Reset Password: https://app.example.com/reset-password?token=my-raw-token");
+  });
+
+  it("includes 1-hour expiry note", () => {
+    const result = buildPasswordResetEmail(makeResetInput());
+
+    expect(result.html).toContain("1 hour");
+    expect(result.text).toContain("1 hour");
+  });
+
+  it("includes security note about ignoring the email", () => {
+    const result = buildPasswordResetEmail(makeResetInput());
+
+    expect(result.html).toContain("didn't request this");
+    expect(result.html).toContain("safely ignore");
+    expect(result.text).toContain("didn't request this");
+    expect(result.text).toContain("safely ignore");
+  });
+
+  it("includes plain text fallback with full URL and no HTML tags", () => {
+    const result = buildPasswordResetEmail(makeResetInput());
+
+    expect(result.text).toContain("https://app.example.com/reset-password?token=");
+    expect(result.text).not.toContain("<a ");
+    expect(result.text).not.toContain("<p>");
+    expect(result.text).not.toContain("<div");
+  });
+
+  it("includes footer", () => {
+    const result = buildPasswordResetEmail(makeResetInput());
+
+    expect(result.html).toContain("password reset was requested");
+    expect(result.text).toContain("password reset was requested");
   });
 });

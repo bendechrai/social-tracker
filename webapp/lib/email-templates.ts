@@ -143,6 +143,47 @@ export function buildVerificationEmail(
   return { subject, html, text };
 }
 
+export interface PasswordResetEmailInput {
+  token: string;
+  appUrl: string;
+}
+
+export interface PasswordResetEmailResult {
+  subject: string;
+  html: string;
+  text: string;
+}
+
+export function buildPasswordResetEmail(
+  input: PasswordResetEmailInput
+): PasswordResetEmailResult {
+  const { token, appUrl } = input;
+
+  const subject = "Social Tracker — Reset Your Password";
+
+  const resetUrl = `${appUrl}/reset-password?token=${encodeURIComponent(token)}`;
+
+  let html = "";
+  html += `<p>Hi,</p>\n`;
+  html += `<p>We received a request to reset your password for Social Tracker.</p>\n`;
+  html += `<p><a href="${escapeHtml(resetUrl)}" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600;">Reset Password</a></p>\n`;
+  html += `<p style="color: #6b7280; font-size: 13px;">This link expires in 1 hour.</p>\n`;
+  html += `<p style="color: #6b7280; font-size: 13px;">If you didn't request this, you can safely ignore this email. Your password will not be changed.</p>\n`;
+  html += `<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />\n`;
+  html += `<p style="color: #9ca3af; font-size: 12px;">You're receiving this because a password reset was requested for your Social Tracker account.</p>\n`;
+
+  let text = "";
+  text += `Hi,\n\n`;
+  text += `We received a request to reset your password for Social Tracker.\n\n`;
+  text += `Reset Password: ${resetUrl}\n\n`;
+  text += `This link expires in 1 hour.\n\n`;
+  text += `If you didn't request this, you can safely ignore this email. Your password will not be changed.\n\n`;
+  text += `---\n`;
+  text += `You're receiving this because a password reset was requested for your Social Tracker account.`;
+
+  return { subject, html, text };
+}
+
 export function buildNotificationEmail(
   input: NotificationEmailInput
 ): NotificationEmailResult {
