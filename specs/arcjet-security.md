@@ -103,29 +103,33 @@ Shield runs on every request to block common attack patterns (SQL injection, XSS
 
 ### Shared Client
 
-Create `lib/arcjet.ts` with the base Arcjet client:
+Create `lib/arcjet.ts` with the base Arcjet client. Export `ajMode` which is `DRY_RUN` in development/test and `LIVE` in production:
 
 ```typescript
 import arcjet, { shield } from "@arcjet/next";
 
-export default arcjet({
+export const ajMode = process.env.NODE_ENV === "production" ? "LIVE" : "DRY_RUN" as const;
+
+const aj = arcjet({
   key: process.env.ARCJET_KEY!,
-  rules: [shield({ mode: "LIVE" })],
+  rules: [shield({ mode: ajMode })],
 });
+
+export default aj;
 ```
 
 ### Per-Route Rules
 
-Each route imports the base client and adds route-specific rules using `withRule()`:
+Each route imports the base client and `ajMode`, adding route-specific rules using `withRule()`:
 
 ```typescript
-import aj from "@/lib/arcjet";
+import aj, { ajMode } from "@/lib/arcjet";
 import { slidingWindow, detectBot } from "@arcjet/next";
 
 const protectedAj = aj.withRule(
-  slidingWindow({ mode: "LIVE", interval: "5m", max: 10 })
+  slidingWindow({ mode: ajMode, interval: "5m", max: 10 })
 ).withRule(
-  detectBot({ mode: "LIVE", allow: [] })
+  detectBot({ mode: ajMode, allow: [] })
 );
 ```
 
@@ -158,7 +162,7 @@ After Arcjet is implemented, remove:
 
 ## Dry Run Mode
 
-For initial deployment, all rules can be set to `mode: "DRY_RUN"` to log decisions without blocking. Switch to `"LIVE"` once validated.
+All rules use `ajMode` from the shared client, which is automatically `DRY_RUN` when `NODE_ENV` is not `production`. In production, all rules are `LIVE`. No manual switching needed.
 
 ## Acceptance Criteria
 
@@ -170,5 +174,5 @@ For initial deployment, all rules can be set to `mode: "DRY_RUN"` to log decisio
 6. **In-memory rate limiters removed** — Hand-rolled limiters replaced by Arcjet
 7. **Authenticated routes use user ID** — Rate limiting by user ID, not just IP
 8. **Decisions handled** — Appropriate HTTP status codes returned (429, 403)
-9. **Dry run available** — Can deploy in DRY_RUN mode first for validation
+9. **Automatic dry run** — DRY_RUN in development/test, LIVE in production via `ajMode`
 10. **ARCJET_KEY configured** — Environment variable documented and required
