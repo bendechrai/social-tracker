@@ -5,6 +5,7 @@ import {
   text,
   timestamp,
   integer,
+  boolean,
   primaryKey,
   uniqueIndex,
   index,
@@ -24,6 +25,9 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash"),
   // User's Groq API key (encrypted with AES-256-GCM)
   groqApiKey: text("groq_api_key"),
+  // Email notification preferences
+  emailNotifications: boolean("email_notifications").notNull().default(true),
+  lastEmailedAt: timestamp("last_emailed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at")
     .notNull()

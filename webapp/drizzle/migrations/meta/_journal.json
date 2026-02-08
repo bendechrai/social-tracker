@@ -15,6 +15,13 @@
       "when": 1770498299095,
       "tag": "0001_nebulous_mongoose",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1770531262617,
+      "tag": "0002_closed_veda",
+      "breakpoints": true
     }
   ]
 }

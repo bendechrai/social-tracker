@@ -210,15 +210,15 @@ The tag-system spec requires two constraints that are not enforced:
 
 Set up nodemailer/SMTP email infrastructure and implement notification digests for new tagged posts. Adds `email_notifications` and `last_emailed_at` columns to users, unsubscribe endpoint, and cron integration.
 
-### In Progress (Phase 25)
+### Completed (Phase 25)
 
-- [ ] **Add `email_notifications` and `last_emailed_at` columns to users table**
-  - Files: `webapp/drizzle/schema.ts`, new migration
+- [x] **Add `email_notifications` and `last_emailed_at` columns to users table**
+  - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/0002_closed_veda.sql`
   - Spec: `specs/email-notifications.md` — Database Changes
   - Acceptance: `users` table has `email_notifications` (boolean, default true) and `last_emailed_at` (timestamp, nullable) columns; migration applies cleanly
-  - Tests: Typecheck passes; existing tests still pass with updated schema
+  - Tests: Typecheck passes; all 640 tests pass; build passes
 
-### Backlog (Phase 25)
+### In Progress (Phase 25)
 
 - [ ] **Create nodemailer SMTP transport utility**
   - Files: `webapp/lib/email.ts`
