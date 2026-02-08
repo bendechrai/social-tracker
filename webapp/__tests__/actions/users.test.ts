@@ -49,6 +49,7 @@ vi.mock("@/lib/db", () => ({
 import {
   getEmailNotifications,
   updateEmailNotifications,
+  getEmailVerified,
 } from "@/app/actions/users";
 
 const MOCK_USER_ID = "test-user-uuid-1234";
@@ -138,6 +139,38 @@ describe("User email notification actions", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Failed to update email notifications");
+    });
+  });
+
+  describe("getEmailVerified", () => {
+    it("returns true when user email is verified", async () => {
+      mockFindFirst.mockResolvedValue({ emailVerified: new Date() });
+
+      const result = await getEmailVerified();
+
+      expect(result).toBe(true);
+    });
+
+    it("returns false when user email is not verified", async () => {
+      mockFindFirst.mockResolvedValue({ emailVerified: null });
+
+      const result = await getEmailVerified();
+
+      expect(result).toBe(false);
+    });
+
+    it("returns false when user not found", async () => {
+      mockFindFirst.mockResolvedValue(null);
+
+      const result = await getEmailVerified();
+
+      expect(result).toBe(false);
+    });
+
+    it("throws when not authenticated", async () => {
+      mockAuth.mockResolvedValue(null);
+
+      await expect(getEmailVerified()).rejects.toThrow("Not authenticated");
     });
   });
 });

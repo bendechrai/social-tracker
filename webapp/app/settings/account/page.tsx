@@ -15,7 +15,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Loader2Icon, CheckIcon, XIcon, EyeIcon, EyeOffIcon } from "lucide-react";
 import { changePassword } from "@/app/actions/auth";
-import { getEmailNotifications, updateEmailNotifications } from "@/app/actions/users";
+import { getEmailNotifications, updateEmailNotifications, getEmailVerified } from "@/app/actions/users";
 import { toast } from "@/lib/hooks/use-toast";
 
 // Password requirements for display (same as signup page)
@@ -43,11 +43,14 @@ export default function AccountSettingsPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [emailNotificationsEnabled, setEmailNotificationsEnabled] = React.useState(true);
   const [emailNotificationsLoading, setEmailNotificationsLoading] = React.useState(true);
+  const [emailVerified, setEmailVerified] = React.useState<boolean | null>(null);
+  const [resendLoading, setResendLoading] = React.useState(false);
 
   React.useEffect(() => {
     getEmailNotifications()
       .then((enabled) => setEmailNotificationsEnabled(enabled))
       .finally(() => setEmailNotificationsLoading(false));
+    getEmailVerified().then((verified) => setEmailVerified(verified));
   }, []);
 
   // Check which password requirements are met
@@ -121,6 +124,55 @@ export default function AccountSettingsPage() {
             <p className="text-xs text-muted-foreground">
               Email changes are not supported in this version.
             </p>
+            {emailVerified === false && (
+              <div className="mt-4 p-3 bg-muted rounded-md">
+                <p className="text-sm text-muted-foreground mb-2">
+                  Your email is not verified. Verify your email to receive notification emails.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={resendLoading}
+                  onClick={async () => {
+                    setResendLoading(true);
+                    try {
+                      const res = await fetch("/api/resend-verification", {
+                        method: "POST",
+                      });
+                      if (res.ok) {
+                        toast({
+                          title: "Verification email sent",
+                          description: "Check your inbox for the verification link.",
+                        });
+                      } else {
+                        toast({
+                          title: "Error",
+                          description: "Failed to send verification email",
+                          variant: "destructive",
+                        });
+                      }
+                    } catch {
+                      toast({
+                        title: "Error",
+                        description: "Failed to send verification email",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setResendLoading(false);
+                    }
+                  }}
+                >
+                  {resendLoading ? (
+                    <>
+                      <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Resend verification email"
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

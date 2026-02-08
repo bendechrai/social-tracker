@@ -116,6 +116,33 @@ export function buildWelcomeEmail(
   return { subject, html, text };
 }
 
+export function buildVerificationEmail(
+  input: WelcomeEmailInput
+): WelcomeEmailResult {
+  const { userId, appUrl } = input;
+
+  const subject = "Verify your email — Social Tracker";
+
+  const verifyToken = createSignedToken(userId, VERIFY_TOKEN_EXPIRY_MS);
+  const verifyUrl = `${appUrl}/api/verify-email?token=${verifyToken}`;
+
+  let html = "";
+  html += `<p>Please verify your email address to enable notification emails:</p>\n`;
+  html += `<p><a href="${escapeHtml(verifyUrl)}" style="display: inline-block; padding: 10px 20px; background-color: #16a34a; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600;">Verify Email</a></p>\n`;
+  html += `<p style="color: #6b7280; font-size: 13px;">This link expires in 7 days.</p>\n`;
+  html += `<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />\n`;
+  html += `<p style="color: #9ca3af; font-size: 12px;">You're receiving this because you requested a verification email from Social Tracker.</p>\n`;
+
+  let text = "";
+  text += `Please verify your email address to enable notification emails:\n\n`;
+  text += `Verify Email: ${verifyUrl}\n\n`;
+  text += `This link expires in 7 days.\n\n`;
+  text += `---\n`;
+  text += `You're receiving this because you requested a verification email from Social Tracker.`;
+
+  return { subject, html, text };
+}
+
 export function buildNotificationEmail(
   input: NotificationEmailInput
 ): NotificationEmailResult {

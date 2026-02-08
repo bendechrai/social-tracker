@@ -282,9 +282,9 @@ Set up nodemailer/SMTP email infrastructure and implement notification digests f
 
 ---
 
-## Phase 26: Welcome Email & Email Verification — BACKLOG
+## Phase 26: Welcome Email & Email Verification — COMPLETE
 
-**Status: BACKLOG**
+**Status: COMPLETE**
 **Priority: HIGH — New spec**
 **Dependencies: Phase 25 (email infrastructure, signed tokens)**
 **Spec: `specs/welcome-email.md`**
@@ -323,31 +323,31 @@ Send a welcome email with quick-start tips and verification link on signup. Add 
   - Acceptance: `/api/verify-email` is accessible without authentication
   - Tests: 2 middleware tests — /api/verify-email excluded from API auth (no 401), matcher contains api/verify-email
 
-### In Progress (Phase 26)
+### Completed (Phase 26)
 
-- [ ] **Create `POST /api/resend-verification` endpoint**
-  - Files: `webapp/app/api/resend-verification/route.ts`
+- [x] **Create `POST /api/resend-verification` endpoint**
+  - Files: `webapp/app/api/resend-verification/route.ts`, `webapp/lib/email-templates.ts`
   - Spec: `specs/welcome-email.md` — Resend Verification
-  - Acceptance: Authenticated endpoint; sends verification-only email (not full welcome); returns 200
-  - Tests: Unit tests for successful resend, already-verified user (no-op or skip)
+  - Acceptance: Authenticated endpoint; sends verification-only email (not full welcome) via new `buildVerificationEmail` template; returns 200; already-verified users get `{ success: true, alreadyVerified: true }` without sending email
+  - Tests: 4 unit tests (successful resend, already-verified user skip, unauthenticated 401, user not found 404) + 6 template tests (subject, verify link, 7-day token expiry, no welcome content, expiry note, plain text fallback)
 
-- [ ] **Add resend verification button to account settings for unverified users**
-  - Files: `webapp/app/settings/account/page.tsx`
+- [x] **Add resend verification button to account settings for unverified users**
+  - Files: `webapp/app/settings/account/page.tsx`, `webapp/app/actions/users.ts`
   - Spec: `specs/welcome-email.md` — Resend Verification
-  - Acceptance: If `emailVerified` is null, show "Resend verification email" button; button calls `/api/resend-verification`
-  - Tests: Component test for button visible when unverified, hidden when verified
+  - Acceptance: If `emailVerified` is null, show "Resend verification email" button with explanation text; button calls `POST /api/resend-verification`; hidden when verified. New `getEmailVerified` server action added.
+  - Tests: 2 component tests (button visible when unverified, hidden when verified) + 4 action tests (getEmailVerified: verified true, not verified false, user not found false, unauthenticated throws)
 
-- [ ] **Add verification banner to dashboard for unverified users**
+- [x] **Add verification banner to dashboard for unverified users**
   - Files: `webapp/app/dashboard/page.tsx`
   - Spec: `specs/welcome-email.md` — Dashboard Banner
-  - Acceptance: If `emailVerified` is null, show dismissible banner: "Please verify your email to receive notifications. Check your inbox or [resend verification email]."; dismissible for session (client-side state); hidden once verified
-  - Tests: Component test for banner visible when unverified, hidden when verified, dismissible behavior
+  - Acceptance: If `emailVerified` is null, show dismissible amber banner: "Please verify your email to receive notifications. Check your inbox or [resend verification email]."; dismissible for session (client-side state); hidden once verified; resend link calls `POST /api/resend-verification`
+  - Tests: 3 component tests (banner visible when unverified, hidden when verified, dismissible behavior)
 
 ---
 
-## Phase 27: Password Reset — BACKLOG
+## Phase 27: Password Reset — IN PROGRESS
 
-**Status: BACKLOG**
+**Status: IN PROGRESS**
 **Priority: HIGH — New spec**
 **Dependencies: Phase 25 (email infrastructure)**
 **Spec: `specs/password-reset.md`**
@@ -697,8 +697,8 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 | 23 | Auto-Fetch Cron | 9 | **COMPLETE** | Phase 22 | HIGH |
 | 24 | Tag Search Term Constraints | 4 | **COMPLETE** | None | HIGH |
 | 25 | Email Infrastructure & Notifications | 9 | **COMPLETE** | None | HIGH |
-| 26 | Welcome Email & Verification | 7 | **IN PROGRESS** | Phase 25 | HIGH |
-| 27 | Password Reset | 10 | **BACKLOG** | Phase 25 | HIGH |
+| 26 | Welcome Email & Verification | 7 | **COMPLETE** | Phase 25 | HIGH |
+| 27 | Password Reset | 10 | **IN PROGRESS** | Phase 25 | HIGH |
 | 28 | Account Deletion | 2 | **BACKLOG** | None | HIGH |
 | 29 | NSFW Content Handling | 4 | **BACKLOG** | None | MODERATE |
 | 30 | Post Detail Page | 10 | **BACKLOG** | Phase 29 | HIGH |

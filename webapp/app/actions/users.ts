@@ -43,6 +43,20 @@ export async function getEmailNotifications(): Promise<boolean> {
 }
 
 /**
+ * Gets whether the current user's email is verified.
+ */
+export async function getEmailVerified(): Promise<boolean> {
+  const userId = await getCurrentUserId();
+
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: { emailVerified: true },
+  });
+
+  return user?.emailVerified !== null && user?.emailVerified !== undefined;
+}
+
+/**
  * Updates the current user's email notification preference.
  */
 export async function updateEmailNotifications(

@@ -22,11 +22,13 @@ vi.mock("next-auth/react", () => ({
 // Mock server actions
 const mockGetEmailNotifications = vi.fn();
 const mockUpdateEmailNotifications = vi.fn();
+const mockGetEmailVerified = vi.fn();
 
 vi.mock("@/app/actions/users", () => ({
   getEmailNotifications: () => mockGetEmailNotifications(),
   updateEmailNotifications: (...args: unknown[]) =>
     mockUpdateEmailNotifications(...args),
+  getEmailVerified: () => mockGetEmailVerified(),
 }));
 
 const mockChangePassword = vi.fn();
@@ -53,6 +55,7 @@ describe("AccountSettings email notifications", () => {
     });
     mockGetEmailNotifications.mockResolvedValue(true);
     mockUpdateEmailNotifications.mockResolvedValue({ success: true });
+    mockGetEmailVerified.mockResolvedValue(true);
   });
 
   it("renders the email notifications toggle", async () => {
@@ -180,5 +183,45 @@ describe("AccountSettings email notifications", () => {
         "checked"
       );
     });
+  });
+});
+
+describe("AccountSettings resend verification", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseSession.mockReturnValue({
+      data: { user: { email: "test@example.com" } },
+      status: "authenticated",
+    });
+    mockGetEmailNotifications.mockResolvedValue(true);
+    mockUpdateEmailNotifications.mockResolvedValue({ success: true });
+  });
+
+  it("shows resend verification button when email is not verified", async () => {
+    mockGetEmailVerified.mockResolvedValue(false);
+
+    render(<AccountSettingsPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /resend verification email/i })
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/your email is not verified/i)
+    ).toBeInTheDocument();
+  });
+
+  it("hides resend verification button when email is verified", async () => {
+    mockGetEmailVerified.mockResolvedValue(true);
+
+    render(<AccountSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Email")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /resend verification email/i })
+    ).not.toBeInTheDocument();
   });
 });

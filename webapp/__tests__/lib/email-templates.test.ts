@@ -11,6 +11,7 @@ vi.mock("@/lib/tokens", () => ({
 import {
   buildNotificationEmail,
   buildWelcomeEmail,
+  buildVerificationEmail,
   type TaggedPost,
   type NotificationEmailInput,
   type WelcomeEmailInput,
@@ -340,5 +341,72 @@ describe("buildWelcomeEmail", () => {
     const result = buildWelcomeEmail(makeWelcomeInput());
 
     expect(result.html).toContain("signed up for Social Tracker");
+  });
+});
+
+describe("buildVerificationEmail", () => {
+  function makeVerifyInput(overrides: Partial<WelcomeEmailInput> = {}): WelcomeEmailInput {
+    return {
+      userId: "user-789",
+      appUrl: "https://app.example.com",
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.ENCRYPTION_KEY = "a".repeat(64);
+  });
+
+  afterEach(() => {
+    delete process.env.ENCRYPTION_KEY;
+  });
+
+  it("generates correct subject", () => {
+    const result = buildVerificationEmail(makeVerifyInput());
+
+    expect(result.subject).toContain("Verify your email");
+  });
+
+  it("includes verify email link with signed token", () => {
+    const result = buildVerificationEmail(makeVerifyInput());
+
+    expect(result.html).toContain("Verify Email");
+    expect(result.html).toContain("https://app.example.com/api/verify-email?token=mock-signed-token");
+    expect(result.text).toContain("Verify Email: https://app.example.com/api/verify-email?token=mock-signed-token");
+  });
+
+  it("calls createSignedToken with userId and 7-day expiry", () => {
+    buildVerificationEmail(makeVerifyInput());
+
+    expect(mockCreateSignedToken).toHaveBeenCalledWith(
+      "user-789",
+      7 * 24 * 60 * 60 * 1000
+    );
+  });
+
+  it("does not include welcome content (quick-start tips)", () => {
+    const result = buildVerificationEmail(makeVerifyInput());
+
+    expect(result.html).not.toContain("Add a subreddit");
+    expect(result.html).not.toContain("Create tags");
+    expect(result.html).not.toContain("Add a Groq API key");
+    expect(result.html).not.toContain("Get Started");
+    expect(result.text).not.toContain("Add a subreddit");
+  });
+
+  it("includes expiry note", () => {
+    const result = buildVerificationEmail(makeVerifyInput());
+
+    expect(result.html).toContain("7 days");
+    expect(result.text).toContain("7 days");
+  });
+
+  it("includes plain text fallback with full URLs and no HTML tags", () => {
+    const result = buildVerificationEmail(makeVerifyInput());
+
+    expect(result.text).toContain("https://app.example.com/api/verify-email");
+    expect(result.text).not.toContain("<a ");
+    expect(result.text).not.toContain("<p>");
   });
 });

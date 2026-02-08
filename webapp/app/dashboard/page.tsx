@@ -16,6 +16,7 @@ import {
   useTags,
 } from "@/lib/hooks";
 import { useToast } from "@/lib/hooks/use-toast";
+import { getEmailVerified } from "@/app/actions/users";
 import type { PostStatus } from "@/lib/validations";
 
 export default function HomePage() {
@@ -23,8 +24,15 @@ export default function HomePage() {
   const [selectedTagIds, setSelectedTagIds] = React.useState<string[]>([]);
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(20);
+  const [emailVerified, setEmailVerified] = React.useState<boolean | null>(null);
+  const [verifyBannerDismissed, setVerifyBannerDismissed] = React.useState(false);
+  const [resendLoading, setResendLoading] = React.useState(false);
 
   const { toast } = useToast();
+
+  React.useEffect(() => {
+    getEmailVerified().then((verified) => setEmailVerified(verified));
+  }, []);
 
   // Reset to page 1 when filters change
   const handleTabChange = React.useCallback((newStatus: PostStatus) => {
@@ -92,6 +100,59 @@ export default function HomePage() {
       <Header />
 
       <main className="container mx-auto px-4 py-6 space-y-6">
+        {/* Verification banner for unverified users */}
+        {emailVerified === false && !verifyBannerDismissed && (
+          <div className="p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg text-sm flex items-start justify-between gap-4">
+            <p className="text-amber-800 dark:text-amber-200">
+              Please verify your email to receive notifications. Check your inbox or{" "}
+              <button
+                type="button"
+                className="text-primary hover:underline font-medium"
+                disabled={resendLoading}
+                onClick={async () => {
+                  setResendLoading(true);
+                  try {
+                    const res = await fetch("/api/resend-verification", {
+                      method: "POST",
+                    });
+                    if (res.ok) {
+                      toast({
+                        title: "Verification email sent",
+                        description: "Check your inbox for the verification link.",
+                      });
+                    } else {
+                      toast({
+                        title: "Error",
+                        description: "Failed to send verification email",
+                        variant: "destructive",
+                      });
+                    }
+                  } catch {
+                    toast({
+                      title: "Error",
+                      description: "Failed to send verification email",
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setResendLoading(false);
+                  }
+                }}
+              >
+                {resendLoading ? "sending..." : "resend verification email"}
+              </button>
+              .
+            </p>
+            <button
+              type="button"
+              className="text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 shrink-0"
+              aria-label="Dismiss verification banner"
+              onClick={() => setVerifyBannerDismissed(true)}
+            >
+              &times;
+            </button>
+          </div>
+        )}
+
         {/* Banner for missing configuration */}
         {!postsLoading && allSubreddits.length === 0 && (
           <div className="p-4 bg-muted rounded-lg text-sm text-muted-foreground">
