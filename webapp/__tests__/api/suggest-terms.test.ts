@@ -8,8 +8,9 @@
  * - LLM response parsing with retry logic (up to 2 attempts)
  * - Graceful error handling (returns empty suggestions, never crashes)
  * - Missing API key returns helpful error message
+ * - Arcjet rate limiting by user ID
  *
- * All external dependencies (auth, db, encryption, AI SDK) are mocked.
+ * All external dependencies (auth, db, encryption, AI SDK, Arcjet) are mocked.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -62,8 +63,24 @@ vi.mock("drizzle-orm", async (importOriginal) => {
   };
 });
 
+// Mock Arcjet
+const { mockProtect } = vi.hoisted(() => {
+  const mockProtect = vi.fn();
+  return { mockProtect };
+});
+
+vi.mock("@/lib/arcjet", () => ({
+  default: {
+    withRule: () => ({ protect: (...args: unknown[]) => mockProtect(...args) }),
+  },
+}));
+
+vi.mock("@arcjet/next", () => ({
+  slidingWindow: vi.fn().mockReturnValue([]),
+}));
+
 // Import after mocks
-import { POST, rateLimitMap } from "@/app/api/suggest-terms/route";
+import { POST } from "@/app/api/suggest-terms/route";
 
 function makeRequest(body: unknown): NextRequest {
   return new NextRequest("http://localhost:3000/api/suggest-terms", {
@@ -76,11 +93,13 @@ function makeRequest(body: unknown): NextRequest {
 describe("POST /api/suggest-terms", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Clear rate limiter between tests
-    rateLimitMap.clear();
     // Default: authenticated user without stored key, env var fallback
     mockAuth.mockResolvedValue({ user: { id: "user-1", email: "test@example.com" } });
     mockFindFirst.mockResolvedValue({ groqApiKey: null });
+    // Default: Arcjet allows request
+    mockProtect.mockResolvedValue({
+      isDenied: () => false,
+    });
     delete process.env.GROQ_API_KEY;
   });
 
@@ -302,30 +321,27 @@ describe("POST /api/suggest-terms", () => {
     });
   });
 
-  describe("rate limiting", () => {
+  describe("Arcjet rate limiting", () => {
     beforeEach(() => {
       process.env.GROQ_API_KEY = "test-key";
     });
 
-    it("should allow requests within rate limit", async () => {
+    it("should allow requests when Arcjet permits", async () => {
       mockGenerateText.mockResolvedValue({ text: '["term"]' });
 
       const req = makeRequest({ tagName: "React" });
       const res = await POST(req);
 
       expect(res.status).toBe(200);
+      expect(mockProtect).toHaveBeenCalled();
     });
 
-    it("should return 429 when rate limit exceeded", async () => {
-      mockGenerateText.mockResolvedValue({ text: '["term"]' });
+    it("should return 429 when Arcjet rate limit is exceeded", async () => {
+      mockProtect.mockResolvedValueOnce({
+        isDenied: () => true,
+        reason: { isRateLimit: () => true },
+      });
 
-      // Fill up the rate limit (10 requests)
-      for (let i = 0; i < 10; i++) {
-        const req = makeRequest({ tagName: "React" });
-        await POST(req);
-      }
-
-      // 11th request should be rate limited
       const req = makeRequest({ tagName: "React" });
       const res = await POST(req);
       const data = await res.json();
@@ -335,16 +351,42 @@ describe("POST /api/suggest-terms", () => {
       expect(data.suggestions).toEqual([]);
     });
 
-    it("should not rate limit unauthenticated users", async () => {
-      mockAuth.mockResolvedValue(null);
+    it("should pass userId to Arcjet protect", async () => {
       mockGenerateText.mockResolvedValue({ text: '["term"]' });
 
-      // Even many requests should succeed for unauthenticated users
-      for (let i = 0; i < 15; i++) {
-        const req = makeRequest({ tagName: "React" });
-        const res = await POST(req);
-        expect(res.status).toBe(200);
-      }
+      const req = makeRequest({ tagName: "React" });
+      await POST(req);
+
+      expect(mockProtect).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ userId: "user-1" })
+      );
+    });
+
+    it("should not call Arcjet for unauthenticated users", async () => {
+      mockAuth.mockResolvedValue(null);
+      process.env.GROQ_API_KEY = "env-groq-key";
+      mockGenerateText.mockResolvedValue({ text: '["term"]' });
+
+      const req = makeRequest({ tagName: "React" });
+      const res = await POST(req);
+
+      expect(res.status).toBe(200);
+      expect(mockProtect).not.toHaveBeenCalled();
+    });
+
+    it("should return 403 when Arcjet denies for non-rate-limit reason", async () => {
+      mockProtect.mockResolvedValueOnce({
+        isDenied: () => true,
+        reason: { isRateLimit: () => false },
+      });
+
+      const req = makeRequest({ tagName: "React" });
+      const res = await POST(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(403);
+      expect(data.error).toBe("Forbidden");
     });
   });
 
