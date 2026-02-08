@@ -539,19 +539,19 @@ Dedicated page for viewing a Reddit post with comments and AI chat. Adds `commen
   - Acceptance: When `is_nsfw` true and `show_nsfw` off, title/body/comments blurred with banner "This post is marked NSFW" + "Show Content" button; clicking reveals all content; metadata and actions remain visible; NSFW badge always shown; comments also respect `revealed` state
   - Tests: 5 new component tests (banner shown, hidden when showNsfw on, Show Content reveals content and removes banner, comments blurred, non-NSFW no banner). All 862 tests pass.
 
-- [ ] **Create `POST /api/chat` endpoint for AI chat** ← NEXT
+- [x] **Create `POST /api/chat` endpoint for AI chat**
   - Files: `webapp/app/api/chat/route.ts`
   - Spec: `specs/post-detail.md` — AI Chat API
   - Acceptance: Authenticated; loads post + comments + chat history; builds system prompt with post context; streams response from Groq via `streamText` using user's API key (or env fallback); persists user message and assistant response to `chat_messages`
-  - Tests: Unit tests for: valid chat message, missing API key error, post not found error, chat history loaded correctly
+  - Tests: 10 unit tests — auth (401), validation (postId/message required, empty message), post not found (404), missing API key (422), valid streaming response, chat history loaded, user API key used, system prompt with post context and comments
 
-- [ ] **Create `DELETE /api/chat` endpoint for clearing chat**
+- [x] **Create `DELETE /api/chat` endpoint for clearing chat**
   - Files: `webapp/app/api/chat/route.ts`
   - Spec: `specs/post-detail.md` — Clear Chat
   - Acceptance: Deletes all `chat_messages` for authenticated user + given postId; returns 200
-  - Tests: Unit test for successful clear, unauthorized rejected
+  - Tests: 3 unit tests — unauthorized (401), missing postId (400), successful clear. All 875 tests pass.
 
-- [ ] **Build AI chat panel component**
+- [ ] **Build AI chat panel component** ← NEXT
   - Files: `webapp/components/chat-panel.tsx`
   - Spec: `specs/post-detail.md` — Right Column (AI Chat)
   - Acceptance: Scrollable message list (user right-aligned, AI left-aligned as markdown), chat input with send button, "Clear Chat" button, loading indicator during streaming, disabled state with message when no Groq key, "Use as Response" button on AI messages to save to `user_posts.response_text` + copy to clipboard
