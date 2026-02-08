@@ -150,14 +150,19 @@ export function ChatPanel({ postId, hasApiKey, initialMessages = [] }: ChatPanel
   };
 
   const handleUseAsResponse = async (content: string) => {
+    // Copy to clipboard first — must happen before any async work
+    // to preserve the browser's user activation context
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(content);
+      copied = true;
+    } catch {
+      // clipboard requires user activation, will fail if delayed
+    }
+
     const result = await updateResponseText(postId, content);
     if (result.success) {
-      try {
-        await navigator.clipboard.writeText(content);
-        toast({ title: "Response saved and copied to clipboard" });
-      } catch {
-        toast({ title: "Response saved (clipboard unavailable)" });
-      }
+      toast({ title: copied ? "Response saved and copied to clipboard" : "Response saved (clipboard unavailable)" });
     } else {
       toast({
         title: "Error",
