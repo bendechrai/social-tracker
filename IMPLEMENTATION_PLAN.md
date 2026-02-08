@@ -808,7 +808,7 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
 
 ### In Progress
 
-- [ ] **Create `getAiAccessInfo` server action**
+- [x] **Create `getAiAccessInfo` server action**
   - Files: `webapp/app/actions/credits.ts`
   - Spec: `specs/ai-credits.md` — Server Actions
   - Acceptance: Returns `{ hasGroqKey, creditBalanceCents, mode }` where mode is "byok" if Groq key exists, "credits" if balance > 0, "none" otherwise; checks Groq key via `hasGroqApiKey` pattern
@@ -936,9 +936,9 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
 | 31 | Welcome Wizard | 5 | **COMPLETE** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **COMPLETE** | Phases 25-27, 30 | HIGH |
 | 33 | AI Assistant Improvements | 10 | **COMPLETE** | Phase 30 | HIGH |
-| 34 | AI Credits System | 20 | **IN PROGRESS** (3/20) | Phase 33 | HIGH |
+| 34 | AI Credits System | 20 | **IN PROGRESS** (4/20) | Phase 33 | HIGH |
 
-**Total Remaining Tasks: 17**
+**Total Remaining Tasks: 16**
 
 ### Environment Variables Required
 ```bash

@@ -140,3 +140,65 @@ describe("getCreditBalance", () => {
     await expect(getCreditBalance()).rejects.toThrow("Unauthorized");
   });
 });
+
+// ============================================================
+// getAiAccessInfo
+// ============================================================
+describe("getAiAccessInfo", () => {
+  it("returns byok mode when user has Groq API key", async () => {
+    // First call: users.findFirst (groqApiKey), second call: creditBalances.findFirst
+    mockFindFirst
+      .mockResolvedValueOnce({ groqApiKey: "encrypted-key" })
+      .mockResolvedValueOnce({ balanceCents: 0 });
+
+    const result = await getAiAccessInfo();
+
+    expect(result).toEqual({
+      hasGroqKey: true,
+      creditBalanceCents: 0,
+      mode: "byok",
+    });
+  });
+
+  it("returns credits mode when user has balance but no Groq key", async () => {
+    mockFindFirst
+      .mockResolvedValueOnce({ groqApiKey: null })
+      .mockResolvedValueOnce({ balanceCents: 500 });
+
+    const result = await getAiAccessInfo();
+
+    expect(result).toEqual({
+      hasGroqKey: false,
+      creditBalanceCents: 500,
+      mode: "credits",
+    });
+  });
+
+  it("returns none mode when user has neither Groq key nor credits", async () => {
+    mockFindFirst
+      .mockResolvedValueOnce({ groqApiKey: null })
+      .mockResolvedValueOnce(undefined);
+
+    const result = await getAiAccessInfo();
+
+    expect(result).toEqual({
+      hasGroqKey: false,
+      creditBalanceCents: 0,
+      mode: "none",
+    });
+  });
+
+  it("prefers byok over credits when both exist", async () => {
+    mockFindFirst
+      .mockResolvedValueOnce({ groqApiKey: "encrypted-key" })
+      .mockResolvedValueOnce({ balanceCents: 1000 });
+
+    const result = await getAiAccessInfo();
+
+    expect(result).toEqual({
+      hasGroqKey: true,
+      creditBalanceCents: 1000,
+      mode: "byok",
+    });
+  });
+});
