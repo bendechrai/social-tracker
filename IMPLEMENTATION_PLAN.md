@@ -35,7 +35,7 @@ This document outlines the implementation status and remaining tasks for complet
 - `llama-3.3-70b-versatile` hardcoded — matches spec
 - Next.js 16 "middleware" → "proxy" deprecation — future migration
 - shadcn/ui toast deprecated upstream in favor of Sonner — future migration
-- **Phase 34 validation breakage** — Phase 34 code was committed with broken validation: `lib/stripe.ts` has circular export, `chat-panel.test.tsx` uses old `hasApiKey` prop (now `aiAccess`), many test files fail on `ajMode` mock, `app/settings/credits/page.tsx` has lint error, build fails on stripe import. These must be fixed as part of Phase 34 work before other tasks can pass full validation.
+- *(Phase 34 validation breakage — resolved: stripe lazy init, chat-panel test props, ajMode mocks, credits page lint, chat route SDK v6 API)*
 
 ---
 
@@ -712,15 +712,16 @@ Four incremental improvements to the AI chat assistant: anti-hallucination guard
   - Acceptance: The closing paragraph of the system prompt is replaced with the tone-calibrated version: "Write like a real person on Reddit", "No flowery language", "Keep it short", etc.; the old "identify key points, and draft thoughtful responses" text is removed
   - Tests: 1 unit test verifying the prompt contains "Write like a real person on Reddit" and "No flowery language" and does NOT contain "identify key points, and draft thoughtful responses". All 18 chat tests pass.
 
-### In Progress
+### Completed (Phase 33 cont.)
 
-- [ ] **Add `profile_*` columns to users table and generate migration**
-  - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/` (new migration file)
+- [x] **Add `profile_*` columns to users table and generate migration**
+  - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/0008_wise_ser_duncan.sql`
   - Spec: `specs/ai-assistant-improvements.md` — Improvement 3, Database Changes
   - Acceptance: `users` table has 5 new nullable columns: `profile_role` (varchar 255), `profile_company` (varchar 255), `profile_goal` (text), `profile_tone` (varchar 20), `profile_context` (text); migration applies cleanly
-  - Tests: Typecheck passes; all existing tests pass; build passes
+  - Tests: Typecheck passes; all 946 tests pass; build passes
+  - Also fixed pre-existing Phase 34 validation breakage: lazy Stripe init (`lib/stripe.ts`), chat-panel test props (`aiAccess`), `ajMode` mocks in 8 test files, credits page lint (`window.location.assign`), chat route AI SDK v6 API (`providerMetadata`, `inputTokens`/`outputTokens`), unused `eq` import in webhook route, and `getAiAccessInfo` mock in post-detail test
 
-### Backlog
+### In Progress
 
 - [ ] **Create `getProfile` and `updateProfile` server actions**
   - Files: `webapp/app/actions/profile.ts`

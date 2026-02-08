@@ -32,6 +32,12 @@ export const users = pgTable("users", {
   passwordChangedAt: timestamp("password_changed_at"),
   // NSFW content preference
   showNsfw: boolean("show_nsfw").notNull().default(false),
+  // AI profile fields for personalized system prompts
+  profileRole: varchar("profile_role", { length: 255 }),
+  profileCompany: varchar("profile_company", { length: 255 }),
+  profileGoal: text("profile_goal"),
+  profileTone: varchar("profile_tone", { length: 20 }),
+  profileContext: text("profile_context"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at")
     .notNull()
