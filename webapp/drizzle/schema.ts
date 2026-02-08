@@ -270,6 +270,25 @@ export const userPostTagsRelations = relations(userPostTags, ({ one }) => ({
   }),
 }));
 
+// Comments table — shared across users, stored during cron fetch
+export const comments = pgTable(
+  "comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    redditId: varchar("reddit_id", { length: 20 }).notNull().unique(),
+    postRedditId: varchar("post_reddit_id", { length: 20 }).notNull(),
+    parentRedditId: varchar("parent_reddit_id", { length: 20 }),
+    author: varchar("author", { length: 100 }).notNull(),
+    body: text("body").notNull(),
+    score: integer("score").notNull().default(0),
+    redditCreatedAt: timestamp("reddit_created_at").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("comments_post_reddit_id_idx").on(table.postRedditId),
+  ]
+);
+
 // Subreddit fetch status — tracks per-subreddit fetch state (shared across users)
 export const subredditFetchStatus = pgTable("subreddit_fetch_status", {
   name: varchar("name", { length: 100 }).primaryKey(),
@@ -311,3 +330,6 @@ export type NewVerificationToken = typeof verificationTokens.$inferInsert;
 
 export type SubredditFetchStatus = typeof subredditFetchStatus.$inferSelect;
 export type NewSubredditFetchStatus = typeof subredditFetchStatus.$inferInsert;
+
+export type Comment = typeof comments.$inferSelect;
+export type NewComment = typeof comments.$inferInsert;

@@ -499,16 +499,18 @@ Blur NSFW post content by default with user preference to show it. Adds `is_nsfw
 
 Dedicated page for viewing a Reddit post with comments and AI chat. Adds `comments` and `chat_messages` tables, comment fetching in cron, AI chat API, and two-column layout.
 
-### Backlog (Phase 30)
+### Completed (Phase 30)
 
-- [ ] **Add `comments` table to Drizzle schema and generate migration**
-  - Files: `webapp/drizzle/schema.ts`, new migration
+- [x] **Add `comments` table to Drizzle schema and generate migration**
+  - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/0005_flowery_molecule_man.sql`
   - Spec: `specs/post-detail.md` — Comments Storage
   - Acceptance: `comments` table with `id` (uuid PK), `reddit_id` (varchar 20, unique), `post_reddit_id` (varchar 20, indexed), `parent_reddit_id` (varchar 20, nullable), `author` (varchar 100), `body` (text), `score` (integer), `reddit_created_at` (timestamp), `created_at` (timestamp); migration applies cleanly
-  - Tests: Typecheck passes
+  - Tests: Typecheck passes; all 833 tests pass; build passes
 
-- [ ] **Add `chat_messages` table to Drizzle schema**
-  - Files: `webapp/drizzle/schema.ts`
+### Backlog (Phase 30)
+
+- [ ] **Add `chat_messages` table to Drizzle schema and generate migration**
+  - Files: `webapp/drizzle/schema.ts`, new migration
   - Spec: `specs/post-detail.md` — AI Chat table
   - Acceptance: `chat_messages` table with `id` (uuid PK), `user_id` (uuid FK cascade), `post_id` (uuid FK cascade), `role` (varchar 20), `content` (text), `created_at` (timestamp); indexed on `(user_id, post_id, created_at)`
   - Tests: Typecheck passes
