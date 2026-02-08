@@ -402,13 +402,13 @@ Allow users to reset their password via a tokenized email link. Add `passwordCha
   - Acceptance: "Forgot password?" link below login form linking to `/forgot-password`; if `?reset=true` in URL, show success message
   - Tests: 3 component tests (link presence, success message with query param, no message without param)
 
-- [ ] **Add proxy.ts exclusions for `/forgot-password` and `/reset-password`** ← NEXT
-  - Files: `webapp/proxy.ts`
+- [x] **Add proxy.ts exclusions for `/forgot-password` and `/reset-password`**
+  - Files: `webapp/proxy.ts`, `webapp/__tests__/middleware.test.ts`
   - Spec: `specs/password-reset.md` — Route Protection
-  - Acceptance: `/forgot-password` and `/reset-password` are accessible without authentication
-  - Tests: Middleware test updated to verify both routes are public
+  - Acceptance: `/forgot-password` and `/reset-password` are accessible without authentication; matcher pattern excludes both routes
+  - Tests: 2 new middleware tests verifying matcher pattern contains `forgot-password` and `reset-password`
 
-- [ ] **Add JWT callback session invalidation on password change**
+- [ ] **Add JWT callback session invalidation on password change** ← NEXT
   - Files: `webapp/lib/auth.ts`
   - Spec: `specs/password-reset.md` — Session Invalidation
   - Acceptance: JWT callback checks `passwordChangedAt` against token `iat` on refresh (not initial sign-in); if password was changed after token issued, returns null to invalidate session

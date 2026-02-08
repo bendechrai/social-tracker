@@ -272,6 +272,22 @@ describe("authentication middleware", () => {
       expect(matcher).toContain("_next");
     });
 
+    it("matcher pattern excludes forgot-password", async () => {
+      const { config } = await import("../proxy");
+      const matcher = config.matcher[0];
+      if (!matcher) throw new Error("Matcher not defined");
+
+      expect(matcher).toContain("forgot-password");
+    });
+
+    it("matcher pattern excludes reset-password", async () => {
+      const { config } = await import("../proxy");
+      const matcher = config.matcher[0];
+      if (!matcher) throw new Error("Matcher not defined");
+
+      expect(matcher).toContain("reset-password");
+    });
+
     it("matcher pattern excludes api/unsubscribe", async () => {
       const { config } = await import("../proxy");
       const matcher = config.matcher[0];

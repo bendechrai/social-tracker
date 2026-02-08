@@ -5,6 +5,8 @@
  * - / - Marketing landing page (public, handles own auth redirect)
  * - /login - Login page (public)
  * - /signup - Signup page (public)
+ * - /forgot-password - Forgot password page (public)
+ * - /reset-password - Reset password page (public)
  * - /api/auth/* - Auth.js API routes (public)
  * - /api/cron/* - Cron job routes (public, idempotent)
  * - /api/unsubscribe - Email unsubscribe (public, uses signed token)
@@ -57,6 +59,7 @@ export const config = {
     /*
      * Match all paths except:
      * - /login and /signup (auth pages)
+     * - /forgot-password and /reset-password (password reset pages)
      * - /api/auth (NextAuth.js routes)
      * - /api/cron (cron job routes)
      * - /api/unsubscribe (email unsubscribe, uses signed token)
@@ -68,6 +71,6 @@ export const config = {
      * Note: This uses Next.js path-to-regexp syntax, not standard JavaScript regex.
      * The pattern matches paths that DON'T start with the excluded prefixes.
      */
-    "/((?!login|signup|api/auth|api/cron|api/unsubscribe|api/verify-email|_next|static|.*\\..*$).*)",
+    "/((?!login|signup|forgot-password|reset-password|api/auth|api/cron|api/unsubscribe|api/verify-email|_next|static|.*\\..*$).*)",
   ],
 };
