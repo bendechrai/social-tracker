@@ -635,13 +635,13 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
   - Acceptance: Email validation (block DISPOSABLE, INVALID, NO_MX_RECORDS), bot detection, rate limit (5 per 10min per IP)
   - Tests: 3 unit tests — rate limit denial, bot denial, email validation denial. All 925 tests pass.
 
-- [ ] **Add Arcjet protection to login credentials authorize** ← NEXT
-  - Files: `webapp/lib/auth.ts` or `webapp/lib/auth-utils.ts`
+- [x] **Add Arcjet protection to login credentials authorize**
+  - Files: `webapp/lib/auth-utils.ts`
   - Spec: `specs/arcjet-security.md` — Login rules
   - Acceptance: Shield + bot detection + rate limit (10 per 5min per IP) on credentials authorize
-  - Tests: Unit test for rate limit and bot denial
+  - Tests: 2 unit tests — rate limit denial, bot denial. All 927 tests pass.
 
-- [ ] **Add Arcjet protection to password reset endpoint**
+- [ ] **Add Arcjet protection to password reset endpoint** ← NEXT
   - Files: `webapp/app/api/auth/reset-password/route.ts`
   - Spec: `specs/arcjet-security.md` — Password Reset rules
   - Acceptance: Shield + bot detection + email validation + rate limit (3 per 15min per IP)

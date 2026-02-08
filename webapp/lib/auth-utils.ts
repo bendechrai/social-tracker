@@ -10,6 +10,12 @@ import { verifyPassword } from "@/lib/password";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import type { JWT } from "next-auth/jwt";
+import aj from "@/lib/arcjet";
+import { detectBot, slidingWindow, request } from "@arcjet/next";
+
+const loginAj = aj
+  .withRule(slidingWindow({ mode: "LIVE", interval: "5m", max: 10 }))
+  .withRule(detectBot({ mode: "LIVE", allow: [] }));
 
 // Email validation schema - exported for testing
 export const emailSchema = z.string().email("Invalid email format");
@@ -49,6 +55,14 @@ export async function authorizeCredentials(
   const password = credentials?.password;
 
   if (!password || typeof password !== "string") {
+    return null;
+  }
+
+  // Arcjet protection: shield + bot detection + rate limiting
+  const req = await request();
+  const decision = await loginAj.protect(req);
+
+  if (decision.isDenied()) {
     return null;
   }
 

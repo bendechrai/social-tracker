@@ -14,6 +14,24 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { hashPassword } from "@/lib/password";
 
+// Mock Arcjet before importing auth-utils
+const mockProtect = vi.fn();
+const mockRequest = vi.fn().mockResolvedValue({ headers: {} });
+
+vi.mock("@/lib/arcjet", () => ({
+  default: {
+    withRule: () => ({
+      withRule: () => ({ protect: (...args: unknown[]) => mockProtect(...args) }),
+    }),
+  },
+}));
+
+vi.mock("@arcjet/next", () => ({
+  detectBot: vi.fn().mockReturnValue([]),
+  slidingWindow: vi.fn().mockReturnValue([]),
+  request: () => mockRequest(),
+}));
+
 // Mock database before importing auth module
 const mockFindFirst = vi.fn();
 
@@ -86,6 +104,11 @@ describe("auth configuration", () => {
   describe("authorizeCredentials", () => {
     beforeEach(() => {
       vi.clearAllMocks();
+      // Default: Arcjet allows the request
+      mockProtect.mockResolvedValue({
+        isDenied: () => false,
+        reason: { isRateLimit: () => false, isBot: () => false },
+      });
     });
 
     describe("email validation", () => {
@@ -294,6 +317,38 @@ describe("auth configuration", () => {
 
         // Invalid email should return quickly (< 10ms typically)
         expect(invalidEmailDuration).toBeLessThan(50);
+      });
+    });
+
+    describe("Arcjet protection", () => {
+      it("rejects when rate limited", async () => {
+        mockProtect.mockResolvedValueOnce({
+          isDenied: () => true,
+          reason: { isRateLimit: () => true, isBot: () => false },
+        });
+
+        const result = await authorizeCredentials({
+          email: "user@example.com",
+          password: "ValidPassword123!",
+        });
+
+        expect(result).toBeNull();
+        expect(mockFindFirst).not.toHaveBeenCalled();
+      });
+
+      it("rejects when bot detected", async () => {
+        mockProtect.mockResolvedValueOnce({
+          isDenied: () => true,
+          reason: { isRateLimit: () => false, isBot: () => true },
+        });
+
+        const result = await authorizeCredentials({
+          email: "user@example.com",
+          password: "ValidPassword123!",
+        });
+
+        expect(result).toBeNull();
+        expect(mockFindFirst).not.toHaveBeenCalled();
       });
     });
   });
