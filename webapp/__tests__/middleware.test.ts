@@ -162,6 +162,15 @@ describe("authentication middleware", () => {
         expect(nextResponse.status).toBe(401);
       });
 
+      it("does not return 401 for /api/webhooks/stripe (excluded from API auth)", () => {
+        const response = callMiddleware("/api/webhooks/stripe", nullSession);
+
+        expect(response).toBeInstanceOf(NextResponse);
+        const nextResponse = response as NextResponse;
+        // /api/webhooks/ is excluded from isApiRoute, so it should not get 401
+        expect(nextResponse.status).not.toBe(401);
+      });
+
       it("does not return 401 for /api/unsubscribe (excluded from API auth)", () => {
         const response = callMiddleware("/api/unsubscribe", nullSession);
 
@@ -294,6 +303,14 @@ describe("authentication middleware", () => {
       if (!matcher) throw new Error("Matcher not defined");
 
       expect(matcher).toContain("api/unsubscribe");
+    });
+
+    it("matcher pattern excludes api/webhooks", async () => {
+      const { config } = await import("../proxy");
+      const matcher = config.matcher[0];
+      if (!matcher) throw new Error("Matcher not defined");
+
+      expect(matcher).toContain("api/webhooks");
     });
 
     it("matcher pattern excludes api/verify-email", async () => {

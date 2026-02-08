@@ -821,19 +821,21 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
   - Tests: 4 unit tests — valid session creation returns URL, invalid pack amount rejected, unauthenticated throws, Stripe error returns error message
   - Also fixed: success_url/cancel_url to use `?result=success`/`?result=canceled` per spec
 
-### In Progress
+### Completed (Phase 34 cont.)
 
-- [ ] **Create `POST /api/webhooks/stripe` endpoint**
-  - Files: `webapp/app/api/webhooks/stripe/route.ts`
+- [x] **Create `POST /api/webhooks/stripe` endpoint**
+  - Files: `webapp/app/api/webhooks/stripe/route.ts`, `webapp/__tests__/api/webhooks-stripe.test.ts`
   - Spec: `specs/ai-credits.md` — Webhook
   - Acceptance: Verifies Stripe signature; handles `checkout.session.completed`; in DB transaction: inserts `credit_purchases` (ON CONFLICT DO NOTHING for idempotency) and upserts `credit_balances` (increment); returns 200
-  - Tests: 6 unit tests — valid webhook processes correctly, invalid signature returns 400, idempotent (duplicate session_id no double-credit), balance incremented, purchase record created, non-checkout event ignored
+  - Tests: 7 unit tests — valid webhook processes correctly, invalid signature returns 400, missing signature returns 400, idempotent (duplicate session_id no double-credit), balance incremented, purchase record created, non-checkout event ignored
 
-- [ ] **Add `/api/webhooks` to proxy.ts public route exclusions**
-  - Files: `webapp/proxy.ts`
+- [x] **Add `/api/webhooks` to proxy.ts public route exclusions**
+  - Files: `webapp/proxy.ts`, `webapp/__tests__/middleware.test.ts`
   - Spec: `specs/ai-credits.md` — Proxy Changes
   - Acceptance: `/api/webhooks/stripe` accessible without authentication
   - Tests: 2 middleware tests — no 401 for /api/webhooks/stripe, matcher contains api/webhooks
+
+### In Progress
 
 - [ ] **Create curated model list constant and `GET /api/models` endpoint**
   - Files: `webapp/app/api/models/route.ts`
@@ -939,9 +941,9 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
 | 31 | Welcome Wizard | 5 | **COMPLETE** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **COMPLETE** | Phases 25-27, 30 | HIGH |
 | 33 | AI Assistant Improvements | 10 | **COMPLETE** | Phase 30 | HIGH |
-| 34 | AI Credits System | 20 | **IN PROGRESS** (6/20) | Phase 33 | HIGH |
+| 34 | AI Credits System | 20 | **IN PROGRESS** (8/20) | Phase 33 | HIGH |
 
-**Total Remaining Tasks: 14**
+**Total Remaining Tasks: 12**
 
 ### Environment Variables Required
 ```bash
