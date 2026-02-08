@@ -218,13 +218,15 @@ Set up nodemailer/SMTP email infrastructure and implement notification digests f
   - Acceptance: `users` table has `email_notifications` (boolean, default true) and `last_emailed_at` (timestamp, nullable) columns; migration applies cleanly
   - Tests: Typecheck passes; all 640 tests pass; build passes
 
-### In Progress (Phase 25)
+### Completed (Phase 25)
 
-- [ ] **Create nodemailer SMTP transport utility**
+- [x] **Create nodemailer SMTP transport utility**
   - Files: `webapp/lib/email.ts`
   - Spec: `specs/email-notifications.md` — Email Delivery
   - Acceptance: Exported `sendEmail` function creates nodemailer transport from `SMTP_*` env vars, accepts to/subject/html/text, returns success/failure
-  - Tests: Unit test with mocked nodemailer verifying transport creation, sendMail call, and error handling
+  - Tests: 10 unit tests with mocked nodemailer verifying transport creation, sendMail call, custom headers, port 465 secure mode, and error handling for all missing env vars
+
+### In Progress (Phase 25)
 
 - [ ] **Create signed token utility for unsubscribe/verification links**
   - Files: `webapp/lib/tokens.ts`
