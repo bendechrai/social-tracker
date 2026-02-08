@@ -281,4 +281,114 @@ describe("PostDetailPage", () => {
     const link = screen.getByText("https://example.com/article");
     expect(link.closest("a")).toHaveAttribute("href", "https://example.com/article");
   });
+
+  describe("NSFW blur behavior", () => {
+    it("shows NSFW banner with Show Content button when isNsfw and showNsfw off", async () => {
+      mockGetPost.mockResolvedValue({
+        success: true,
+        post: makePostDetail({ isNsfw: true, body: "NSFW body text" }),
+      });
+      mockGetShowNsfw.mockResolvedValue(false);
+
+      render(<PostDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("nsfw-banner")).toBeInTheDocument();
+      });
+
+      expect(screen.getByText("This post is marked NSFW")).toBeInTheDocument();
+      expect(screen.getByText("Show Content")).toBeInTheDocument();
+
+      // Title and body should be blurred
+      const blurredElements = document.querySelectorAll(".blur-sm");
+      expect(blurredElements.length).toBeGreaterThan(0);
+    });
+
+    it("does not show NSFW banner when showNsfw is on", async () => {
+      mockGetPost.mockResolvedValue({
+        success: true,
+        post: makePostDetail({ isNsfw: true, body: "NSFW body text" }),
+      });
+      mockGetShowNsfw.mockResolvedValue(true);
+
+      render(<PostDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("NSFW body text")).toBeInTheDocument();
+      });
+
+      expect(screen.queryByTestId("nsfw-banner")).not.toBeInTheDocument();
+      // NSFW badge should still be visible
+      expect(screen.getByText("NSFW")).toBeInTheDocument();
+    });
+
+    it("reveals content and hides banner when Show Content is clicked", async () => {
+      const user = userEvent.setup();
+      mockGetPost.mockResolvedValue({
+        success: true,
+        post: makePostDetail({
+          isNsfw: true,
+          body: "Hidden NSFW body",
+          comments: [makeComment({ body: "NSFW comment text" })],
+        }),
+      });
+      mockGetShowNsfw.mockResolvedValue(false);
+
+      render(<PostDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("nsfw-banner")).toBeInTheDocument();
+      });
+
+      // Content should be blurred
+      expect(document.querySelectorAll(".blur-sm").length).toBeGreaterThan(0);
+
+      // Click Show Content
+      await user.click(screen.getByText("Show Content"));
+
+      // Banner should be gone
+      expect(screen.queryByTestId("nsfw-banner")).not.toBeInTheDocument();
+
+      // Content should no longer be blurred
+      expect(document.querySelectorAll(".blur-sm").length).toBe(0);
+    });
+
+    it("blurs comments when NSFW and not revealed", async () => {
+      mockGetPost.mockResolvedValue({
+        success: true,
+        post: makePostDetail({
+          isNsfw: true,
+          comments: [makeComment({ body: "Blurred comment" })],
+        }),
+      });
+      mockGetShowNsfw.mockResolvedValue(false);
+
+      render(<PostDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Blurred comment")).toBeInTheDocument();
+      });
+
+      // Comment text should be blurred
+      const commentEl = screen.getByText("Blurred comment");
+      expect(commentEl.className).toContain("blur-sm");
+    });
+
+    it("does not show banner for non-NSFW posts", async () => {
+      mockGetPost.mockResolvedValue({
+        success: true,
+        post: makePostDetail({ isNsfw: false }),
+      });
+      mockGetShowNsfw.mockResolvedValue(false);
+
+      render(<PostDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getAllByText("Test Post Title")).toHaveLength(2);
+      });
+
+      expect(screen.queryByTestId("nsfw-banner")).not.toBeInTheDocument();
+      expect(screen.queryByText("NSFW")).not.toBeInTheDocument();
+    });
+  });
 });

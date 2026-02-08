@@ -533,13 +533,13 @@ Dedicated page for viewing a Reddit post with comments and AI chat. Adds `commen
   - Acceptance: Two-column layout (60/40); left: post header (title, metadata, tags, "View on Reddit"), body, action bar (Ignore/Done), comments section (threaded, max 4 depth); right: AI chat panel placeholder; responsive (stacked on mobile); 404 for invalid posts
   - Tests: 9 component tests (content render with metadata/tags, 404 state, threaded comments, empty comments, action buttons, status change, AI Assistant placeholder, back link, link post URL). All 857 tests pass.
 
-- [ ] **Add NSFW blur to post detail page** ← NEXT
-  - Files: `webapp/app/dashboard/posts/[id]/page.tsx`
+- [x] **Add NSFW blur to post detail page**
+  - Files: `webapp/app/dashboard/posts/[id]/page.tsx`, `webapp/__tests__/components/post-detail.test.tsx`
   - Spec: `specs/nsfw.md` — UI Behavior (Post detail page)
-  - Acceptance: When `is_nsfw` true and `show_nsfw` off, title/body/comments blurred with banner "This post is marked NSFW" + "Show Content" button; metadata and actions remain visible
-  - Tests: Component test for blur behavior, reveal button
+  - Acceptance: When `is_nsfw` true and `show_nsfw` off, title/body/comments blurred with banner "This post is marked NSFW" + "Show Content" button; clicking reveals all content; metadata and actions remain visible; NSFW badge always shown; comments also respect `revealed` state
+  - Tests: 5 new component tests (banner shown, hidden when showNsfw on, Show Content reveals content and removes banner, comments blurred, non-NSFW no banner). All 862 tests pass.
 
-- [ ] **Create `POST /api/chat` endpoint for AI chat**
+- [ ] **Create `POST /api/chat` endpoint for AI chat** ← NEXT
   - Files: `webapp/app/api/chat/route.ts`
   - Spec: `specs/post-detail.md` — AI Chat API
   - Acceptance: Authenticated; loads post + comments + chat history; builds system prompt with post context; streams response from Groq via `streamText` using user's API key (or env fallback); persists user message and assistant response to `chat_messages`

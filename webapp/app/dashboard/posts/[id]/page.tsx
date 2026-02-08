@@ -17,6 +17,7 @@ import {
   UndoIcon,
   MessageSquareIcon,
   CopyIcon,
+  ShieldAlertIcon,
 } from "lucide-react";
 import { getPost, changePostStatus, updateResponseText } from "@/app/actions/posts";
 import { getShowNsfw } from "@/app/actions/users";
@@ -44,8 +45,8 @@ function formatRelativeTime(date: Date): string {
   return "just now";
 }
 
-function CommentThread({ comment, showNsfw, isNsfw }: { comment: CommentData; showNsfw: boolean; isNsfw: boolean }) {
-  const isBlurred = isNsfw && !showNsfw;
+function CommentThread({ comment, showNsfw, isNsfw, revealed }: { comment: CommentData; showNsfw: boolean; isNsfw: boolean; revealed: boolean }) {
+  const isBlurred = isNsfw && !showNsfw && !revealed;
 
   return (
     <div className="pl-4 border-l-2 border-muted" style={{ marginLeft: comment.depth > 0 ? 0 : undefined }}>
@@ -62,7 +63,7 @@ function CommentThread({ comment, showNsfw, isNsfw }: { comment: CommentData; sh
       {comment.children.length > 0 && (
         <div className="space-y-0">
           {comment.children.map((child) => (
-            <CommentThread key={child.id} comment={child} showNsfw={showNsfw} isNsfw={isNsfw} />
+            <CommentThread key={child.id} comment={child} showNsfw={showNsfw} isNsfw={isNsfw} revealed={revealed} />
           ))}
         </div>
       )}
@@ -258,6 +259,24 @@ export default function PostDetailPage() {
       </header>
 
       <main className="container mx-auto px-4 py-6">
+        {/* NSFW Banner */}
+        {post.isNsfw && !showNsfw && !revealed && (
+          <div className="mb-6 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3" data-testid="nsfw-banner">
+            <div className="flex items-center gap-2">
+              <ShieldAlertIcon className="h-5 w-5 text-red-600" />
+              <span className="text-sm font-medium text-red-800">This post is marked NSFW</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRevealed(true)}
+              className="border-red-300 text-red-700 hover:bg-red-100"
+            >
+              Show Content
+            </Button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left column - Post content + comments (~60%) */}
           <div className="lg:col-span-3 space-y-6">
@@ -464,6 +483,7 @@ export default function PostDetailPage() {
                         comment={comment}
                         showNsfw={showNsfw}
                         isNsfw={post.isNsfw}
+                        revealed={revealed}
                       />
                     ))}
                   </div>
