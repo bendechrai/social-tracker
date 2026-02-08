@@ -242,13 +242,15 @@ Set up nodemailer/SMTP email infrastructure and implement notification digests f
   - Acceptance: Verifies signed token, sets `email_notifications = false` on user, returns 200; invalid token returns 400
   - Tests: 4 unit tests — valid unsubscribe, expired token, invalid token, missing token
 
-### In Progress (Phase 25)
+### Completed (Phase 25)
 
-- [ ] **Create `GET /api/unsubscribe` confirmation page**
+- [x] **Create `GET /api/unsubscribe` confirmation page**
   - Files: `webapp/app/api/unsubscribe/route.ts`
   - Spec: `specs/email-notifications.md` — Unsubscribe Endpoint (GET)
   - Acceptance: Returns HTML page confirming unsubscribe with re-subscribe link to settings; does NOT auto-unsubscribe on GET
-  - Tests: Unit test verifying GET returns HTML, does not change DB
+  - Tests: 3 unit tests — valid token returns HTML with POST form and settings link (no DB change), invalid token returns HTML error, missing token returns HTML error
+
+### In Progress (Phase 25)
 
 - [ ] **Add email notifications toggle to account settings**
   - Files: `webapp/app/settings/account/page.tsx`, `webapp/app/actions/users.ts`
