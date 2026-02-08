@@ -56,6 +56,7 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
     return { success: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    console.error(`[email] Failed to send to ${options.to}: ${message}`);
     return { success: false, error: message };
   }
 }

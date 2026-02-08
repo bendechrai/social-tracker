@@ -295,8 +295,6 @@ export async function fetchRedditComments(
     const url = new URL(ARCTIC_SHIFT_COMMENTS_URL);
     url.searchParams.set("link_id", linkId);
     url.searchParams.set("limit", String(limit));
-    url.searchParams.set("sort", "desc");
-    url.searchParams.set("sort_type", "score");
 
     const response = await fetchWithRetry(url.toString());
     const data = (await response.json()) as { data?: ArcticShiftComment[] };
@@ -305,7 +303,8 @@ export async function fetchRedditComments(
       return [];
     }
 
-    return data.data.map(parseComment);
+    // Sort by score descending (client-side — Arctic Shift only supports sort_type=created_utc)
+    return data.data.map(parseComment).sort((a, b) => b.score - a.score);
   } catch (error) {
     console.error(
       `Error fetching comments for ${postRedditId} from Arctic Shift:`,

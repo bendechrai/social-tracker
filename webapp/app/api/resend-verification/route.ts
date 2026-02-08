@@ -52,12 +52,19 @@ export async function POST(request: NextRequest) {
     appUrl,
   });
 
-  await sendEmail({
+  const result = await sendEmail({
     to: user.email,
     subject: verificationEmail.subject,
     html: verificationEmail.html,
     text: verificationEmail.text,
   });
+
+  if (!result.success) {
+    return NextResponse.json(
+      { error: "Failed to send email" },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ success: true });
 }
