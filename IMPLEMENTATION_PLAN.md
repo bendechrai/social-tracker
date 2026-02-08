@@ -258,13 +258,15 @@ Set up nodemailer/SMTP email infrastructure and implement notification digests f
   - Acceptance: Toggle labeled "Email notifications" with description; calls server action to update `email_notifications` column; default on
   - Tests: 7 component tests (toggle render, description, load preference, default checked, toggle interaction, success toast, error revert) + 8 action tests (get/update preference, auth checks, error handling)
 
-### In Progress (Phase 25)
+### Completed (Phase 25)
 
-- [ ] **Build notification email HTML/text template**
+- [x] **Build notification email HTML/text template**
   - Files: `webapp/lib/email-templates.ts`
   - Spec: `specs/email-notifications.md` — Email Content
   - Acceptance: Function accepts tagged posts array + user info, returns `{ subject, html, text }` with tag-grouped posts, "and X more" overflow, unsubscribe footer, `List-Unsubscribe` headers
-  - Tests: Unit test verifying subject format, post grouping, overflow text, plain text fallback, header generation
+  - Tests: 17 unit tests verifying subject format (singular/plural), post grouping by tag, overflow text (>20 posts), plain text fallback (no HTML tags, full URLs), header generation (List-Unsubscribe, List-Unsubscribe-Post), HTML escaping, body truncation, null body handling, tag color badges
+
+### In Progress (Phase 25)
 
 - [ ] **Add `sendNotificationEmails` function to cron fetch cycle**
   - Files: `webapp/app/api/cron/fetch-posts/route.ts`, `webapp/app/actions/posts.ts`
@@ -688,7 +690,7 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 | 22 | Per-Subreddit Incremental Fetching | 3 | **COMPLETE** | None | HIGH |
 | 23 | Auto-Fetch Cron | 9 | **COMPLETE** | Phase 22 | HIGH |
 | 24 | Tag Search Term Constraints | 4 | **COMPLETE** | None | HIGH |
-| 25 | Email Infrastructure & Notifications | 9 | **BACKLOG** | None | HIGH |
+| 25 | Email Infrastructure & Notifications | 9 | **IN PROGRESS** | None | HIGH |
 | 26 | Welcome Email & Verification | 7 | **BACKLOG** | Phase 25 | HIGH |
 | 27 | Password Reset | 10 | **BACKLOG** | Phase 25 | HIGH |
 | 28 | Account Deletion | 2 | **BACKLOG** | None | HIGH |
