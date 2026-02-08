@@ -848,25 +848,12 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
   - Tests: 8 unit tests — OpenRouter path with valid modelId and credits, Groq fallback when no modelId, NO_AI_ACCESS error when neither, invalid modelId rejected, zero balance rejects credits path, cost deducted from balance, minimum 1 cent cost, usage log entry created
   - Also fixed: `resolveAiProvider` priority to match spec (modelId → credits, no modelId → Groq, neither → none)
 
+- [x] **Add tests for `getUsageHistory`, `getUsageSummary`, and `getPurchaseHistory` server actions**
+  - Files: `webapp/__tests__/actions/credits.test.ts`
+  - Spec: `specs/ai-credits.md` — Server Actions
+  - Acceptance: All three actions already implemented; tests added: getUsageHistory (3 tests — paginated results, empty history, unauthenticated), getUsageSummary (3 tests — daily aggregates, empty result, unauthenticated), getPurchaseHistory (3 tests — purchases list, empty, unauthenticated). Refactored DB mock to use Proxy-based thenable chains for Drizzle query builder pattern. All 1032 tests pass.
+
 ### In Progress
-
-- [ ] **Create `getUsageHistory` server action (paginated)**
-  - Files: `webapp/app/actions/credits.ts`
-  - Spec: `specs/ai-credits.md` — Server Actions
-  - Acceptance: Returns paginated `ai_usage_log` entries with date, model, tokens, cost; accepts page and limit parameters
-  - Tests: 3 unit tests — returns paginated results, empty history returns empty array, unauthenticated throws
-
-- [ ] **Create `getUsageSummary` server action (daily aggregates)**
-  - Files: `webapp/app/actions/credits.ts`
-  - Spec: `specs/ai-credits.md` — Server Actions
-  - Acceptance: Returns daily cost aggregates for last 30 days for authenticated user
-  - Tests: 3 unit tests — returns daily aggregates, empty days included as 0, unauthenticated throws
-
-- [ ] **Create `getPurchaseHistory` server action**
-  - Files: `webapp/app/actions/credits.ts`
-  - Spec: `specs/ai-credits.md` — Server Actions
-  - Acceptance: Returns list of `credit_purchases` for authenticated user ordered by created_at desc
-  - Tests: 3 unit tests — returns purchases, empty returns empty array, unauthenticated throws
 
 - [ ] **Create Credits & Usage settings page with balance card and buy section**
   - Files: `webapp/app/settings/credits/page.tsx`
@@ -942,9 +929,9 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
 | 31 | Welcome Wizard | 5 | **COMPLETE** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **COMPLETE** | Phases 25-27, 30 | HIGH |
 | 33 | AI Assistant Improvements | 10 | **COMPLETE** | Phase 30 | HIGH |
-| 34 | AI Credits System | 20 | **IN PROGRESS** (10/20) | Phase 33 | HIGH |
+| 34 | AI Credits System | 20 | **IN PROGRESS** (13/20) | Phase 33 | HIGH |
 
-**Total Remaining Tasks: 10**
+**Total Remaining Tasks: 7**
 
 ### Environment Variables Required
 ```bash

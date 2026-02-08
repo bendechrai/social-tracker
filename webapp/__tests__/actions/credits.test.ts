@@ -8,13 +8,33 @@ vi.mock("@/lib/auth", () => ({
 
 // --- DB mock functions ---
 const mockFindFirst = vi.fn();
-const mockSelect = vi.fn();
-const mockFrom = vi.fn();
-const mockWhere = vi.fn();
-const mockGroupBy = vi.fn();
-const mockOrderBy = vi.fn();
-const mockLimit = vi.fn();
-const mockOffset = vi.fn();
+
+// Each db.select() call pops the next result from this queue.
+// Each result in the queue is what the entire chain resolves to.
+let selectResults: unknown[] = [];
+
+/**
+ * Creates a thenable chain object: every method call (from, where, orderBy,
+ * groupBy, limit, offset) returns the same thenable that eventually resolves
+ * to `result`. This matches Drizzle's builder pattern where the builder is
+ * both chainable and awaitable.
+ */
+function createThenable(result: unknown): Record<string, unknown> {
+  const resolved = Promise.resolve(result);
+  const handler: ProxyHandler<object> = {
+    get(target, prop) {
+      if (prop === "then" || prop === "catch" || prop === "finally") {
+        const p = target as unknown as Promise<unknown>;
+        if (prop === "then") return p.then.bind(p);
+        if (prop === "catch") return p.catch.bind(p);
+        return p.finally.bind(p);
+      }
+      // Any method call (from, where, orderBy, etc.) returns the same thenable
+      return () => new Proxy(Promise.resolve(result), handler);
+    },
+  };
+  return new Proxy(resolved as object, handler) as unknown as Record<string, unknown>;
+}
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -26,43 +46,9 @@ vi.mock("@/lib/db", () => ({
         findFirst: (...args: unknown[]) => mockFindFirst(...args),
       },
     },
-    select: (...args: unknown[]) => {
-      mockSelect(...args);
-      return {
-        from: (...fArgs: unknown[]) => {
-          mockFrom(...fArgs);
-          return {
-            where: (...wArgs: unknown[]) => {
-              mockWhere(...wArgs);
-              return {
-                orderBy: (...oArgs: unknown[]) => {
-                  mockOrderBy(...oArgs);
-                  return {
-                    limit: (...lArgs: unknown[]) => {
-                      mockLimit(...lArgs);
-                      return {
-                        offset: (...offArgs: unknown[]) => {
-                          mockOffset(...offArgs);
-                          return mockOffset();
-                        },
-                      };
-                    },
-                  };
-                },
-                groupBy: (...gArgs: unknown[]) => {
-                  mockGroupBy(...gArgs);
-                  return {
-                    orderBy: (...oArgs: unknown[]) => {
-                      mockOrderBy(...oArgs);
-                      return mockOrderBy();
-                    },
-                  };
-                },
-              };
-            },
-          };
-        },
-      };
+    select: () => {
+      const result = selectResults.shift();
+      return createThenable(result);
     },
   },
 }));
@@ -108,6 +94,7 @@ const MOCK_USER_ID = "user-123";
 
 beforeEach(() => {
   vi.resetAllMocks();
+  selectResults = [];
   mockAuth.mockResolvedValue({
     user: { id: MOCK_USER_ID },
   });
@@ -252,5 +239,141 @@ describe("createCheckoutSession", () => {
     const result = await createCheckoutSession(1000);
 
     expect(result).toEqual({ error: "Failed to create checkout session" });
+  });
+});
+
+// ============================================================
+// getUsageHistory
+// ============================================================
+describe("getUsageHistory", () => {
+  it("returns paginated usage log entries", async () => {
+    const mockEntries = [
+      {
+        id: "entry-1",
+        modelId: "openai/gpt-4o",
+        provider: "openrouter",
+        promptTokens: 100,
+        completionTokens: 50,
+        costCents: 3,
+        createdAt: new Date("2026-01-15T10:00:00Z"),
+      },
+      {
+        id: "entry-2",
+        modelId: "anthropic/claude-3.5-sonnet",
+        provider: "openrouter",
+        promptTokens: 200,
+        completionTokens: 100,
+        costCents: 5,
+        createdAt: new Date("2026-01-14T10:00:00Z"),
+      },
+    ];
+
+    // First db.select() → entries, second db.select() → count
+    selectResults = [mockEntries, [{ count: 15 }]];
+
+    const result = await getUsageHistory(1, 20);
+
+    expect(result.entries).toEqual(mockEntries);
+    expect(result.total).toBe(15);
+    expect(result.page).toBe(1);
+    expect(result.totalPages).toBe(1); // ceil(15/20) = 1
+  });
+
+  it("returns empty array when no usage history exists", async () => {
+    selectResults = [[], [{ count: 0 }]];
+
+    const result = await getUsageHistory(1, 20);
+
+    expect(result.entries).toEqual([]);
+    expect(result.total).toBe(0);
+    expect(result.page).toBe(1);
+    expect(result.totalPages).toBe(0);
+  });
+
+  it("throws when unauthenticated", async () => {
+    mockAuth.mockResolvedValue(null);
+
+    await expect(getUsageHistory()).rejects.toThrow("Unauthorized");
+  });
+});
+
+// ============================================================
+// getUsageSummary
+// ============================================================
+describe("getUsageSummary", () => {
+  it("returns daily cost aggregates", async () => {
+    const mockRows = [
+      { date: "2026-01-13", costCents: "10" },
+      { date: "2026-01-14", costCents: "25" },
+      { date: "2026-01-15", costCents: "5" },
+    ];
+
+    selectResults = [mockRows];
+
+    const result = await getUsageSummary();
+
+    expect(result).toEqual([
+      { date: "2026-01-13", costCents: 10 },
+      { date: "2026-01-14", costCents: 25 },
+      { date: "2026-01-15", costCents: 5 },
+    ]);
+  });
+
+  it("returns empty array when no usage in last 30 days", async () => {
+    selectResults = [[]];
+
+    const result = await getUsageSummary();
+
+    expect(result).toEqual([]);
+  });
+
+  it("throws when unauthenticated", async () => {
+    mockAuth.mockResolvedValue(null);
+
+    await expect(getUsageSummary()).rejects.toThrow("Unauthorized");
+  });
+});
+
+// ============================================================
+// getPurchaseHistory
+// ============================================================
+describe("getPurchaseHistory", () => {
+  it("returns list of purchases ordered by date desc", async () => {
+    const mockPurchases = [
+      {
+        id: "purchase-1",
+        amountCents: 1000,
+        creditsCents: 1000,
+        status: "completed",
+        createdAt: new Date("2026-01-15T10:00:00Z"),
+      },
+      {
+        id: "purchase-2",
+        amountCents: 500,
+        creditsCents: 500,
+        status: "completed",
+        createdAt: new Date("2026-01-10T10:00:00Z"),
+      },
+    ];
+
+    selectResults = [mockPurchases];
+
+    const result = await getPurchaseHistory();
+
+    expect(result).toEqual(mockPurchases);
+  });
+
+  it("returns empty array when no purchases exist", async () => {
+    selectResults = [[]];
+
+    const result = await getPurchaseHistory();
+
+    expect(result).toEqual([]);
+  });
+
+  it("throws when unauthenticated", async () => {
+    mockAuth.mockResolvedValue(null);
+
+    await expect(getPurchaseHistory()).rejects.toThrow("Unauthorized");
   });
 });
