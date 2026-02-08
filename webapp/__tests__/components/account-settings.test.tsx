@@ -19,6 +19,13 @@ vi.mock("next-auth/react", () => ({
   useSession: () => mockUseSession(),
 }));
 
+// Mock next/navigation
+const mockPush = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 // Mock server actions
 const mockGetEmailNotifications = vi.fn();
 const mockUpdateEmailNotifications = vi.fn();
@@ -32,9 +39,11 @@ vi.mock("@/app/actions/users", () => ({
 }));
 
 const mockChangePassword = vi.fn();
+const mockDeleteAccount = vi.fn();
 
 vi.mock("@/app/actions/auth", () => ({
   changePassword: (...args: unknown[]) => mockChangePassword(...args),
+  deleteAccount: (...args: unknown[]) => mockDeleteAccount(...args),
 }));
 
 // Mock toast
@@ -223,5 +232,91 @@ describe("AccountSettings resend verification", () => {
     expect(
       screen.queryByRole("button", { name: /resend verification email/i })
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("AccountSettings delete account", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseSession.mockReturnValue({
+      data: { user: { email: "test@example.com" } },
+      status: "authenticated",
+    });
+    mockGetEmailNotifications.mockResolvedValue(true);
+    mockUpdateEmailNotifications.mockResolvedValue({ success: true });
+    mockGetEmailVerified.mockResolvedValue(true);
+  });
+
+  it("renders the Delete Account section", async () => {
+    render(<AccountSettingsPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/permanently delete your account/i)
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByPlaceholderText("Type your email to confirm")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Delete Account" })
+    ).toBeInTheDocument();
+  });
+
+  it("has delete button disabled by default", async () => {
+    render(<AccountSettingsPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Delete Account" })
+      ).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Delete Account" })
+    ).toBeDisabled();
+  });
+
+  it("enables delete button when email matches", async () => {
+    const user = userEvent.setup();
+    render(<AccountSettingsPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Delete Account" })
+      ).toBeInTheDocument();
+    });
+
+    const input = screen.getByPlaceholderText("Type your email to confirm");
+    await user.type(input, "test@example.com");
+
+    expect(
+      screen.getByRole("button", { name: "Delete Account" })
+    ).toBeEnabled();
+  });
+
+  it("redirects to / after successful deletion", async () => {
+    const user = userEvent.setup();
+    mockDeleteAccount.mockResolvedValue({ success: true });
+
+    render(<AccountSettingsPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Delete Account" })
+      ).toBeInTheDocument();
+    });
+
+    const input = screen.getByPlaceholderText("Type your email to confirm");
+    await user.type(input, "test@example.com");
+
+    await user.click(
+      screen.getByRole("button", { name: "Delete Account" })
+    );
+
+    await waitFor(() => {
+      expect(mockDeleteAccount).toHaveBeenCalledWith("test@example.com");
+      expect(mockPush).toHaveBeenCalledWith("/");
+    });
   });
 });

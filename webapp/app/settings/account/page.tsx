@@ -14,9 +14,10 @@ import {
 } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Loader2Icon, CheckIcon, XIcon, EyeIcon, EyeOffIcon } from "lucide-react";
-import { changePassword } from "@/app/actions/auth";
+import { changePassword, deleteAccount } from "@/app/actions/auth";
 import { getEmailNotifications, updateEmailNotifications, getEmailVerified } from "@/app/actions/users";
 import { toast } from "@/lib/hooks/use-toast";
+import { useRouter } from "next/navigation";
 
 // Password requirements for display (same as signup page)
 const PASSWORD_REQUIREMENTS = [
@@ -33,6 +34,7 @@ const PASSWORD_REQUIREMENTS = [
 
 export default function AccountSettingsPage() {
   const { data: session, status } = useSession();
+  const router = useRouter();
   const [currentPassword, setCurrentPassword] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
@@ -45,6 +47,9 @@ export default function AccountSettingsPage() {
   const [emailNotificationsLoading, setEmailNotificationsLoading] = React.useState(true);
   const [emailVerified, setEmailVerified] = React.useState<boolean | null>(null);
   const [resendLoading, setResendLoading] = React.useState(false);
+  const [deleteEmail, setDeleteEmail] = React.useState("");
+  const [deleteLoading, setDeleteLoading] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     getEmailNotifications()
@@ -377,6 +382,66 @@ export default function AccountSettingsPage() {
             </div>
           </CardContent>
         </form>
+      </Card>
+
+      {/* Delete Account Section */}
+      <Card className="border-destructive">
+        <CardHeader>
+          <CardTitle>Delete Account</CardTitle>
+          <CardDescription>
+            Permanently delete your account and all associated data. This action
+            cannot be undone.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {deleteError && (
+            <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+              {deleteError}
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="deleteEmail">Type your email to confirm</Label>
+            <Input
+              id="deleteEmail"
+              type="email"
+              placeholder="Type your email to confirm"
+              value={deleteEmail}
+              onChange={(e) => setDeleteEmail(e.target.value)}
+              disabled={deleteLoading}
+              className="max-w-md"
+            />
+          </div>
+          <Button
+            variant="destructive"
+            disabled={
+              deleteLoading ||
+              deleteEmail.toLowerCase() !==
+                (session?.user?.email ?? "").toLowerCase()
+            }
+            onClick={async () => {
+              setDeleteError(null);
+              setDeleteLoading(true);
+              const result = await deleteAccount(deleteEmail);
+              if (result.success) {
+                router.push("/");
+              } else {
+                setDeleteError(
+                  result.error ?? "Failed to delete account"
+                );
+                setDeleteLoading(false);
+              }
+            }}
+          >
+            {deleteLoading ? (
+              <>
+                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                Deleting account...
+              </>
+            ) : (
+              "Delete Account"
+            )}
+          </Button>
+        </CardContent>
       </Card>
     </div>
   );

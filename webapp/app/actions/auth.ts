@@ -5,7 +5,7 @@ import { users } from "@/drizzle/schema";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { passwordSchema, emailSchema } from "@/lib/validations";
 import { eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { auth, signOut } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import { buildWelcomeEmail } from "@/lib/email-templates";
 
@@ -15,6 +15,11 @@ export type SignupResult = {
 };
 
 export type ChangePasswordResult = {
+  success: boolean;
+  error?: string;
+};
+
+export type DeleteAccountResult = {
   success: boolean;
   error?: string;
 };
@@ -138,6 +143,33 @@ export async function changePassword(
       updatedAt: new Date(),
     })
     .where(eq(users.id, session.user.id));
+
+  return { success: true };
+}
+
+/**
+ * Permanently deletes the current user's account and all associated data.
+ * Requires email confirmation to prevent accidental deletion.
+ * Shared data (posts, subreddit_fetch_status) is preserved.
+ */
+export async function deleteAccount(
+  confirmationEmail: string
+): Promise<DeleteAccountResult> {
+  const session = await auth();
+  if (!session?.user?.id || !session?.user?.email) {
+    return { success: false, error: "Not authenticated" };
+  }
+
+  // Validate confirmation email matches the authenticated user's email
+  if (confirmationEmail.toLowerCase() !== session.user.email.toLowerCase()) {
+    return { success: false, error: "Email does not match your account" };
+  }
+
+  // Delete user row — cascades handle sessions, accounts, subreddits, tags, user_posts
+  await db.delete(users).where(eq(users.id, session.user.id));
+
+  // Sign out the user (invalidate session/JWT)
+  await signOut({ redirect: false });
 
   return { success: true };
 }

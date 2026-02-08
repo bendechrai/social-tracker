@@ -28,6 +28,8 @@ const mockValues = vi.fn();
 const mockReturning = vi.fn();
 const mockSet = vi.fn();
 const mockWhere = vi.fn();
+const mockDeleteWhere = vi.fn();
+const mockDelete = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -61,13 +63,24 @@ vi.mock("@/lib/db", () => ({
         },
       };
     },
+    delete: (...args: unknown[]) => {
+      mockDelete(...args);
+      return {
+        where: (...whereArgs: unknown[]) => {
+          mockDeleteWhere(...whereArgs);
+          return Promise.resolve();
+        },
+      };
+    },
   },
 }));
 
 // Mock auth session
 const mockAuth = vi.fn();
+const mockSignOut = vi.fn();
 vi.mock("@/lib/auth", () => ({
   auth: () => mockAuth(),
+  signOut: (...args: unknown[]) => mockSignOut(...args),
 }));
 
 // Mock email sending
@@ -83,7 +96,7 @@ vi.mock("@/lib/email-templates", () => ({
 }));
 
 // Import after mocks are set up
-import { signup, changePassword } from "@/app/actions/auth";
+import { signup, changePassword, deleteAccount } from "@/app/actions/auth";
 
 describe("auth server actions", () => {
   beforeEach(() => {
@@ -474,6 +487,72 @@ describe("auth server actions", () => {
             updatedAt: expect.any(Date),
           })
         );
+      });
+    });
+  });
+
+  describe("deleteAccount", () => {
+    describe("authentication", () => {
+      it("rejects unauthenticated user", async () => {
+        mockAuth.mockResolvedValueOnce(null);
+
+        const result = await deleteAccount("user@example.com");
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("Not authenticated");
+        expect(mockDelete).not.toHaveBeenCalled();
+      });
+
+      it("rejects session without user id", async () => {
+        mockAuth.mockResolvedValueOnce({ user: { email: "user@example.com" } });
+
+        const result = await deleteAccount("user@example.com");
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("Not authenticated");
+        expect(mockDelete).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("email confirmation", () => {
+      it("rejects when email does not match", async () => {
+        mockAuth.mockResolvedValueOnce({
+          user: { id: "user-id", email: "user@example.com" },
+        });
+
+        const result = await deleteAccount("wrong@example.com");
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe("Email does not match your account");
+        expect(mockDelete).not.toHaveBeenCalled();
+      });
+
+      it("matches email case-insensitively", async () => {
+        mockAuth.mockResolvedValueOnce({
+          user: { id: "user-id", email: "user@example.com" },
+        });
+        mockSignOut.mockResolvedValueOnce(undefined);
+
+        const result = await deleteAccount("User@Example.COM");
+
+        expect(result.success).toBe(true);
+        expect(mockDelete).toHaveBeenCalled();
+      });
+    });
+
+    describe("successful deletion", () => {
+      it("deletes user and signs out", async () => {
+        mockAuth.mockResolvedValueOnce({
+          user: { id: "user-id", email: "user@example.com" },
+        });
+        mockSignOut.mockResolvedValueOnce(undefined);
+
+        const result = await deleteAccount("user@example.com");
+
+        expect(result.success).toBe(true);
+        expect(mockDelete).toHaveBeenCalled();
+        expect(mockDeleteWhere).toHaveBeenCalled();
+        expect(mockSignOut).toHaveBeenCalledWith({ redirect: false });
       });
     });
   });

@@ -422,9 +422,9 @@ Allow users to reset their password via a tokenized email link. Add `passwordCha
 
 ---
 
-## Phase 28: Account Deletion — IN PROGRESS
+## Phase 28: Account Deletion — COMPLETE
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 **Priority: HIGH — New spec**
 **Dependencies: None**
 **Spec: `specs/account-deletion.md`**
@@ -433,25 +433,25 @@ Allow users to reset their password via a tokenized email link. Add `passwordCha
 
 Allow users to permanently delete their account and all associated data. Email confirmation required. Shared data (posts, subreddit_fetch_status) is preserved.
 
-### Backlog (Phase 28)
+### Completed (Phase 28)
 
-- [ ] **Create `deleteAccount` server action**
+- [x] **Create `deleteAccount` server action**
   - Files: `webapp/app/actions/auth.ts`
   - Spec: `specs/account-deletion.md` — Server Action
-  - Acceptance: Validates `confirmationEmail` matches authenticated user's email; deletes user row (cascade handles sessions, accounts, subreddits, tags, user_posts); signs out user; returns success
-  - Tests: Unit tests for: successful deletion, email mismatch rejected, unauthenticated rejected, cascade verification (user_posts deleted but posts table unchanged)
+  - Acceptance: Validates `confirmationEmail` matches authenticated user's email (case-insensitive); deletes user row (cascade handles sessions, accounts, subreddits, tags, user_posts); signs out user with `redirect: false`; returns success
+  - Tests: 5 unit tests — unauthenticated rejected, session without user id rejected, email mismatch rejected, case-insensitive email match, successful deletion with signOut
 
-- [ ] **Add "Delete Account" section to account settings page**
+- [x] **Add "Delete Account" section to account settings page**
   - Files: `webapp/app/settings/account/page.tsx`
   - Spec: `specs/account-deletion.md` — UI
-  - Acceptance: "Delete Account" section at bottom with warning, email confirmation input, destructive "Delete Account" button disabled until email matches; on success redirects to `/`
-  - Tests: Component tests for: section renders, button disabled by default, button enabled when email matches, redirect after deletion
+  - Acceptance: "Delete Account" section at bottom with destructive border, warning text, email confirmation input with placeholder, destructive "Delete Account" button disabled until email matches; on success redirects to `/` via `router.push`
+  - Tests: 4 component tests — section renders with warning and input, button disabled by default, button enabled when email matches, redirect to `/` after successful deletion
 
 ---
 
-## Phase 29: NSFW Content Handling — BACKLOG
+## Phase 29: NSFW Content Handling — IN PROGRESS
 
-**Status: BACKLOG**
+**Status: IN PROGRESS**
 **Priority: MODERATE — New spec**
 **Dependencies: None**
 **Spec: `specs/nsfw.md`**
@@ -701,13 +701,13 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 | 25 | Email Infrastructure & Notifications | 9 | **COMPLETE** | None | HIGH |
 | 26 | Welcome Email & Verification | 7 | **COMPLETE** | Phase 25 | HIGH |
 | 27 | Password Reset | 8 | **COMPLETE** | Phase 25 | HIGH |
-| 28 | Account Deletion | 2 | **IN PROGRESS** | None | HIGH |
-| 29 | NSFW Content Handling | 4 | **BACKLOG** | None | MODERATE |
+| 28 | Account Deletion | 2 | **COMPLETE** | None | HIGH |
+| 29 | NSFW Content Handling | 4 | **IN PROGRESS** | None | MODERATE |
 | 30 | Post Detail Page | 10 | **BACKLOG** | Phase 29 | HIGH |
 | 31 | Welcome Wizard | 5 | **BACKLOG** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **BACKLOG** | Phases 25-27, 30 | HIGH |
 
-**Total Remaining Tasks: 51**
+**Total Remaining Tasks: 49**
 
 ### Environment Variables Required
 ```bash
