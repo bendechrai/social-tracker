@@ -10,7 +10,7 @@ import {
 } from "@/drizzle/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { isValidPackAmount, CREDIT_PACKS } from "@/lib/credit-packs";
 
 async function requireUserId(): Promise<string> {
@@ -44,7 +44,7 @@ export async function createCheckoutSession(
     return { error: "Invalid credit pack" };
   }
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],
     line_items: [

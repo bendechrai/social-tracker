@@ -24,6 +24,7 @@ vi.mock("@/lib/arcjet", () => ({
       withRule: () => ({ protect: (...args: unknown[]) => mockProtect(...args) }),
     }),
   },
+  ajMode: "DRY_RUN",
 }));
 
 vi.mock("@arcjet/next", () => ({

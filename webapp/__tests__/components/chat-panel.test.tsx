@@ -3,7 +3,7 @@
  *
  * Verifies acceptance criteria from post-detail.md:
  * - Message rendering (user right-aligned, AI left-aligned)
- * - Disabled without API key with helpful message
+ * - Disabled without AI access with helpful message
  * - Clear chat button
  * - Send button and input behavior
  * - Use as Response button on AI messages
@@ -26,7 +26,10 @@ vi.mock("@/lib/hooks/use-toast", () => ({
 }));
 
 
-import { ChatPanel } from "@/components/chat-panel";
+import { ChatPanel, type AiAccess } from "@/components/chat-panel";
+
+const byokAccess: AiAccess = { hasGroqKey: true, creditBalanceCents: 0, mode: "byok" };
+const noAccess: AiAccess = { hasGroqKey: false, creditBalanceCents: 0, mode: "none" };
 
 describe("ChatPanel", () => {
   beforeEach(() => {
@@ -34,12 +37,12 @@ describe("ChatPanel", () => {
     global.fetch = vi.fn();
   });
 
-  it("shows disabled state with message when no API key", () => {
-    render(<ChatPanel postId="post-1" hasApiKey={false} />);
+  it("shows disabled state with message when no AI access", () => {
+    render(<ChatPanel postId="post-1" aiAccess={noAccess} />);
 
     expect(screen.getByText("AI Assistant")).toBeInTheDocument();
     expect(
-      screen.getByText("Add a Groq API key in Settings to use AI chat")
+      screen.getByText("Set up AI to start chatting")
     ).toBeInTheDocument();
 
     // Should not show input or send button
@@ -47,8 +50,8 @@ describe("ChatPanel", () => {
     expect(screen.queryByTestId("chat-send")).not.toBeInTheDocument();
   });
 
-  it("renders chat input and send button when API key is configured", () => {
-    render(<ChatPanel postId="post-1" hasApiKey={true} />);
+  it("renders chat input and send button when AI access is configured", () => {
+    render(<ChatPanel postId="post-1" aiAccess={byokAccess} />);
 
     expect(screen.getByTestId("chat-input")).toBeInTheDocument();
     expect(screen.getByTestId("chat-send")).toBeInTheDocument();
@@ -63,7 +66,7 @@ describe("ChatPanel", () => {
     ];
 
     render(
-      <ChatPanel postId="post-1" hasApiKey={true} initialMessages={messages} />
+      <ChatPanel postId="post-1" aiAccess={byokAccess} initialMessages={messages} />
     );
 
     expect(screen.getByText("Hello AI")).toBeInTheDocument();
@@ -85,7 +88,7 @@ describe("ChatPanel", () => {
     ];
 
     render(
-      <ChatPanel postId="post-1" hasApiKey={true} initialMessages={messages} />
+      <ChatPanel postId="post-1" aiAccess={byokAccess} initialMessages={messages} />
     );
 
     expect(screen.getByText("Use as Response")).toBeInTheDocument();
@@ -97,14 +100,14 @@ describe("ChatPanel", () => {
     ];
 
     render(
-      <ChatPanel postId="post-1" hasApiKey={true} initialMessages={messages} />
+      <ChatPanel postId="post-1" aiAccess={byokAccess} initialMessages={messages} />
     );
 
     expect(screen.queryByText("Use as Response")).not.toBeInTheDocument();
   });
 
   it("disables send button when input is empty", () => {
-    render(<ChatPanel postId="post-1" hasApiKey={true} />);
+    render(<ChatPanel postId="post-1" aiAccess={byokAccess} />);
 
     const sendButton = screen.getByTestId("chat-send");
     expect(sendButton).toBeDisabled();
@@ -112,7 +115,7 @@ describe("ChatPanel", () => {
 
   it("enables send button when input has text", async () => {
     const user = userEvent.setup();
-    render(<ChatPanel postId="post-1" hasApiKey={true} />);
+    render(<ChatPanel postId="post-1" aiAccess={byokAccess} />);
 
     const input = screen.getByTestId("chat-input");
     await user.type(input, "Hello");
@@ -127,7 +130,7 @@ describe("ChatPanel", () => {
     ];
 
     render(
-      <ChatPanel postId="post-1" hasApiKey={true} initialMessages={messages} />
+      <ChatPanel postId="post-1" aiAccess={byokAccess} initialMessages={messages} />
     );
 
     expect(screen.getByTestId("clear-chat")).toBeInTheDocument();
@@ -135,7 +138,7 @@ describe("ChatPanel", () => {
   });
 
   it("does not show clear chat button when no messages", () => {
-    render(<ChatPanel postId="post-1" hasApiKey={true} />);
+    render(<ChatPanel postId="post-1" aiAccess={byokAccess} />);
 
     expect(screen.queryByTestId("clear-chat")).not.toBeInTheDocument();
   });
@@ -152,7 +155,7 @@ describe("ChatPanel", () => {
     });
 
     render(
-      <ChatPanel postId="post-1" hasApiKey={true} initialMessages={messages} />
+      <ChatPanel postId="post-1" aiAccess={byokAccess} initialMessages={messages} />
     );
 
     await user.click(screen.getByTestId("clear-chat"));
@@ -176,7 +179,7 @@ describe("ChatPanel", () => {
     mockUpdateResponseText.mockResolvedValue({ success: true });
 
     render(
-      <ChatPanel postId="post-1" hasApiKey={true} initialMessages={messages} />
+      <ChatPanel postId="post-1" aiAccess={byokAccess} initialMessages={messages} />
     );
 
     await user.click(screen.getByText("Use as Response"));
@@ -212,7 +215,7 @@ describe("ChatPanel", () => {
       body: stream,
     });
 
-    render(<ChatPanel postId="post-1" hasApiKey={true} />);
+    render(<ChatPanel postId="post-1" aiAccess={byokAccess} />);
 
     const input = screen.getByTestId("chat-input");
     await user.type(input, "Test message");
@@ -244,7 +247,7 @@ describe("ChatPanel", () => {
       json: () => Promise.resolve({ error: "Something went wrong" }),
     });
 
-    render(<ChatPanel postId="post-1" hasApiKey={true} />);
+    render(<ChatPanel postId="post-1" aiAccess={byokAccess} />);
 
     const input = screen.getByTestId("chat-input");
     await user.type(input, "Test");

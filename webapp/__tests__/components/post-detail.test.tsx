@@ -55,16 +55,16 @@ vi.mock("@/app/actions/users", () => ({
   getShowNsfw: () => mockGetShowNsfw(),
 }));
 
-const mockHasGroqApiKey = vi.fn();
+const mockGetAiAccessInfo = vi.fn();
 
-vi.mock("@/app/actions/api-keys", () => ({
-  hasGroqApiKey: () => mockHasGroqApiKey(),
+vi.mock("@/app/actions/credits", () => ({
+  getAiAccessInfo: () => mockGetAiAccessInfo(),
 }));
 
 // Mock ChatPanel to avoid complex rendering in post detail tests
 vi.mock("@/components/chat-panel", () => ({
-  ChatPanel: ({ postId, hasApiKey }: { postId: string; hasApiKey: boolean }) => (
-    <div data-testid="chat-panel" data-post-id={postId} data-has-api-key={String(hasApiKey)}>
+  ChatPanel: ({ postId, aiAccess }: { postId: string; aiAccess: { mode: string } }) => (
+    <div data-testid="chat-panel" data-post-id={postId} data-mode={aiAccess.mode}>
       AI Assistant
     </div>
   ),
@@ -128,7 +128,7 @@ describe("PostDetailPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetShowNsfw.mockResolvedValue(false);
-    mockHasGroqApiKey.mockResolvedValue(false);
+    mockGetAiAccessInfo.mockResolvedValue({ hasGroqKey: false, creditBalanceCents: 0, mode: "none" });
     mockGetChatMessages.mockResolvedValue([]);
   });
 

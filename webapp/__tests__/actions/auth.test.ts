@@ -30,6 +30,7 @@ const { mockProtect, mockRequest, mockProtectSignup } = vi.hoisted(() => {
 
 vi.mock("@/lib/arcjet", () => ({
   default: { withRule: () => ({ protect: (...args: unknown[]) => mockProtect(...args) }) },
+  ajMode: "DRY_RUN",
 }));
 
 vi.mock("@arcjet/next", () => ({

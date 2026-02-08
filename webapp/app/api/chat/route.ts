@@ -276,15 +276,15 @@ export async function POST(request: NextRequest) {
 
         try {
           const usage = await result.usage;
-          const orUsage = await result.experimental_providerMetadata;
+          const orUsage = await result.providerMetadata;
 
           const promptTokens =
-            orUsage?.openrouter?.promptTokens ??
-            usage?.promptTokens ??
+            (orUsage?.openrouter?.promptTokens as number | undefined) ??
+            usage?.inputTokens ??
             0;
           const completionTokens =
-            orUsage?.openrouter?.completionTokens ??
-            usage?.completionTokens ??
+            (orUsage?.openrouter?.completionTokens as number | undefined) ??
+            usage?.outputTokens ??
             0;
 
           // OpenRouter returns cost in USD via generation metadata

@@ -64,6 +64,16 @@ vi.mock("@/app/actions/api-keys", () => ({
   getGroqApiKeyHint: () => mockGetGroqApiKeyHint(),
 }));
 
+// Mock credits actions (Phase 34)
+vi.mock("@/app/actions/credits", () => ({
+  getCreditBalance: vi.fn().mockResolvedValue(0),
+  getUsageHistory: vi.fn().mockResolvedValue({ entries: [], total: 0, page: 1, totalPages: 0 }),
+  getUsageSummary: vi.fn().mockResolvedValue([]),
+  getPurchaseHistory: vi.fn().mockResolvedValue([]),
+  getAiAccessInfo: vi.fn().mockResolvedValue({ hasGroqKey: false, creditBalanceCents: 0, mode: "none" }),
+  createCheckoutSession: vi.fn().mockResolvedValue({ url: "https://checkout.stripe.com/test" }),
+}));
+
 import {
   usePosts,
   usePostCounts,

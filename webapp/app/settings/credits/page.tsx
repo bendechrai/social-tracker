@@ -25,7 +25,7 @@ export default function CreditsPage() {
   const handleBuyCredits = async (amountCents: number) => {
     const result = await checkout.mutateAsync(amountCents);
     if ("url" in result) {
-      window.location.href = result.url;
+      window.location.assign(result.url);
     }
   };
 
