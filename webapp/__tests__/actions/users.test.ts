@@ -50,6 +50,8 @@ import {
   getEmailNotifications,
   updateEmailNotifications,
   getEmailVerified,
+  getShowNsfw,
+  updateShowNsfw,
 } from "@/app/actions/users";
 
 const MOCK_USER_ID = "test-user-uuid-1234";
@@ -139,6 +141,83 @@ describe("User email notification actions", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Failed to update email notifications");
+    });
+  });
+
+  describe("getShowNsfw", () => {
+    it("returns true when user has show_nsfw enabled", async () => {
+      mockFindFirst.mockResolvedValue({ showNsfw: true });
+
+      const result = await getShowNsfw();
+
+      expect(result).toBe(true);
+    });
+
+    it("returns false when user has show_nsfw disabled", async () => {
+      mockFindFirst.mockResolvedValue({ showNsfw: false });
+
+      const result = await getShowNsfw();
+
+      expect(result).toBe(false);
+    });
+
+    it("returns false by default when user not found", async () => {
+      mockFindFirst.mockResolvedValue(null);
+
+      const result = await getShowNsfw();
+
+      expect(result).toBe(false);
+    });
+
+    it("throws when not authenticated", async () => {
+      mockAuth.mockResolvedValue(null);
+
+      await expect(getShowNsfw()).rejects.toThrow("Not authenticated");
+    });
+  });
+
+  describe("updateShowNsfw", () => {
+    it("enables NSFW content", async () => {
+      const result = await updateShowNsfw(true);
+
+      expect(result.success).toBe(true);
+      expect(mockUpdate).toHaveBeenCalled();
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          showNsfw: true,
+        })
+      );
+    });
+
+    it("disables NSFW content", async () => {
+      const result = await updateShowNsfw(false);
+
+      expect(result.success).toBe(true);
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          showNsfw: false,
+        })
+      );
+    });
+
+    it("returns error when not authenticated", async () => {
+      mockAuth.mockResolvedValue(null);
+
+      const result = await updateShowNsfw(true);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Not authenticated");
+    });
+
+    it("handles database errors gracefully", async () => {
+      mockUpdate.mockImplementation(() => {
+        throw new Error("Database error");
+      });
+
+      const result = await updateShowNsfw(true);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Failed to update NSFW preference");
     });
   });
 

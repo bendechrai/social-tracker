@@ -449,9 +449,9 @@ Allow users to permanently delete their account and all associated data. Email c
 
 ---
 
-## Phase 29: NSFW Content Handling — IN PROGRESS
+## Phase 29: NSFW Content Handling — COMPLETE
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 **Priority: MODERATE — New spec**
 **Dependencies: None**
 **Spec: `specs/nsfw.md`**
@@ -460,7 +460,7 @@ Allow users to permanently delete their account and all associated data. Email c
 
 Blur NSFW post content by default with user preference to show it. Adds `is_nsfw` to posts table and `show_nsfw` to users table.
 
-### Backlog (Phase 29)
+### Completed (Phase 29)
 
 - [x] **Add `is_nsfw` column to posts table and `show_nsfw` column to users table**
   - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/0004_colorful_kingpin.sql`
@@ -480,17 +480,17 @@ Blur NSFW post content by default with user preference to show it. Adds `is_nsfw
   - Acceptance: When `is_nsfw` is true and `show_nsfw` is off, title and body preview are blurred with CSS filter; "NSFW" badge always shown; click-to-reveal per card (client-side toggle); metadata/actions remain visible
   - Tests: 6 new NSFW tests (blur when NSFW + off, no blur when on, badge always shown, no badge on non-NSFW, click reveals, metadata visible). All existing tests updated for new props. 819 total tests pass.
 
-- [ ] **Add "Show NSFW Content" toggle to account settings** ← NEXT
+- [x] **Add "Show NSFW Content" toggle to account settings**
   - Files: `webapp/app/settings/account/page.tsx`, `webapp/app/actions/users.ts`
   - Spec: `specs/nsfw.md` — Settings Page
   - Acceptance: Toggle labeled "Show NSFW Content" in account settings; default off; updates `show_nsfw` column
-  - Tests: Component test for toggle render; action test for updating preference
+  - Tests: 6 component tests (render, default unchecked, checked when true, toggle calls action, success toast, error revert) + 8 action tests (getShowNsfw: true/false/default/auth, updateShowNsfw: enable/disable/auth/error). All 833 tests pass.
 
 ---
 
-## Phase 30: Post Detail Page — BACKLOG
+## Phase 30: Post Detail Page — IN PROGRESS
 
-**Status: BACKLOG**
+**Status: IN PROGRESS**
 **Priority: HIGH — New spec**
 **Dependencies: Phase 29 (NSFW handling for detail page blur)**
 **Spec: `specs/post-detail.md`**
@@ -702,12 +702,12 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 | 26 | Welcome Email & Verification | 7 | **COMPLETE** | Phase 25 | HIGH |
 | 27 | Password Reset | 8 | **COMPLETE** | Phase 25 | HIGH |
 | 28 | Account Deletion | 2 | **COMPLETE** | None | HIGH |
-| 29 | NSFW Content Handling | 4 | **IN PROGRESS** | None | MODERATE |
-| 30 | Post Detail Page | 10 | **BACKLOG** | Phase 29 | HIGH |
+| 29 | NSFW Content Handling | 4 | **COMPLETE** | None | MODERATE |
+| 30 | Post Detail Page | 10 | **IN PROGRESS** | Phase 29 | HIGH |
 | 31 | Welcome Wizard | 5 | **BACKLOG** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **BACKLOG** | Phases 25-27, 30 | HIGH |
 
-**Total Remaining Tasks: 49**
+**Total Remaining Tasks: 48**
 
 ### Environment Variables Required
 ```bash

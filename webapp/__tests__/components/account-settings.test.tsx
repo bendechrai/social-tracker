@@ -30,12 +30,16 @@ vi.mock("next/navigation", () => ({
 const mockGetEmailNotifications = vi.fn();
 const mockUpdateEmailNotifications = vi.fn();
 const mockGetEmailVerified = vi.fn();
+const mockGetShowNsfw = vi.fn();
+const mockUpdateShowNsfw = vi.fn();
 
 vi.mock("@/app/actions/users", () => ({
   getEmailNotifications: () => mockGetEmailNotifications(),
   updateEmailNotifications: (...args: unknown[]) =>
     mockUpdateEmailNotifications(...args),
   getEmailVerified: () => mockGetEmailVerified(),
+  getShowNsfw: () => mockGetShowNsfw(),
+  updateShowNsfw: (...args: unknown[]) => mockUpdateShowNsfw(...args),
 }));
 
 const mockChangePassword = vi.fn();
@@ -65,6 +69,8 @@ describe("AccountSettings email notifications", () => {
     mockGetEmailNotifications.mockResolvedValue(true);
     mockUpdateEmailNotifications.mockResolvedValue({ success: true });
     mockGetEmailVerified.mockResolvedValue(true);
+    mockGetShowNsfw.mockResolvedValue(false);
+    mockUpdateShowNsfw.mockResolvedValue({ success: true });
   });
 
   it("renders the email notifications toggle", async () => {
@@ -97,7 +103,7 @@ describe("AccountSettings email notifications", () => {
       expect(mockGetEmailNotifications).toHaveBeenCalled();
     });
 
-    const toggle = screen.getByRole("switch");
+    const toggle = screen.getByLabelText("Email notifications");
     expect(toggle).toHaveAttribute("data-state", "unchecked");
   });
 
@@ -107,7 +113,7 @@ describe("AccountSettings email notifications", () => {
     render(<AccountSettingsPage />);
 
     await waitFor(() => {
-      const toggle = screen.getByRole("switch");
+      const toggle = screen.getByLabelText("Email notifications");
       expect(toggle).toHaveAttribute("data-state", "checked");
     });
   });
@@ -119,13 +125,13 @@ describe("AccountSettings email notifications", () => {
     render(<AccountSettingsPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("switch")).toHaveAttribute(
+      expect(screen.getByLabelText("Email notifications")).toHaveAttribute(
         "data-state",
         "checked"
       );
     });
 
-    await user.click(screen.getByRole("switch"));
+    await user.click(screen.getByLabelText("Email notifications"));
 
     await waitFor(() => {
       expect(mockUpdateEmailNotifications).toHaveBeenCalledWith(false);
@@ -140,13 +146,13 @@ describe("AccountSettings email notifications", () => {
     render(<AccountSettingsPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("switch")).toHaveAttribute(
+      expect(screen.getByLabelText("Email notifications")).toHaveAttribute(
         "data-state",
         "checked"
       );
     });
 
-    await user.click(screen.getByRole("switch"));
+    await user.click(screen.getByLabelText("Email notifications"));
 
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith(
@@ -168,13 +174,13 @@ describe("AccountSettings email notifications", () => {
     render(<AccountSettingsPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("switch")).toHaveAttribute(
+      expect(screen.getByLabelText("Email notifications")).toHaveAttribute(
         "data-state",
         "checked"
       );
     });
 
-    await user.click(screen.getByRole("switch"));
+    await user.click(screen.getByLabelText("Email notifications"));
 
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith(
@@ -187,7 +193,7 @@ describe("AccountSettings email notifications", () => {
 
     // Should revert to checked
     await waitFor(() => {
-      expect(screen.getByRole("switch")).toHaveAttribute(
+      expect(screen.getByLabelText("Email notifications")).toHaveAttribute(
         "data-state",
         "checked"
       );
@@ -204,6 +210,8 @@ describe("AccountSettings resend verification", () => {
     });
     mockGetEmailNotifications.mockResolvedValue(true);
     mockUpdateEmailNotifications.mockResolvedValue({ success: true });
+    mockGetShowNsfw.mockResolvedValue(false);
+    mockUpdateShowNsfw.mockResolvedValue({ success: true });
   });
 
   it("shows resend verification button when email is not verified", async () => {
@@ -235,6 +243,138 @@ describe("AccountSettings resend verification", () => {
   });
 });
 
+describe("AccountSettings NSFW content toggle", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseSession.mockReturnValue({
+      data: { user: { email: "test@example.com" } },
+      status: "authenticated",
+    });
+    mockGetEmailNotifications.mockResolvedValue(true);
+    mockUpdateEmailNotifications.mockResolvedValue({ success: true });
+    mockGetEmailVerified.mockResolvedValue(true);
+    mockGetShowNsfw.mockResolvedValue(false);
+    mockUpdateShowNsfw.mockResolvedValue({ success: true });
+  });
+
+  it("renders the NSFW content toggle", async () => {
+    render(<AccountSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("NSFW Content")).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Show NSFW Content")).toBeInTheDocument();
+  });
+
+  it("defaults to unchecked when show_nsfw is false", async () => {
+    mockGetShowNsfw.mockResolvedValue(false);
+
+    render(<AccountSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Show NSFW Content")).toHaveAttribute(
+        "data-state",
+        "unchecked"
+      );
+    });
+  });
+
+  it("shows checked when show_nsfw is true", async () => {
+    mockGetShowNsfw.mockResolvedValue(true);
+
+    render(<AccountSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Show NSFW Content")).toHaveAttribute(
+        "data-state",
+        "checked"
+      );
+    });
+  });
+
+  it("calls updateShowNsfw when toggled on", async () => {
+    const user = userEvent.setup();
+    mockGetShowNsfw.mockResolvedValue(false);
+
+    render(<AccountSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Show NSFW Content")).toHaveAttribute(
+        "data-state",
+        "unchecked"
+      );
+    });
+
+    await user.click(screen.getByLabelText("Show NSFW Content"));
+
+    await waitFor(() => {
+      expect(mockUpdateShowNsfw).toHaveBeenCalledWith(true);
+    });
+  });
+
+  it("shows success toast when toggle succeeds", async () => {
+    const user = userEvent.setup();
+    mockGetShowNsfw.mockResolvedValue(false);
+    mockUpdateShowNsfw.mockResolvedValue({ success: true });
+
+    render(<AccountSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Show NSFW Content")).toHaveAttribute(
+        "data-state",
+        "unchecked"
+      );
+    });
+
+    await user.click(screen.getByLabelText("Show NSFW Content"));
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "NSFW content will be shown",
+        })
+      );
+    });
+  });
+
+  it("reverts toggle and shows error toast on failure", async () => {
+    const user = userEvent.setup();
+    mockGetShowNsfw.mockResolvedValue(false);
+    mockUpdateShowNsfw.mockResolvedValue({
+      success: false,
+      error: "Failed to update",
+    });
+
+    render(<AccountSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Show NSFW Content")).toHaveAttribute(
+        "data-state",
+        "unchecked"
+      );
+    });
+
+    await user.click(screen.getByLabelText("Show NSFW Content"));
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Error",
+          variant: "destructive",
+        })
+      );
+    });
+
+    // Should revert to unchecked
+    await waitFor(() => {
+      expect(screen.getByLabelText("Show NSFW Content")).toHaveAttribute(
+        "data-state",
+        "unchecked"
+      );
+    });
+  });
+});
+
 describe("AccountSettings delete account", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -245,6 +385,8 @@ describe("AccountSettings delete account", () => {
     mockGetEmailNotifications.mockResolvedValue(true);
     mockUpdateEmailNotifications.mockResolvedValue({ success: true });
     mockGetEmailVerified.mockResolvedValue(true);
+    mockGetShowNsfw.mockResolvedValue(false);
+    mockUpdateShowNsfw.mockResolvedValue({ success: true });
   });
 
   it("renders the Delete Account section", async () => {

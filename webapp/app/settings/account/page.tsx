@@ -15,7 +15,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Loader2Icon, CheckIcon, XIcon, EyeIcon, EyeOffIcon } from "lucide-react";
 import { changePassword, deleteAccount } from "@/app/actions/auth";
-import { getEmailNotifications, updateEmailNotifications, getEmailVerified } from "@/app/actions/users";
+import { getEmailNotifications, updateEmailNotifications, getEmailVerified, getShowNsfw, updateShowNsfw } from "@/app/actions/users";
 import { toast } from "@/lib/hooks/use-toast";
 import { useRouter } from "next/navigation";
 
@@ -47,6 +47,8 @@ export default function AccountSettingsPage() {
   const [emailNotificationsLoading, setEmailNotificationsLoading] = React.useState(true);
   const [emailVerified, setEmailVerified] = React.useState<boolean | null>(null);
   const [resendLoading, setResendLoading] = React.useState(false);
+  const [showNsfwEnabled, setShowNsfwEnabled] = React.useState(false);
+  const [showNsfwLoading, setShowNsfwLoading] = React.useState(true);
   const [deleteEmail, setDeleteEmail] = React.useState("");
   const [deleteLoading, setDeleteLoading] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
@@ -56,6 +58,9 @@ export default function AccountSettingsPage() {
       .then((enabled) => setEmailNotificationsEnabled(enabled))
       .finally(() => setEmailNotificationsLoading(false));
     getEmailVerified().then((verified) => setEmailVerified(verified));
+    getShowNsfw()
+      .then((enabled) => setShowNsfwEnabled(enabled))
+      .finally(() => setShowNsfwLoading(false));
   }, []);
 
   // Check which password requirements are met
@@ -218,6 +223,45 @@ export default function AccountSettingsPage() {
               }}
             />
             <Label htmlFor="emailNotifications">Email notifications</Label>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* NSFW Content Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>NSFW Content</CardTitle>
+          <CardDescription>
+            Control whether NSFW post content is shown or blurred
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="showNsfw"
+              checked={showNsfwEnabled}
+              disabled={showNsfwLoading}
+              onCheckedChange={async (checked) => {
+                setShowNsfwEnabled(checked);
+                const result = await updateShowNsfw(checked);
+                if (result.success) {
+                  toast({
+                    title: checked
+                      ? "NSFW content will be shown"
+                      : "NSFW content will be blurred",
+                  });
+                } else {
+                  setShowNsfwEnabled(!checked);
+                  toast({
+                    title: "Error",
+                    description:
+                      result.error ?? "Failed to update NSFW preference",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            />
+            <Label htmlFor="showNsfw">Show NSFW Content</Label>
           </div>
         </CardContent>
       </Card>

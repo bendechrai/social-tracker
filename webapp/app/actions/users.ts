@@ -71,6 +71,33 @@ export async function getShowNsfw(): Promise<boolean> {
 }
 
 /**
+ * Updates the current user's NSFW content preference.
+ */
+export async function updateShowNsfw(
+  enabled: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const userId = await getCurrentUserId();
+
+    await db
+      .update(users)
+      .set({
+        showNsfw: enabled,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+
+    return { success: true };
+  } catch (error) {
+    if (error instanceof Error && error.message === "Not authenticated") {
+      return { success: false, error: "Not authenticated" };
+    }
+    console.error("Error updating NSFW preference:", error);
+    return { success: false, error: "Failed to update NSFW preference" };
+  }
+}
+
+/**
  * Updates the current user's email notification preference.
  */
 export async function updateEmailNotifications(
