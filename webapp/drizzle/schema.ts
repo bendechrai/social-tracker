@@ -30,6 +30,8 @@ export const users = pgTable("users", {
   lastEmailedAt: timestamp("last_emailed_at"),
   // Password change tracking for session invalidation
   passwordChangedAt: timestamp("password_changed_at"),
+  // NSFW content preference
+  showNsfw: boolean("show_nsfw").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at")
     .notNull()
@@ -189,6 +191,7 @@ export const posts = pgTable(
     redditCreatedAt: timestamp("reddit_created_at").notNull(),
     score: integer("score").notNull().default(0),
     numComments: integer("num_comments").notNull().default(0),
+    isNsfw: boolean("is_nsfw").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [

@@ -462,13 +462,13 @@ Blur NSFW post content by default with user preference to show it. Adds `is_nsfw
 
 ### Backlog (Phase 29)
 
-- [ ] **Add `is_nsfw` column to posts table and `show_nsfw` column to users table**
-  - Files: `webapp/drizzle/schema.ts`, new migration
+- [x] **Add `is_nsfw` column to posts table and `show_nsfw` column to users table**
+  - Files: `webapp/drizzle/schema.ts`, `webapp/drizzle/migrations/0004_colorful_kingpin.sql`
   - Spec: `specs/nsfw.md` — Data
   - Acceptance: `posts.is_nsfw` (boolean, default false) and `users.show_nsfw` (boolean, default false) columns exist; migration applies cleanly
-  - Tests: Typecheck passes; existing tests still pass
+  - Tests: Typecheck passes; all 810 tests pass; build passes
 
-- [ ] **Populate `is_nsfw` from Arctic Shift `over_18` field during fetch**
+- [ ] **Populate `is_nsfw` from Arctic Shift `over_18` field during fetch** ← NEXT
   - Files: `webapp/lib/reddit.ts`, `webapp/app/actions/posts.ts`
   - Spec: `specs/nsfw.md` — Data (populated during cron fetch)
   - Acceptance: `fetchRedditPosts` maps `over_18` to `isNsfw` on fetched posts; `fetchPostsForAllUsers` stores `is_nsfw` in posts table
