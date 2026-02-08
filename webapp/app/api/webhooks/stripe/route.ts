@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
           .onConflictDoUpdate({
             target: creditBalances.userId,
             set: {
-              balanceCents: sql\`\${creditBalances.balanceCents} + \${creditsCents}\`,
+              balanceCents: sql`${creditBalances.balanceCents} + ${creditsCents}`,
               updatedAt: new Date(),
             },
           });

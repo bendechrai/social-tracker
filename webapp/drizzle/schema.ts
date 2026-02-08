@@ -39,13 +39,16 @@ export const users = pgTable("users", {
     .$onUpdate(() => new Date()),
 });
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   subreddits: many(subreddits),
   tags: many(tags),
   userPosts: many(userPosts),
   sessions: many(sessions),
   accounts: many(accounts),
   chatMessages: many(chatMessages),
+  creditBalance: one(creditBalances),
+  creditPurchases: many(creditPurchases),
+  aiUsageLog: many(aiUsageLog),
 }));
 
 // Auth.js Sessions table
@@ -334,6 +337,77 @@ export const subredditFetchStatus = pgTable("subreddit_fetch_status", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Credit balances — per-user balance in cents
+export const creditBalances = pgTable("credit_balances", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  balanceCents: integer("balance_cents").notNull().default(0),
+  updatedAt: timestamp("updated_at")
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const creditBalancesRelations = relations(creditBalances, ({ one }) => ({
+  user: one(users, {
+    fields: [creditBalances.userId],
+    references: [users.id],
+  }),
+}));
+
+// Credit purchases — Stripe checkout session records
+export const creditPurchases = pgTable("credit_purchases", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  stripeSessionId: varchar("stripe_session_id", { length: 255 }).unique(),
+  amountCents: integer("amount_cents").notNull(),
+  creditsCents: integer("credits_cents").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const creditPurchasesRelations = relations(creditPurchases, ({ one }) => ({
+  user: one(users, {
+    fields: [creditPurchases.userId],
+    references: [users.id],
+  }),
+}));
+
+// AI usage log — tracks per-request token usage and cost
+export const aiUsageLog = pgTable(
+  "ai_usage_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    postId: uuid("post_id").references(() => posts.id, { onDelete: "set null" }),
+    modelId: varchar("model_id", { length: 255 }).notNull(),
+    provider: varchar("provider", { length: 50 }).notNull(),
+    promptTokens: integer("prompt_tokens").notNull().default(0),
+    completionTokens: integer("completion_tokens").notNull().default(0),
+    costCents: integer("cost_cents").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("ai_usage_log_user_created_idx").on(table.userId, table.createdAt),
+  ]
+);
+
+export const aiUsageLogRelations = relations(aiUsageLog, ({ one }) => ({
+  user: one(users, {
+    fields: [aiUsageLog.userId],
+    references: [users.id],
+  }),
+  post: one(posts, {
+    fields: [aiUsageLog.postId],
+    references: [posts.id],
+  }),
+}));
+
 // Type exports for use throughout the application
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -373,3 +447,12 @@ export type NewComment = typeof comments.$inferInsert;
 
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type NewChatMessage = typeof chatMessages.$inferInsert;
+
+export type CreditBalance = typeof creditBalances.$inferSelect;
+export type NewCreditBalance = typeof creditBalances.$inferInsert;
+
+export type CreditPurchase = typeof creditPurchases.$inferSelect;
+export type NewCreditPurchase = typeof creditPurchases.$inferInsert;
+
+export type AiUsageLogEntry = typeof aiUsageLog.$inferSelect;
+export type NewAiUsageLogEntry = typeof aiUsageLog.$inferInsert;

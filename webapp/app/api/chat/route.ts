@@ -3,35 +3,73 @@ import { createGroq } from "@ai-sdk/groq";
 import { streamText } from "ai";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users, userPosts, comments, chatMessages } from "@/drizzle/schema";
+import {
+  users,
+  userPosts,
+  comments,
+  chatMessages,
+  creditBalances,
+  aiUsageLog,
+} from "@/drizzle/schema";
 import { decrypt } from "@/lib/encryption";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, sql } from "drizzle-orm";
 import aj, { ajMode } from "@/lib/arcjet";
 import { slidingWindow } from "@arcjet/next";
+import { getOpenRouterClient } from "@/lib/openrouter";
+import { isAllowedModel } from "@/lib/ai-models";
 
 const chatAj = aj.withRule(
   slidingWindow({ mode: ajMode, interval: "1m", max: 20, characteristics: ["userId"] })
 );
 
+type AiProvider =
+  | { type: "groq"; apiKey: string }
+  | { type: "credits"; modelId: string }
+  | { type: "none" };
+
 /**
- * Gets the Groq API key for the given user.
- * Priority: 1) User's stored key, 2) Environment variable
+ * Resolves the AI provider for the given user.
+ * Priority: 1) User's stored Groq key, 2) Env Groq key, 3) Credit balance, 4) None
  */
-async function getApiKey(userId: string): Promise<string | null> {
+async function resolveAiProvider(
+  userId: string,
+  requestedModelId?: string
+): Promise<AiProvider> {
   const user = await db.query.users.findFirst({
     where: eq(users.id, userId),
     columns: { groqApiKey: true },
   });
 
+  // Priority 1: User has their own Groq API key
   if (user?.groqApiKey) {
     try {
-      return decrypt(user.groqApiKey);
+      const apiKey = decrypt(user.groqApiKey);
+      return { type: "groq", apiKey };
     } catch (error) {
       console.error("Error decrypting user's Groq API key:", error);
     }
   }
 
-  return process.env.GROQ_API_KEY ?? null;
+  // Priority 2: Fall back to env Groq key
+  if (process.env.GROQ_API_KEY) {
+    return { type: "groq", apiKey: process.env.GROQ_API_KEY };
+  }
+
+  // Priority 3: Credit balance with OpenRouter
+  const balance = await db.query.creditBalances.findFirst({
+    where: eq(creditBalances.userId, userId),
+    columns: { balanceCents: true },
+  });
+
+  if (balance && balance.balanceCents > 0) {
+    const modelId = requestedModelId ?? "google/gemini-2.0-flash-001";
+    if (!isAllowedModel(modelId)) {
+      return { type: "none" };
+    }
+    return { type: "credits", modelId };
+  }
+
+  return { type: "none" };
 }
 
 function buildSystemPrompt(post: {
@@ -85,7 +123,11 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { postId, message } = body as { postId?: string; message?: string };
+    const { postId, message, modelId } = body as {
+      postId?: string;
+      message?: string;
+      modelId?: string;
+    };
 
     if (!postId || typeof postId !== "string") {
       return NextResponse.json({ error: "postId is required" }, { status: 400 });
@@ -106,11 +148,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
 
-    // Get API key
-    const apiKey = await getApiKey(userId);
-    if (!apiKey) {
+    // Resolve AI provider
+    const provider = await resolveAiProvider(userId, modelId);
+    if (provider.type === "none") {
       return NextResponse.json(
-        { error: "Groq API key not configured", code: "MISSING_API_KEY" },
+        { error: "No AI access configured", code: "NO_AI_ACCESS" },
         { status: 422 }
       );
     }
@@ -159,33 +201,111 @@ export async function POST(request: NextRequest) {
       content: message.trim(),
     });
 
-    // Stream response from Groq
-    const groq = createGroq({ apiKey });
+    if (provider.type === "groq") {
+      // Stream response from Groq
+      const groq = createGroq({ apiKey: provider.apiKey });
+
+      const result = streamText({
+        model: groq("llama-3.3-70b-versatile"),
+        system: systemPrompt,
+        messages,
+      });
+
+      const response = result.toTextStreamResponse();
+
+      // Persist the assistant message after streaming completes
+      Promise.resolve(result.text)
+        .then(async (fullText) => {
+          try {
+            await db.insert(chatMessages).values({
+              userId,
+              postId,
+              role: "assistant",
+              content: fullText,
+            });
+          } catch (error) {
+            console.error("Failed to persist assistant message:", error);
+          }
+        })
+        .catch((error: unknown) => {
+          console.error("Error collecting streamed text:", error);
+        });
+
+      return response;
+    }
+
+    // Credits path — use OpenRouter
+    const openrouter = getOpenRouterClient();
 
     const result = streamText({
-      model: groq("llama-3.3-70b-versatile"),
+      model: openrouter(provider.modelId),
       system: systemPrompt,
       messages,
     });
 
-    // Collect the full response text and persist after streaming
     const response = result.toTextStreamResponse();
 
-    // Use the text promise to persist the assistant message after streaming completes
-    Promise.resolve(result.text).then(async (fullText) => {
-      try {
-        await db.insert(chatMessages).values({
-          userId,
-          postId,
-          role: "assistant",
-          content: fullText,
-        });
-      } catch (error) {
-        console.error("Failed to persist assistant message:", error);
-      }
-    }).catch((error: unknown) => {
-      console.error("Error collecting streamed text:", error);
-    });
+    // After streaming: persist message, log usage, deduct credits
+    Promise.resolve(result.text)
+      .then(async (fullText) => {
+        try {
+          await db.insert(chatMessages).values({
+            userId,
+            postId,
+            role: "assistant",
+            content: fullText,
+          });
+        } catch (error) {
+          console.error("Failed to persist assistant message:", error);
+        }
+
+        try {
+          const usage = await result.usage;
+          const orUsage = await result.experimental_providerMetadata;
+
+          const promptTokens =
+            orUsage?.openrouter?.promptTokens ??
+            usage?.promptTokens ??
+            0;
+          const completionTokens =
+            orUsage?.openrouter?.completionTokens ??
+            usage?.completionTokens ??
+            0;
+
+          // OpenRouter returns cost in USD via generation metadata
+          let costUsd = 0;
+          const genCost = orUsage?.openrouter?.cost;
+          if (typeof genCost === "number") {
+            costUsd = genCost;
+          }
+
+          const costCents = Math.max(1, Math.ceil(costUsd * 100));
+
+          // Atomically deduct credits (floor at 0)
+          await db
+            .update(creditBalances)
+            .set({
+              balanceCents: sql`GREATEST(0, ${creditBalances.balanceCents} - ${costCents})`,
+            })
+            .where(eq(creditBalances.userId, userId));
+
+          // Log usage
+          await db.insert(aiUsageLog).values({
+            userId,
+            postId,
+            modelId: provider.modelId,
+            provider: "openrouter",
+            promptTokens: Number(promptTokens),
+            completionTokens: Number(completionTokens),
+            costCents,
+          });
+        } catch (error) {
+          console.error("Failed to log usage or deduct credits:", error);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Error collecting streamed text:", error);
+      });
 
     return response;
   } catch (error) {

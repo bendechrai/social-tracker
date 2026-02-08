@@ -26,6 +26,14 @@ import {
   addSearchTerm,
   removeSearchTerm,
 } from "@/app/actions/tags";
+import {
+  getCreditBalance,
+  getUsageHistory,
+  getUsageSummary,
+  getPurchaseHistory,
+  getAiAccessInfo,
+  createCheckoutSession,
+} from "@/app/actions/credits";
 import type { PostStatus } from "@/lib/validations";
 
 // Post hooks
@@ -283,6 +291,7 @@ export function useSaveGroqApiKey() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["hasGroqApiKey"] });
       queryClient.invalidateQueries({ queryKey: ["groqApiKeyHint"] });
+      queryClient.invalidateQueries({ queryKey: ["aiAccessInfo"] });
     },
   });
 }
@@ -295,6 +304,49 @@ export function useDeleteGroqApiKey() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["hasGroqApiKey"] });
       queryClient.invalidateQueries({ queryKey: ["groqApiKeyHint"] });
+      queryClient.invalidateQueries({ queryKey: ["aiAccessInfo"] });
     },
+  });
+}
+
+// Credit and AI access hooks
+export function useCreditBalance() {
+  return useQuery({
+    queryKey: ["creditBalance"],
+    queryFn: getCreditBalance,
+  });
+}
+
+export function useUsageHistory(page = 1) {
+  return useQuery({
+    queryKey: ["usageHistory", page],
+    queryFn: () => getUsageHistory(page),
+  });
+}
+
+export function useUsageSummary() {
+  return useQuery({
+    queryKey: ["usageSummary"],
+    queryFn: getUsageSummary,
+  });
+}
+
+export function usePurchaseHistory() {
+  return useQuery({
+    queryKey: ["purchaseHistory"],
+    queryFn: getPurchaseHistory,
+  });
+}
+
+export function useAiAccessInfo() {
+  return useQuery({
+    queryKey: ["aiAccessInfo"],
+    queryFn: getAiAccessInfo,
+  });
+}
+
+export function useCreateCheckoutSession() {
+  return useMutation({
+    mutationFn: (amountCents: number) => createCheckoutSession(amountCents),
   });
 }
