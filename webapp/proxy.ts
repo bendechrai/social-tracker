@@ -8,6 +8,7 @@
  * - /api/auth/* - Auth.js API routes (public)
  * - /api/cron/* - Cron job routes (public, idempotent)
  * - /api/unsubscribe - Email unsubscribe (public, uses signed token)
+ * - /api/verify-email - Email verification (public, uses signed token)
  *
  * Behavior:
  * - Page requests: Redirect unauthenticated users to /login
@@ -20,8 +21,8 @@ export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
   const isAuthenticated = !!req.auth;
 
-  // Check if this is an API route (excluding /api/auth/*, /api/cron/*, and /api/unsubscribe)
-  const isApiRoute = pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/") && !pathname.startsWith("/api/cron/") && !pathname.startsWith("/api/unsubscribe");
+  // Check if this is an API route (excluding /api/auth/*, /api/cron/*, /api/unsubscribe, and /api/verify-email)
+  const isApiRoute = pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/") && !pathname.startsWith("/api/cron/") && !pathname.startsWith("/api/unsubscribe") && !pathname.startsWith("/api/verify-email");
 
   // Landing page handles its own auth redirect
   if (pathname === "/") {
@@ -59,6 +60,7 @@ export const config = {
      * - /api/auth (NextAuth.js routes)
      * - /api/cron (cron job routes)
      * - /api/unsubscribe (email unsubscribe, uses signed token)
+     * - /api/verify-email (email verification, uses signed token)
      * - /_next (Next.js internals)
      * - /static (static files)
      * - Files with extensions (e.g., favicon.ico, robots.txt)
@@ -66,6 +68,6 @@ export const config = {
      * Note: This uses Next.js path-to-regexp syntax, not standard JavaScript regex.
      * The pattern matches paths that DON'T start with the excluded prefixes.
      */
-    "/((?!login|signup|api/auth|api/cron|api/unsubscribe|_next|static|.*\\..*$).*)",
+    "/((?!login|signup|api/auth|api/cron|api/unsubscribe|api/verify-email|_next|static|.*\\..*$).*)",
   ],
 };

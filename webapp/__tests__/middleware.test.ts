@@ -171,6 +171,15 @@ describe("authentication middleware", () => {
         expect(nextResponse.status).not.toBe(401);
       });
 
+      it("does not return 401 for /api/verify-email (excluded from API auth)", () => {
+        const response = callMiddleware("/api/verify-email", nullSession);
+
+        expect(response).toBeInstanceOf(NextResponse);
+        const nextResponse = response as NextResponse;
+        // /api/verify-email is excluded from isApiRoute, so it should not get 401
+        expect(nextResponse.status).not.toBe(401);
+      });
+
       it("returns JSON content type for 401 response", () => {
         const response = callMiddleware("/api/posts", nullSession);
 
@@ -269,6 +278,14 @@ describe("authentication middleware", () => {
       if (!matcher) throw new Error("Matcher not defined");
 
       expect(matcher).toContain("api/unsubscribe");
+    });
+
+    it("matcher pattern excludes api/verify-email", async () => {
+      const { config } = await import("../proxy");
+      const matcher = config.matcher[0];
+      if (!matcher) throw new Error("Matcher not defined");
+
+      expect(matcher).toContain("api/verify-email");
     });
 
     it("matcher pattern excludes files with extensions", async () => {

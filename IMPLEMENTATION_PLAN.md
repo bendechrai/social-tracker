@@ -309,7 +309,7 @@ Send a welcome email with quick-start tips and verification link on signup. Add 
   - Acceptance: After successful user creation, sends welcome email asynchronously (does not block signup response); signup succeeds even if email fails
   - Tests: 2 new tests — email send called after user creation with correct userId/email, signup succeeds when email throws
 
-### In Progress (Phase 26)
+### Completed (Phase 26)
 
 - [x] **Create `GET /api/verify-email` endpoint**
   - Files: `webapp/app/api/verify-email/route.ts`
@@ -317,11 +317,13 @@ Send a welcome email with quick-start tips and verification link on signup. Add 
   - Acceptance: Verifies signed token (7-day expiry), sets `users.emailVerified` to now, redirects to `/dashboard?verified=true`; expired/invalid token redirects to `/dashboard?verify_error=true`
   - Tests: 5 unit tests — valid verification, expired token, invalid token, missing token, already-verified user (idempotent)
 
-- [ ] **Add proxy.ts exclusion for `/api/verify-email`**
+- [x] **Add proxy.ts exclusion for `/api/verify-email`**
   - Files: `webapp/proxy.ts`
   - Spec: `specs/welcome-email.md` — Public route
   - Acceptance: `/api/verify-email` is accessible without authentication
-  - Tests: Middleware test updated to verify `/api/verify-email` is public
+  - Tests: 2 middleware tests — /api/verify-email excluded from API auth (no 401), matcher contains api/verify-email
+
+### In Progress (Phase 26)
 
 - [ ] **Create `POST /api/resend-verification` endpoint**
   - Files: `webapp/app/api/resend-verification/route.ts`
