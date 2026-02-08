@@ -853,31 +853,25 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
   - Spec: `specs/ai-credits.md` — Server Actions
   - Acceptance: All three actions already implemented; tests added: getUsageHistory (3 tests — paginated results, empty history, unauthenticated), getUsageSummary (3 tests — daily aggregates, empty result, unauthenticated), getPurchaseHistory (3 tests — purchases list, empty, unauthenticated). Refactored DB mock to use Proxy-based thenable chains for Drizzle query builder pattern. All 1032 tests pass.
 
-### In Progress
-
-- [ ] **Create Credits & Usage settings page with balance card and buy section**
-  - Files: `webapp/app/settings/credits/page.tsx`
+- [x] **Create Credits & Usage settings page with balance card and buy section**
+  - Files: `webapp/app/settings/credits/page.tsx`, `webapp/__tests__/components/credits-settings.test.tsx`
   - Spec: `specs/ai-credits.md` — UI Settings: Credits & Usage Page
-  - Acceptance: New "use client" page at `/settings/credits`; shows balance formatted as dollars; three credit pack cards with Buy buttons; Buy button calls `createCheckoutSession()` and redirects to Stripe; on return with `?result=success`, shows success toast and refetches balance
-  - Tests: 7 component tests — renders balance, three pack cards, Buy button calls action, success toast on return, balance formatted as dollars, loading state, error handling
+  - Acceptance: "use client" page at `/settings/credits` with Suspense boundary for `useSearchParams`; shows balance formatted as dollars; three credit pack cards with Buy buttons; Buy button calls `createCheckoutSession()` and redirects to Stripe; on return with `?result=success`, shows success toast and refetches balance
+  - Tests: 13 component tests — renders balance as dollars, loading skeleton, three pack cards, Buy button calls action and redirects, success toast on ?result=success, no toast without param, usage chart with data, no chart when empty, usage history table rows, empty usage state, pagination, purchase history, hidden when no purchases
 
-- [ ] **Add usage chart and usage history table to credits settings page**
-  - Files: `webapp/app/settings/credits/page.tsx`
-  - Spec: `specs/ai-credits.md` — Usage Chart, Usage History Table
-  - Acceptance: CSS-based bar chart showing daily spend for last 30 days; paginated table with Date, Model, Tokens, Cost columns using existing Pagination component
-  - Tests: 4 component tests — chart renders with data, empty chart shows no bars, table renders rows, pagination works
+- [x] **Add usage chart and usage history table to credits settings page**
+  - (Combined with credits page task above — all in one page component and test file)
 
-- [ ] **Add purchase history section to credits settings page**
-  - Files: `webapp/app/settings/credits/page.tsx`
-  - Spec: `specs/ai-credits.md` — Purchase History
-  - Acceptance: List of past purchases showing Date, Amount, Status
-  - Tests: 2 component tests — renders purchases, empty state
+- [x] **Add purchase history section to credits settings page**
+  - (Combined with credits page task above — all in one page component and test file)
 
-- [ ] **Add "Credits & Usage" to settings sidebar navigation**
-  - Files: `webapp/app/settings/layout.tsx`
+- [x] **Add "Credits & Usage" to settings sidebar navigation**
+  - Files: `webapp/app/settings/layout.tsx` (already existed), `webapp/__tests__/components/settings-nav-credits.test.tsx`
   - Spec: `specs/ai-credits.md` — UI Navigation
-  - Acceptance: "Credits & Usage" nav item with CreditCard icon appears in settings sidebar
-  - Tests: 1 test verifying settings nav contains "Credits & Usage" link
+  - Acceptance: "Credits & Usage" nav item with CreditCard icon in settings sidebar linking to `/settings/credits`
+  - Tests: 1 test verifying settings nav contains "Credits & Usage" link with correct href
+
+### In Progress
 
 - [ ] **Update ChatPanel to accept `AiAccess` prop with model selector for credits mode**
   - Files: `webapp/components/chat-panel.tsx`
@@ -929,9 +923,9 @@ Purchasable token credit packs via Stripe Checkout for premium AI models via Ope
 | 31 | Welcome Wizard | 5 | **COMPLETE** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **COMPLETE** | Phases 25-27, 30 | HIGH |
 | 33 | AI Assistant Improvements | 10 | **COMPLETE** | Phase 30 | HIGH |
-| 34 | AI Credits System | 20 | **IN PROGRESS** (13/20) | Phase 33 | HIGH |
+| 34 | AI Credits System | 20 | **IN PROGRESS** (17/20) | Phase 33 | HIGH |
 
-**Total Remaining Tasks: 7**
+**Total Remaining Tasks: 3**
 
 ### Environment Variables Required
 ```bash

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,15 +13,24 @@ import {
   useCreateCheckoutSession,
 } from "@/lib/hooks";
 import { CREDIT_PACKS } from "@/lib/credit-packs";
+import { toast } from "@/lib/hooks/use-toast";
 import { Loader2Icon, CreditCardIcon, BarChart3Icon } from "lucide-react";
 
-export default function CreditsPage() {
-  const { data: balance, isLoading: balanceLoading } = useCreditBalance();
+function CreditsPageContent() {
+  const searchParams = useSearchParams();
+  const { data: balance, isLoading: balanceLoading, refetch: refetchBalance } = useCreditBalance();
   const { data: summary } = useUsageSummary();
   const [historyPage, setHistoryPage] = React.useState(1);
   const { data: history, isLoading: historyLoading } = useUsageHistory(historyPage);
   const { data: purchases } = usePurchaseHistory();
   const checkout = useCreateCheckoutSession();
+
+  React.useEffect(() => {
+    if (searchParams.get("result") === "success") {
+      toast({ title: "Credits purchased successfully!" });
+      refetchBalance();
+    }
+  }, [searchParams, refetchBalance]);
 
   const handleBuyCredits = async (amountCents: number) => {
     const result = await checkout.mutateAsync(amountCents);
@@ -238,5 +248,13 @@ export default function CreditsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CreditsPage() {
+  return (
+    <React.Suspense>
+      <CreditsPageContent />
+    </React.Suspense>
   );
 }
