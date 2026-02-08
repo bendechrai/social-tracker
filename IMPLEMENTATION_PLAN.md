@@ -590,13 +590,13 @@ Step-by-step onboarding wizard for new users with overlay prompts on actual sett
   - Acceptance: When user has zero subreddits, show overlay with "Welcome to Social Tracker" heading and "Get Started" button navigating to `/settings/subreddits?onboarding=2`; overlay does not show if user has subreddits; replaces old plain "No subreddits configured" banner
   - Tests: 3 component tests (overlay shown with zero subreddits, hidden with subreddits, Get Started navigates to /settings/subreddits?onboarding=2). All 905 tests pass.
 
-- [ ] **Add Step 2 overlay to subreddit settings page** ← NEXT
-  - Files: `webapp/app/settings/subreddits/page.tsx`
+- [x] **Add Step 2 overlay to subreddit settings page**
+  - Files: `webapp/app/settings/subreddits/page.tsx`, `webapp/__tests__/components/subreddit-onboarding.test.tsx`
   - Spec: `specs/welcome-wizard.md` — Step 2
   - Acceptance: When `?onboarding=2`, show banner explaining subreddits; after adding a subreddit, show "Next" button to `/settings/api-keys?onboarding=3`; form remains interactive under overlay
-  - Tests: Component test for overlay visibility, Next button after subreddit added
+  - Tests: 5 component tests (overlay shown with param, hidden without param, Next button with subreddits, no Next button without subreddits, Next navigates to /settings/api-keys?onboarding=3). All 910 tests pass.
 
-- [ ] **Add Step 3 overlay to API keys settings page**
+- [ ] **Add Step 3 overlay to API keys settings page** ← NEXT
   - Files: `webapp/app/settings/api-keys/page.tsx`
   - Spec: `specs/welcome-wizard.md` — Step 3
   - Acceptance: When `?onboarding=3`, show skippable overlay about Groq API key; "Skip" and "Next" buttons both navigate to `/settings/tags?onboarding=4`
