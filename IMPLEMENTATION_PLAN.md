@@ -721,13 +721,15 @@ Four incremental improvements to the AI chat assistant: anti-hallucination guard
   - Tests: Typecheck passes; all 946 tests pass; build passes
   - Also fixed pre-existing Phase 34 validation breakage: lazy Stripe init (`lib/stripe.ts`), chat-panel test props (`aiAccess`), `ajMode` mocks in 8 test files, credits page lint (`window.location.assign`), chat route AI SDK v6 API (`providerMetadata`, `inputTokens`/`outputTokens`), unused `eq` import in webhook route, and `getAiAccessInfo` mock in post-detail test
 
-### In Progress
+### Completed (Phase 33 cont.)
 
-- [ ] **Create `getProfile` and `updateProfile` server actions**
+- [x] **Create `getProfile` and `updateProfile` server actions**
   - Files: `webapp/app/actions/profile.ts`
   - Spec: `specs/ai-assistant-improvements.md` — Improvement 3, Server Actions
   - Acceptance: `getProfile()` returns `{ role, company, goal, tone, context }` for authenticated user; `updateProfile(data)` validates inputs (role/company max 255, goal max 1000, tone must be casual/professional/technical/friendly or null, context max 2000), trims whitespace, updates DB, returns `{ success }` or `{ success: false, error }`
-  - Tests: 10+ unit tests — getProfile returns fields, getProfile unauthenticated throws, updateProfile saves all fields, updateProfile trims whitespace, updateProfile validates tone enum, updateProfile rejects invalid tone, updateProfile validates max lengths, updateProfile unauthenticated throws, updateProfile clears fields with empty strings, partial update preserves other fields
+  - Tests: 16 unit tests — getProfile returns fields, getProfile empty/null, getProfile user not found, getProfile unauthenticated throws, updateProfile saves all fields, updateProfile trims whitespace, updateProfile validates tone enum (all 4 valid), updateProfile rejects invalid tone, updateProfile validates role/company/goal/context max lengths, updateProfile unauthenticated returns error, updateProfile clears fields with empty strings, partial update only sends provided fields, updateProfile handles DB errors
+
+### In Progress
 
 - [ ] **Add `useProfile` and `useUpdateProfile` React Query hooks**
   - Files: `webapp/lib/hooks/index.ts`
