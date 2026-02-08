@@ -578,13 +578,13 @@ Step-by-step onboarding wizard for new users with overlay prompts on actual sett
 
 ### Backlog (Phase 31)
 
-- [ ] **Create `OnboardingOverlay` reusable component**
-  - Files: `webapp/components/onboarding-overlay.tsx`
+- [x] **Create `OnboardingOverlay` reusable component**
+  - Files: `webapp/components/onboarding-overlay.tsx`, `webapp/__tests__/components/onboarding-overlay.test.tsx`
   - Spec: `specs/welcome-wizard.md` — Overlay Component
-  - Acceptance: Renders as a non-blocking card/banner; accepts heading, description, step number, total steps, action buttons; shows step progress indicator (e.g., "Step 2 of 4"); only renders when `?onboarding=N` matches expected step
-  - Tests: Component tests for: renders with correct heading/description, progress indicator, conditional rendering based on query param
+  - Acceptance: Renders as a non-blocking card/banner; accepts heading, description, step number, total steps, action buttons; shows step progress indicator (e.g., "Step 2 of 4"); Step 1 renders without query param; Steps 2+ only render when `?onboarding=N` matches expected step; supports children, href actions, and onClick callbacks
+  - Tests: 10 component tests (heading/description, progress indicator, step 1 without param, step 2 hidden without param, step 3 hidden with wrong param, step 2 with matching param, action buttons with onClick, multiple actions with variants, children content, href link action). All 902 tests pass.
 
-- [ ] **Add Step 1 welcome overlay to dashboard page**
+- [ ] **Add Step 1 welcome overlay to dashboard page** ← NEXT
   - Files: `webapp/app/dashboard/page.tsx`
   - Spec: `specs/welcome-wizard.md` — Step 1
   - Acceptance: When user has zero subreddits, show overlay with "Welcome to Social Tracker" heading and "Get Started" button navigating to `/settings/subreddits?onboarding=2`; overlay does not show if user has subreddits
