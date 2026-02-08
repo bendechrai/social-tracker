@@ -378,13 +378,13 @@ Allow users to reset their password via a tokenized email link. Add `passwordCha
 
 ### In Progress (Phase 27)
 
-- [ ] **Create `POST /api/auth/execute-reset` endpoint**
+- [x] **Create `POST /api/auth/execute-reset` endpoint**
   - Files: `webapp/app/api/auth/execute-reset/route.ts`
   - Spec: `specs/password-reset.md` — Execute Reset API
   - Acceptance: Validates password against `passwordSchema`, verifies SHA-256 hashed token in `verificationTokens`, updates password hash and sets `passwordChangedAt`, deletes used token, returns 200; invalid/expired token returns 400
-  - Tests: Unit tests for: valid reset, expired token, invalid token, password validation failure, token deleted after use
+  - Tests: 7 unit tests — valid reset, expired token, invalid token, password validation failure, passwords don't match, token deleted after use, missing token
 
-- [ ] **Create `/forgot-password` page**
+- [ ] **Create `/forgot-password` page** ← NEXT
   - Files: `webapp/app/forgot-password/page.tsx`
   - Spec: `specs/password-reset.md` — Forgot Password Page
   - Acceptance: Public route; email input + "Send Reset Link" button; always shows generic success message; link back to login
