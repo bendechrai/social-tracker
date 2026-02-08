@@ -54,11 +54,14 @@ vi.mock("@/lib/reddit", () => ({
 // Mock post actions
 const mockFetchPostsForAllUsers = vi.fn();
 const mockGetLastPostTimestampPerSubreddit = vi.fn();
+const mockSendNotificationEmails = vi.fn();
 vi.mock("@/app/actions/posts", () => ({
   fetchPostsForAllUsers: (...args: unknown[]) =>
     mockFetchPostsForAllUsers(...args),
   getLastPostTimestampPerSubreddit: (...args: unknown[]) =>
     mockGetLastPostTimestampPerSubreddit(...args),
+  sendNotificationEmails: (...args: unknown[]) =>
+    mockSendNotificationEmails(...args),
 }));
 
 // Mock drizzle-orm operators (preserve relations for schema imports)
@@ -89,6 +92,8 @@ describe("GET /api/cron/fetch-posts", () => {
     mockFetchRedditPosts.mockResolvedValue([]);
     // Default: fan-out returns 0
     mockFetchPostsForAllUsers.mockResolvedValue({ newUserPostCount: 0 });
+    // Default: notification emails
+    mockSendNotificationEmails.mockResolvedValue({ sent: 0, skipped: 0 });
     // Default: upsert succeeds
     mockOnConflictDoUpdate.mockResolvedValue(undefined);
   });
@@ -274,6 +279,55 @@ describe("GET /api/cron/fetch-posts", () => {
     await GET();
 
     expect(mockFetchPostsForAllUsers).toHaveBeenCalledWith("nextjs", mockPosts);
+  });
+
+  it("should call sendNotificationEmails after successful fetch", async () => {
+    mockSelectDistinctFrom.mockResolvedValue([{ name: "nextjs" }]);
+    mockSelectWhere.mockResolvedValue([]);
+    mockGetLastPostTimestampPerSubreddit.mockResolvedValue(new Map());
+
+    const res = await GET();
+    const data = await res.json();
+
+    expect(mockSendNotificationEmails).toHaveBeenCalledTimes(1);
+    expect(data.emails).toEqual({ sent: 0, skipped: 0 });
+  });
+
+  it("should include email results in response", async () => {
+    mockSelectDistinctFrom.mockResolvedValue([{ name: "nextjs" }]);
+    mockSelectWhere.mockResolvedValue([]);
+    mockGetLastPostTimestampPerSubreddit.mockResolvedValue(new Map());
+    mockSendNotificationEmails.mockResolvedValue({ sent: 2, skipped: 1 });
+
+    const res = await GET();
+    const data = await res.json();
+
+    expect(data.emails).toEqual({ sent: 2, skipped: 1 });
+  });
+
+  it("should not call sendNotificationEmails when no subreddits exist", async () => {
+    mockSelectDistinctFrom.mockResolvedValue([]);
+
+    await GET();
+
+    expect(mockSendNotificationEmails).not.toHaveBeenCalled();
+  });
+
+  it("should not call sendNotificationEmails when no subreddits are due", async () => {
+    const recentFetch = new Date(Date.now() - 10 * 60 * 1000);
+    mockSelectDistinctFrom.mockResolvedValue([{ name: "react" }]);
+    mockSelectWhere.mockResolvedValue([
+      {
+        name: "react",
+        lastFetchedAt: recentFetch,
+        refreshIntervalMinutes: 60,
+        createdAt: new Date(),
+      },
+    ]);
+
+    await GET();
+
+    expect(mockSendNotificationEmails).not.toHaveBeenCalled();
   });
 
   it("should use DB timestamp for incremental fetch when available", async () => {

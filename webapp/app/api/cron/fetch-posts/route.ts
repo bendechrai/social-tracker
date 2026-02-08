@@ -6,6 +6,7 @@ import { fetchRedditPosts } from "@/lib/reddit";
 import {
   fetchPostsForAllUsers,
   getLastPostTimestampPerSubreddit,
+  sendNotificationEmails,
 } from "@/app/actions/posts";
 
 export async function GET() {
@@ -106,7 +107,15 @@ export async function GET() {
       fetchedNames.push(name);
     }
 
-    return NextResponse.json({ fetched: fetchedNames, skipped: skippedCount });
+    // Send notification emails after fetch cycle
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const emailResult = await sendNotificationEmails(appUrl);
+
+    return NextResponse.json({
+      fetched: fetchedNames,
+      skipped: skippedCount,
+      emails: emailResult,
+    });
   } catch (error) {
     console.error("Error in cron fetch-posts:", error);
     return NextResponse.json(

@@ -1,12 +1,14 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { posts, userPosts, userPostTags, tags, subreddits } from "@/drizzle/schema";
+import { posts, userPosts, userPostTags, tags, subreddits, users } from "@/drizzle/schema";
 import { getCurrentUserId } from "./users";
 import { postStatusSchema, type PostStatus } from "@/lib/validations";
 import { fetchRedditPosts, type FetchedPost } from "@/lib/reddit";
-import { eq, and, desc, inArray, notInArray, sql } from "drizzle-orm";
+import { eq, and, desc, inArray, notInArray, sql, isNotNull, gt, isNull, or, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { sendEmail } from "@/lib/email";
+import { buildNotificationEmail, type TaggedPost } from "@/lib/email-templates";
 
 export interface PostData {
   id: string;
@@ -728,4 +730,123 @@ export async function fetchNewPosts(): Promise<{
     count: newCount,
     message: `Found ${newCount} new post${newCount === 1 ? "" : "s"}.`,
   };
+}
+
+const NOTIFICATION_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+/**
+ * Send notification emails to eligible users after a cron fetch cycle.
+ *
+ * Eligible users: email_notifications = true, emailVerified is not null,
+ * and last_emailed_at is null or older than 4 hours.
+ *
+ * For each eligible user, queries new tagged posts since last_emailed_at.
+ * If there are tagged posts, sends digest email and updates last_emailed_at.
+ * If no tagged posts, skips without updating the timestamp.
+ */
+export async function sendNotificationEmails(
+  appUrl: string
+): Promise<{ sent: number; skipped: number }> {
+  const fourHoursAgo = new Date(Date.now() - NOTIFICATION_COOLDOWN_MS);
+
+  // Query eligible users
+  const eligibleUsers = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      lastEmailedAt: users.lastEmailedAt,
+    })
+    .from(users)
+    .where(
+      and(
+        eq(users.emailNotifications, true),
+        isNotNull(users.emailVerified),
+        or(
+          isNull(users.lastEmailedAt),
+          lte(users.lastEmailedAt, fourHoursAgo)
+        )
+      )
+    );
+
+  let sent = 0;
+  let skipped = 0;
+
+  for (const user of eligibleUsers) {
+    // Query new tagged posts since last_emailed_at (or last 4 hours if null)
+    const since = user.lastEmailedAt ?? fourHoursAgo;
+
+    const taggedPostRows = await db
+      .select({
+        postId: posts.id,
+        title: posts.title,
+        body: posts.body,
+        subreddit: posts.subreddit,
+        author: posts.author,
+        tagName: tags.name,
+        tagColor: tags.color,
+      })
+      .from(userPostTags)
+      .innerJoin(
+        userPosts,
+        and(
+          eq(userPostTags.userId, userPosts.userId),
+          eq(userPostTags.postId, userPosts.postId)
+        )
+      )
+      .innerJoin(posts, eq(userPostTags.postId, posts.id))
+      .innerJoin(tags, eq(userPostTags.tagId, tags.id))
+      .where(
+        and(
+          eq(userPostTags.userId, user.id),
+          eq(userPosts.status, "new"),
+          gt(userPosts.createdAt, since)
+        )
+      )
+      .orderBy(desc(posts.redditCreatedAt));
+
+    if (taggedPostRows.length === 0) {
+      skipped++;
+      continue;
+    }
+
+    const taggedPosts: TaggedPost[] = taggedPostRows.map((row) => ({
+      postId: row.postId,
+      title: row.title,
+      body: row.body,
+      subreddit: row.subreddit,
+      author: row.author,
+      tagName: row.tagName,
+      tagColor: row.tagColor,
+    }));
+
+    const emailContent = buildNotificationEmail({
+      userId: user.id,
+      posts: taggedPosts,
+      appUrl,
+    });
+
+    const result = await sendEmail({
+      to: user.email,
+      subject: emailContent.subject,
+      html: emailContent.html,
+      text: emailContent.text,
+      headers: emailContent.headers,
+    });
+
+    if (result.success) {
+      await db
+        .update(users)
+        .set({ lastEmailedAt: new Date() })
+        .where(eq(users.id, user.id));
+      sent++;
+    } else {
+      console.error(
+        `Failed to send notification email to ${user.email}:`,
+        result.error
+      );
+      skipped++;
+    }
+  }
+
+  return { sent, skipped };
 }

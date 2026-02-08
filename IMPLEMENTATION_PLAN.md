@@ -199,9 +199,9 @@ The tag-system spec requires two constraints that are not enforced:
 
 ---
 
-## Phase 25: Email Infrastructure & Notifications — BACKLOG
+## Phase 25: Email Infrastructure & Notifications — COMPLETE
 
-**Status: BACKLOG**
+**Status: COMPLETE**
 **Priority: HIGH — New spec**
 **Dependencies: None**
 **Spec: `specs/email-notifications.md`**
@@ -266,19 +266,19 @@ Set up nodemailer/SMTP email infrastructure and implement notification digests f
   - Acceptance: Function accepts tagged posts array + user info, returns `{ subject, html, text }` with tag-grouped posts, "and X more" overflow, unsubscribe footer, `List-Unsubscribe` headers
   - Tests: 17 unit tests verifying subject format (singular/plural), post grouping by tag, overflow text (>20 posts), plain text fallback (no HTML tags, full URLs), header generation (List-Unsubscribe, List-Unsubscribe-Post), HTML escaping, body truncation, null body handling, tag color badges
 
-### In Progress (Phase 25)
+### Completed (Phase 25)
 
-- [ ] **Add `sendNotificationEmails` function to cron fetch cycle**
-  - Files: `webapp/app/api/cron/fetch-posts/route.ts`, `webapp/app/actions/posts.ts`
+- [x] **Add `sendNotificationEmails` function to cron fetch cycle**
+  - Files: `webapp/app/actions/posts.ts`, `webapp/app/api/cron/fetch-posts/route.ts`
   - Spec: `specs/email-notifications.md` — Trigger logic
   - Acceptance: After fetch cycle, queries eligible users (notifications on, last_emailed_at > 4hr or null, email_verified not null), sends digest for users with new tagged posts, updates `last_emailed_at`; skips users with no new tagged posts without updating timestamp
-  - Tests: Unit tests for: eligible user gets email, ineligible user (< 4hr) skipped, no tagged posts → no email and no timestamp update, unverified user skipped, max 20 posts with overflow
+  - Tests: 7 unit tests (eligible user gets email, no tagged posts skipped, ineligible filtered, unverified filtered, correct template shape, failed email no timestamp, multi-user outcomes) + 4 cron tests (calls sendNotificationEmails, includes email results, no call when empty/not-due)
 
-- [ ] **Add proxy.ts exclusion for `/api/unsubscribe`**
+- [x] **Add proxy.ts exclusion for `/api/unsubscribe`**
   - Files: `webapp/proxy.ts`
   - Spec: `specs/email-notifications.md` — Unsubscribe Endpoint
   - Acceptance: `/api/unsubscribe` is accessible without authentication
-  - Tests: Existing middleware test updated to verify `/api/unsubscribe` is public
+  - Tests: 2 middleware tests (no 401 for /api/unsubscribe, matcher contains api/unsubscribe)
 
 ---
 
@@ -293,7 +293,7 @@ Set up nodemailer/SMTP email infrastructure and implement notification digests f
 
 Send a welcome email with quick-start tips and verification link on signup. Add verification endpoint, resend mechanism, dashboard banner for unverified users, and gate notification emails behind verification.
 
-### Backlog (Phase 26)
+### In Progress (Phase 26)
 
 - [ ] **Build welcome email HTML/text template**
   - Files: `webapp/lib/email-templates.ts`
@@ -690,8 +690,8 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 | 22 | Per-Subreddit Incremental Fetching | 3 | **COMPLETE** | None | HIGH |
 | 23 | Auto-Fetch Cron | 9 | **COMPLETE** | Phase 22 | HIGH |
 | 24 | Tag Search Term Constraints | 4 | **COMPLETE** | None | HIGH |
-| 25 | Email Infrastructure & Notifications | 9 | **IN PROGRESS** | None | HIGH |
-| 26 | Welcome Email & Verification | 7 | **BACKLOG** | Phase 25 | HIGH |
+| 25 | Email Infrastructure & Notifications | 9 | **COMPLETE** | None | HIGH |
+| 26 | Welcome Email & Verification | 7 | **IN PROGRESS** | Phase 25 | HIGH |
 | 27 | Password Reset | 10 | **BACKLOG** | Phase 25 | HIGH |
 | 28 | Account Deletion | 2 | **BACKLOG** | None | HIGH |
 | 29 | NSFW Content Handling | 4 | **BACKLOG** | None | MODERATE |
@@ -699,7 +699,7 @@ Application-wide security using Arcjet for rate limiting, bot detection, email v
 | 31 | Welcome Wizard | 5 | **BACKLOG** | None | MODERATE |
 | 32 | Arcjet Security | 10 | **BACKLOG** | Phases 25-27, 30 | HIGH |
 
-**Total Remaining Tasks: 57**
+**Total Remaining Tasks: 55**
 
 ### Environment Variables Required
 ```bash

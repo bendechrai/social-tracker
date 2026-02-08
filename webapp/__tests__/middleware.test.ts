@@ -162,6 +162,15 @@ describe("authentication middleware", () => {
         expect(nextResponse.status).toBe(401);
       });
 
+      it("does not return 401 for /api/unsubscribe (excluded from API auth)", () => {
+        const response = callMiddleware("/api/unsubscribe", nullSession);
+
+        expect(response).toBeInstanceOf(NextResponse);
+        const nextResponse = response as NextResponse;
+        // /api/unsubscribe is excluded from isApiRoute, so it should not get 401
+        expect(nextResponse.status).not.toBe(401);
+      });
+
       it("returns JSON content type for 401 response", () => {
         const response = callMiddleware("/api/posts", nullSession);
 
@@ -252,6 +261,14 @@ describe("authentication middleware", () => {
       expect(matcher).toContain("signup");
       expect(matcher).toContain("api/auth");
       expect(matcher).toContain("_next");
+    });
+
+    it("matcher pattern excludes api/unsubscribe", async () => {
+      const { config } = await import("../proxy");
+      const matcher = config.matcher[0];
+      if (!matcher) throw new Error("Matcher not defined");
+
+      expect(matcher).toContain("api/unsubscribe");
     });
 
     it("matcher pattern excludes files with extensions", async () => {
