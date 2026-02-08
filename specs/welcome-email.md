@@ -60,7 +60,7 @@ Same signed token approach as the unsubscribe token (HMAC with user ID + expiry)
 
 On the account settings page, if the user is not verified, show:
 - A "Resend verification email" button
-- Rate limited: one resend per 5 minutes
+- Rate limited: one resend per 5 minutes (enforced by Arcjet — see `specs/arcjet-security.md`)
 - Sends only the verification portion of the welcome email (not the full welcome content)
 
 ## App Behavior for Unverified Users

@@ -139,18 +139,22 @@ In the tag creation/edit form:
 2. Loading state: Spinner, "Thinking..."
 3. Results: Checkbox list of suggestions
 4. Each suggestion can be checked/unchecked
-5. "Add Selected" button to add checked terms
+5. "Add Selected" button to add all checked terms at once
 6. Or click individual terms to toggle
+
+### Batch Addition
+
+When the user clicks "Add Selected", all selected terms are sent as a list in a single API call and stored at once — not one term at a time. The server action accepts an array of search terms and inserts them in a single transaction.
 
 Already-existing terms for this tag should be:
 - Pre-checked if in suggestions
-- Marked as "(already added)" 
+- Marked as "(already added)"
 - Not duplicated if selected
 
 ## Rate Limiting
 
 - Client-side: Disable button for 2 seconds after click (prevent spam)
-- Server-side: Basic rate limit of 10 requests per minute per user
+- Server-side: 10 requests per minute per user (enforced by Arcjet — see `specs/arcjet-security.md`)
 
 ## Acceptance Criteria
 
@@ -161,7 +165,7 @@ Already-existing terms for this tag should be:
 5. **JSON parsed correctly** - Response is valid array of strings
 6. **UI shows suggestions** - Checkboxes appear for each suggestion
 7. **Selection works** - Can check/uncheck suggestions
-8. **Terms added** - Selected suggestions become search terms on the tag
+8. **Terms added in batch** - Selected suggestions are sent as a list and stored in a single transaction
 9. **Duplicates handled** - Already-existing terms not duplicated
 10. **Loading state shown** - Button disabled, spinner during API call
 11. **Errors handled gracefully** - API failure shows error message, doesn't crash
