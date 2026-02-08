@@ -226,13 +226,15 @@ Set up nodemailer/SMTP email infrastructure and implement notification digests f
   - Acceptance: Exported `sendEmail` function creates nodemailer transport from `SMTP_*` env vars, accepts to/subject/html/text, returns success/failure
   - Tests: 10 unit tests with mocked nodemailer verifying transport creation, sendMail call, custom headers, port 465 secure mode, and error handling for all missing env vars
 
-### In Progress (Phase 25)
+### Completed (Phase 25)
 
-- [ ] **Create signed token utility for unsubscribe/verification links**
+- [x] **Create signed token utility for unsubscribe/verification links**
   - Files: `webapp/lib/tokens.ts`
   - Spec: `specs/email-notifications.md` — Unsubscribe Tokens
   - Acceptance: `createSignedToken(userId, expiryMs)` and `verifySignedToken(token)` functions using HMAC with `ENCRYPTION_KEY`; returns `{ userId, expires }` or null
-  - Tests: Unit tests for valid token roundtrip, expired token rejection, tampered token rejection
+  - Tests: 10 unit tests covering roundtrip, UUID IDs, expired token rejection, signature/payload tampering, malformed tokens, missing ENCRYPTION_KEY
+
+### In Progress (Phase 25)
 
 - [ ] **Create `POST /api/unsubscribe` endpoint**
   - Files: `webapp/app/api/unsubscribe/route.ts`
